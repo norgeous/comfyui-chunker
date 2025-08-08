@@ -36,7 +36,6 @@ class Chunker:
         }
 
     def chunkfrombatch(self, mode, index, length, overlap, images=None, control_video=None, control_masks=None):
-        chunk_size = length
         extend_from_images = mode == "extend"
 
         images_before = None
@@ -46,16 +45,16 @@ class Chunker:
         control_video_chunk = None
 
         adjusted_overlap = 0 if index == 0 else overlap # exclude overlap in first chunk
-        adjusted_chunk_size = chunk_size - adjusted_overlap
+        adjusted_length = length - adjusted_overlap
 
         w = images.shape[2]
         h = images.shape[1]
 
-        overlap_start = index * adjusted_chunk_size
+        overlap_start = index * adjusted_length
         chunk_start = overlap_start + adjusted_overlap
-        after_start = chunk_start + adjusted_chunk_size
+        after_start = chunk_start + adjusted_length
 
-        # copy last image if not enough images to fill chunk_size
+        # copy last image if not enough images to fill length
         if images is not None and len(images) < after_start:
             images = torch.cat((images, images[-1].repeat(after_start - len(images), 1, 1, 1)), dim=0)
         if control_video is not None and len(control_video) < after_start:
@@ -77,9 +76,9 @@ class Chunker:
         if control_video is None:
             if extend_from_images and index == 0:
                 control_video_chunk.append(images[0:1])
-                control_video_chunk.extend([grey_panel] * (adjusted_chunk_size - 1))
+                control_video_chunk.extend([grey_panel] * (adjusted_length - 1))
             else:
-                control_video_chunk.extend([grey_panel] * adjusted_chunk_size)
+                control_video_chunk.extend([grey_panel] * adjusted_length)
         else:
             control_video_chunk.extend([control_video[chunk_start:after_start]])
         control_video_torch = torch.cat(control_video_chunk, dim=0)
@@ -92,9 +91,9 @@ class Chunker:
         control_masks_chunk.extend([black_panel] * (1 if extend_from_images and index == 0 else adjusted_overlap))
         if control_masks is None:
             if extend_from_images and index == 0:
-                control_masks_chunk.extend([white_panel] * (adjusted_chunk_size - 1))
+                control_masks_chunk.extend([white_panel] * (adjusted_length - 1))
             else:
-                control_masks_chunk.extend([white_panel] * adjusted_chunk_size)
+                control_masks_chunk.extend([white_panel] * adjusted_length)
         else:
             control_masks_chunk.extend([control_masks[overlap_start:after_start]])
         control_masks_torch = torch.cat(control_masks_chunk, dim=0)

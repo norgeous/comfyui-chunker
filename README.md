@@ -2,7 +2,7 @@
 
 ## thoughts on behaviour
 
-| input images | input control_video | input control_masks | output control_video 0 | output control_masks 0         | What you get? why would you need this?                     |
+| input images | input control_video | input control_masks | output control_video   | output control_masks           | What you get? why would you need this?                     |
 |--------------|---------------------|---------------------|------------------------|--------------------------------|------------------------------------------------------------|
 | 0            | 0                   | 0                   | blank                  | all white                      | chunked t2v                                                |
 | 0            | 0                   | 1                   | blank                  | copies of mask1                | chunked t2v of non-rectangular shape                       |

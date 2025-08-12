@@ -23,11 +23,11 @@ class Chunker:
         print("called chunker INPUT_TYPES", s)
         return {
             "required": {
-                 #"mode": (["extend","inpaint"], {"default": "extend", "tooltip": "Extend: The first chunk starts from the last image in images.\nInpaint: The first chunk starts from the first image in images."}),
-                 "first_chunk": (["last_image","first_image"], {"default": "last_image", "tooltip": "last_image: The first chunk starts from the last image in images. Useful for video extending.\nfirst_image: The first chunk starts from the first image in images. Useful for inpainting or outpainting."}),
-                 "index": ("INT", {"default": 0, "min": 0, "max": 4096, "step": 1, "tooltip": "Current chunk index"}),
-                 "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of frames in each chunk"}),
-                 "overlap": ("INT", {"default": 2, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of frames to overlap between chunks"}),
+                #"mode": (["extend","inpaint"], {"default": "extend", "tooltip": "Extend: The first chunk starts from the last image in images.\nInpaint: The first chunk starts from the first image in images."}),
+                "first_chunk": (["last_image","first_image"], {"default": "last_image", "tooltip": "last_image: The first chunk starts from the last image in images. Useful for video extending.\nfirst_image: The first chunk starts from the first image in images. Useful for inpainting or outpainting."}),
+                "index": ("INT", {"default": 0, "min": 0, "max": 4096, "step": 1, "tooltip": "Current chunk index"}),
+                "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of frames in each chunk"}),
+                "overlap": ("INT", {"default": 2, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of frames to overlap between chunks"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Single image or image sequence (video) to be chunked"}),

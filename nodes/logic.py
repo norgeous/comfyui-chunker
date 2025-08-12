@@ -1,6 +1,15 @@
+from PIL import Image
+import torch
+import numpy as np
+
 from .utils import AlwaysEqualProxy, ByPassTypeTuple, compare_revision
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
+
+
+
+def pil2tensor(image):
+    return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
 DEFAULT_FLOW_NUM = 2
 MAX_FLOW_NUM = 2
@@ -34,8 +43,8 @@ class forLoopStart:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "MASK", "INT", "INT", "INT", "INT",)
-    RETURN_NAMES = ("chunker_flow", "control_video", "control_masks", "width", "height", "length", "index",)
+    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "MASK", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_flow", "control_video", "control_masks", "width", "height", "length")
     FUNCTION = "for_loop_start"
     CATEGORY = "Chunker"
 
@@ -54,107 +63,56 @@ class forLoopStart:
         unique_id=None,
         **kwargs
     ):
-        control_video_output = control_video
-        control_masks_output = control_masks
+        images_before = None
+        images_overlap = None
+        images_after = None
+        control_video_chunk = None
+
+        adjusted_overlap = 0 if index == 0 else overlap # exclude overlap in first chunk
+        adjusted_length = length - adjusted_overlap
+
+        w = control_video.shape[2] if control_video is not None else width
+        h = control_video.shape[1] if control_video is not None else height
+
+        overlap_start = index * adjusted_length
+        chunk_start = overlap_start + adjusted_overlap
+        after_start = chunk_start + adjusted_length
+
+        # copy last frame in control_video, if not enough images to fill length
+        if control_video is not None and len(control_video) < after_start:
+            control_video = torch.cat((control_video, control_video[-1].repeat(after_start - len(control_video), 1, 1, 1)), dim=0)
+
+        # copy last frame in control_masks, if not enough images to fill length
+        if control_masks is not None and len(control_masks) < after_start:
+            control_masks = torch.cat((control_masks, control_masks[-1].repeat(after_start - len(control_masks), 1, 1)), dim=0)
+
+        # create control_video
+        grey_panel  = pil2tensor(Image.new('RGB', (w, h), (128, 128, 128)))
+        control_video_chunk = []
+        if control_video is None:
+            control_video_chunk.extend([grey_panel] * adjusted_length)
+        else:
+            control_video_chunk.extend([control_video[chunk_start:after_start]])
+        control_video_torch = torch.cat(control_video_chunk, dim=0)
+
+        # create control_masks
+        black_panel = pil2tensor(Image.new('RGB', (w, h), (0,   0,   0  )).convert('L'))
+        white_panel = pil2tensor(Image.new('RGB', (w, h), (255, 255, 255)).convert('L'))
+        control_masks_chunk = []
+        if control_masks is None:
+            control_masks_chunk.extend([white_panel] * adjusted_length)
+        else:
+            control_masks_chunk.extend([control_masks[overlap_start:after_start]])
+        control_masks_torch = torch.cat(control_masks_chunk, dim=0)
 
         return (
             "chunker_flow_stub",
-            control_video_output,
-            control_masks_output,
+            control_video_torch,
+            control_masks_torch,
             width,
             height,
             length,
-            index,
         )
-
-        return {
-            "result": ("chunker_flow_stub", control_video_output, control_masks_output, width, height, length, i),
-            "expand": graph.finalize(),
-        }
-
-
-
-
-
-
-
-class forLoopEnd:
-    def __init__(self):
-        pass
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "chunker_flow": ("CHUNKER_FLOW_CONTROL", {"rawLink": True}),
-                "images": ("IMAGE", {"rawLink": True}),
-            },
-            "optional": {
-            },
-            "hidden": {
-                "dynprompt": "DYNPROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO",
-                "unique_id": "UNIQUE_ID",
-            },
-        }
-
-    RETURN_TYPES = ("IMAGE", "INT")
-    RETURN_NAMES = ("images", "debug")
-    FUNCTION = "for_loop_end"
-    CATEGORY = "Chunker"
-
-    def for_loop_end(self, chunker_flow, images, dynprompt=None, extra_pnginfo=None, unique_id=None, **kwargs):
-        print("chunker_flow", chunker_flow)
-        print("kwargs", kwargs)
-
-        graph = GraphBuilder()
-        forstart_node_id = chunker_flow[0]
-        total = None
-
-        # Using dynprompt to get the original node
-        forstart_node = dynprompt.get_node(forstart_node_id)
-
-        #print(forstart_node)
-
-        if forstart_node['class_type'] == 'ChunkerForLoopStart':
-            inputs = forstart_node['inputs']
-            total = inputs['loop_count']
-
-        print("total", total)
-
-        #sub = graph.node("easy mathInt", operation="add", a=[forstart_node_id, 1], b=1)
-        #cond = graph.node("easy compare", a=sub.out(0), b=total, comparison='a < b')
-        #input_values = {("initial_value%d" % i): kwargs.get("initial_value%d" % i, None) for i in range(1, MAX_FLOW_NUM)}
-        #while_close = graph.node("easy whileLoopEnd", flow=chunker_flow, condition=cond.out(0), initial_value0=sub.out(0), **input_values)
-
-        #print("sub.out0", sub.out(0))
-        #print("cond.out0", cond.out(0))
-        #print("input_values", input_values)
-        #print("while_close.out0", while_close.out(0))
-        #print("while_close.out1", while_close.out(1))
-
-        #index = graph.node("PrimitiveInt", value=0, control_after_generate="fixed")
-        index = graph.node("PrimitiveString", value="1")
-        cond = graph.node("StringCompare", string_a=index.out(0), string_b=str(total), mode="Equal", case_sensitive=False)
-        print("index out", index.out(0))
-        print("cond out", cond.out(0))
-
-        print("nodes:", graph.nodes)
-
-        #result = tuple([while_close.out(i) for i in range(1, MAX_FLOW_NUM)])
-        images_out = images
-
-        print("finalized:", graph.finalize())
-
-
-        return {
-            "result": (images_out, cond.out(0)),
-            "expand": graph.finalize(),
-        }
-
-
-
-
 
 
 class ChunkerCombine2:
@@ -166,7 +124,6 @@ class ChunkerCombine2:
         return {
             "required": {
                 "chunker_flow": ("CHUNKER_FLOW_CONTROL", {"rawLink": True}),
-                #"images": ("IMAGE", {"rawLink": True}),
                 "images": ("IMAGE",),
             },
             "optional": {
@@ -178,8 +135,8 @@ class ChunkerCombine2:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "*")
-    RETURN_NAMES = ("images", "debug")
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("images",)
     FUNCTION = "while_loop_close"
     CATEGORY = "Chunker"
 
@@ -228,10 +185,7 @@ class ChunkerCombine2:
         loop_count = forstart_node["inputs"]["loop_count"]
         index = forstart_node["inputs"]["index"]
 
-        #images2 = dynprompt.get_node(images[0])
-
         if index >= loop_count - 1:
-            #print("DONE!!!!!!!!!!!!!!!!!!!!", images)
             # We're done with the loop
             return (images,)
 
@@ -240,10 +194,12 @@ class ChunkerCombine2:
         # We want to loop
         # this_node = dynprompt.get_node(unique_id)
         upstream = {}
+
         # Get the list of all nodes between the open and close nodes
         parent_ids = []
         self.explore_dependencies(unique_id, dynprompt, upstream, parent_ids)
         parent_ids = list(set(parent_ids))
+
         # Get the list of all output nodes between the open and close nodes
         prompts = dynprompt.get_original_prompt()
         output_nodes = {}
@@ -287,6 +243,6 @@ class ChunkerCombine2:
         my_clone = graph.lookup_node("Recurse")
 
         return {
-            "result": (my_clone.out(0),'hello'),
+            "result": (my_clone.out(0),),
             "expand": graph.finalize(),
         }

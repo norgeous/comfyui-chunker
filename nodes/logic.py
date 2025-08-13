@@ -17,7 +17,7 @@ lazy_options = {"lazy": True} if compare_revision(2543) else {}
 
 any_type = AlwaysEqualProxy("*")
 
-class forLoopStart:
+class Chunker:
     def __init__(self):
         pass
 
@@ -27,14 +27,14 @@ class forLoopStart:
             "required": {
                 "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of frames in each chunk"}),
                 "overlap": ("INT", {"default": 2, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of frames to overlap between chunks"}),
-                "loop_count": ("INT", {"default": 1, "min": 1, "max": 100000, "step": 1}),
+                "loop_count": ("INT", {"default": 1, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of itterations"}),
             },
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images"}),
                 "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks"}),
-                "width": ("INT", {"defaultInput": True, "tooltip": "Width fallback, used if no image provided. (default: 500)"}),
-                "height": ("INT", {"defaultInput": True, "tooltip": "Height fallback, used if no image provided. (default: 500)"}),
-                "index": ("INT", {"tooltip": ""}),
+                "width": ("INT", {"defaultInput": True, "tooltip": "Width fallback, used if no image provided. (default: 512)"}),
+                "height": ("INT", {"defaultInput": True, "tooltip": "Height fallback, used if no image provided. (default: 512)"}),
+                "index": ("INT", {"tooltip": "Starting index. Leave this as 0"}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -43,27 +43,36 @@ class forLoopStart:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "IMAGE", "MASK", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunker_flow", "previous_chunks", "control_video", "control_masks", "width", "height", "length")
-    FUNCTION = "for_loop_start"
+    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_flow", "previous_chunks", "control_video", "control_masks", "width", "height", "length", "index")
+    OUTPUT_TOOLTIPS = (
+        "Connect chunker_flow to the ChunkerCombine node",
+        "All images from previous chunks or None",
+        "Chunk of control_video for WanVaceToVideo",
+        "Chunk of control_masks for WanVaceToVideo",
+        "Width of control_video and control_masks",
+        "Height of control_video and control_masks",
+        "The length of this chunk",
+        "The current itteration index, ie; 0, 1, 2, ...",
+    )
+    FUNCTION = "chunker_start"
     CATEGORY = "Chunker"
 
-    def for_loop_start(
+    def chunker_start(
         self,
         length,
         overlap,
         loop_count,
         control_video=None,
         control_masks=None,
-        width=500,
-        height=500,
+        width=512,
+        height=512,
         index=0,
         prompt=None,
         extra_pnginfo=None,
         unique_id=None,
         **kwargs
     ):
-        #print("cv input length:", len(control_video))
         images_before = None
         images_overlap = None
         images_after = None
@@ -130,10 +139,14 @@ class forLoopStart:
             control_video_chunk.extend([cv_chunk])
             #control_masks_chunk.extend([black_panel] * len(cv_chunk))
 
-        control_video_chunk.extend([grey_panel] * (length - len(cv_overlap) - len(cv_chunk))) # fill remaining length with grey panels
+        # fill remaining length with grey panels
+        control_video_chunk.extend([grey_panel] * (length - len(cv_overlap) - len(cv_chunk)))
+
         control_video_torch = torch.cat(control_video_chunk, dim=0)
 
-        control_masks_chunk.extend([white_panel] * (length - len(control_masks_chunk))) # fill remaining length with white panels
+        # fill remaining length with white panels
+        control_masks_chunk.extend([white_panel] * (length - len(control_masks_chunk)))
+
         control_masks_torch = torch.cat(control_masks_chunk, dim=0)
 
         return (
@@ -141,13 +154,14 @@ class forLoopStart:
             previous_chunks,
             control_video_torch,
             control_masks_torch,
-            width,
-            height,
+            w,
+            h,
             length,
+            index,
         )
 
 
-class ChunkerCombine2:
+class ChunkerCombine:
     def __init__(self):
         pass
 
@@ -155,9 +169,9 @@ class ChunkerCombine2:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "chunker_flow": ("CHUNKER_FLOW_CONTROL", {"rawLink": True}),
-                "previous_chunks": ("IMAGE",),
-                "images": ("IMAGE",),
+                "chunker_flow": ("CHUNKER_FLOW_CONTROL", {"rawLink": True, "tooltip": "Connect chunker_flow from Chunker node to here"}),
+                "previous_chunks": ("IMAGE", {"tooltip": "Connect previous_chunks from Chunker node to here"}),
+                "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
             },
             "optional": {
             },
@@ -170,7 +184,8 @@ class ChunkerCombine2:
 
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("images",)
-    FUNCTION = "while_loop_close"
+    OUTPUT_TOOLTIPS = ("Combined images from all chunks",)
+    FUNCTION = "chunker_end"
     CATEGORY = "Chunker"
 
     def explore_dependencies(self, node_id, dynprompt, upstream, parent_ids):
@@ -184,7 +199,7 @@ class ChunkerCombine2:
                 display_id = dynprompt.get_display_node_id(parent_id)
                 display_node = dynprompt.get_node(display_id)
                 class_type = display_node["class_type"]
-                if class_type not in ['ChunkerCombine2', 'easy forLoopEnd', 'easy whileLoopEnd']:
+                if class_type not in ['ChunkerCombine', 'easy forLoopEnd', 'easy whileLoopEnd']:
                     parent_ids.append(display_id)
                 if parent_id not in upstream:
                     upstream[parent_id] = []
@@ -213,17 +228,17 @@ class ChunkerCombine2:
                 contained[child_id] = True
                 self.collect_contained(child_id, upstream, contained)
 
-    def while_loop_close(self, chunker_flow, previous_chunks, images, dynprompt=None, unique_id=None, extra_pnginfo=None):
+    def chunker_end(self, chunker_flow, previous_chunks, images, dynprompt=None, unique_id=None, extra_pnginfo=None):
         forstart_node = dynprompt.get_node(chunker_flow[0])
         loop_count = forstart_node["inputs"]["loop_count"]
         index = forstart_node["inputs"]["index"]
 
         new_images = []
-        print("close!!!!!!")
-        if previous_chunks is not None:
-            print("previous_chunks length:", len(previous_chunks))
-            print("previous_chunks:", previous_chunks)
-        print("images length:", len(images))
+        #print("close!!!!!!")
+        #if previous_chunks is not None:
+        #    print("previous_chunks length:", len(previous_chunks))
+        #    print("previous_chunks:", previous_chunks)
+        #print("images length:", len(images))
         if previous_chunks is not None: new_images.extend([previous_chunks])
         new_images.extend([images])
         new_images_torch = torch.cat(new_images, dim=0)

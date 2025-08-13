@@ -1,21 +1,11 @@
 from PIL import Image
 import torch
 import numpy as np
-
-from .utils import AlwaysEqualProxy, ByPassTypeTuple, compare_revision
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 
-
-
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
-
-DEFAULT_FLOW_NUM = 2
-MAX_FLOW_NUM = 2
-lazy_options = {"lazy": True} if compare_revision(2543) else {}
-
-any_type = AlwaysEqualProxy("*")
 
 class Chunker:
     def __init__(self):

@@ -7,6 +7,18 @@ from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
+def slice(thing, start=None, end=None):
+    if thing is None: return []
+    sliced = thing[start:end]
+    if len(sliced) == 0: return []
+    return [sliced]
+
+def len2(thing):
+    count = 0
+    for item in thing:
+        count += len(item)
+    return count
+
 class Chunker:
     def __init__(self):
         pass
@@ -33,11 +45,12 @@ class Chunker:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunker_flow", "previous_chunks", "control_video", "control_masks", "width", "height", "length", "index")
+    RETURN_TYPES = ("CHUNKER_FLOW_CONTROL", "IMAGE", "CHUNK_INFO", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_flow", "previous_chunks", "chunk_info", "control_video", "control_masks", "width", "height", "length", "index")
     OUTPUT_TOOLTIPS = (
         "Connect chunker_flow to the ChunkerCombine node",
         "All images from previous chunks or None",
+        "Connect **chunk_info** to the **ChunkerCombine** node",
         "Chunk of control_video for WanVaceToVideo",
         "Chunk of control_masks for WanVaceToVideo",
         "Width of control_video and control_masks",
@@ -78,31 +91,11 @@ class Chunker:
         chunk_start = overlap_start + adjusted_overlap
         after_start = chunk_start + adjusted_length
 
-        previous_chunks = None
-        cv_overlap = []
-        cv_chunk = []
-        masks_chunk = []
+        print("overlap_start", overlap_start)
+        print("chunk_start", chunk_start)
+        print("after_start", after_start)
 
-        if control_video is not None:
-          previous_chunks = control_video[0:overlap_start],
-          if len(previous_chunks) == 0:
-              previous_chunks = None
-          else:
-              previous_chunks = torch.cat(previous_chunks, dim=0)
-          cv_overlap = control_video[overlap_start:chunk_start]
-          cv_chunk = control_video[chunk_start:after_start]
-
-
-        if control_masks is not None:
-          masks_chunk = control_masks[chunk_start:after_start]
-
-        # copy last frame in control_video, if not enough images to fill length
-        #if control_video is not None and len(control_video) < after_start:
-        #    control_video = torch.cat((control_video, control_video[-1].repeat(after_start - len(control_video), 1, 1, 1)), dim=0)
-
-        # copy last frame in control_masks, if not enough images to fill length
-        #if control_masks is not None and len(control_masks) < after_start:
-        #    control_masks = torch.cat((control_masks, control_masks[-1].repeat(after_start - len(control_masks), 1, 1)), dim=0)
+        previous_chunks = control_video[:overlap_start] if control_video is not None else None
 
         # create control_video and create control_masks
         grey_panel  = pil2tensor(Image.new('RGB', (w, h), (128, 128, 128)))
@@ -110,40 +103,40 @@ class Chunker:
         white_panel = pil2tensor(Image.new('RGB', (w, h), (255, 255, 255)).convert('L'))
 
         control_video_chunk = []
-        control_video_chunk_length = 0
         control_masks_chunk = []
-        control_masks_chunk_length = 0
 
-        if cv_overlap is not None and len(cv_overlap):
-            control_video_chunk.extend([cv_overlap])
-            control_video_chunk_length += len(cv_overlap)
+        # copy cv chunk
+        control_video_chunk.extend(slice(control_video, overlap_start, chunk_start))
+        control_video_chunk.extend(slice(control_video, chunk_start, after_start))
 
-        if masks_chunk is not None and len(masks_chunk):
-            control_masks_chunk.extend([masks_chunk])
-            control_masks_chunk_length += len(masks_chunk)
-        else:
-            control_masks_chunk.extend([black_panel] * len(cv_overlap))
-            control_masks_chunk_length += len(cv_overlap)
+	# copy masks chunk
+        control_masks_chunk.extend(slice(control_masks, overlap_start, chunk_start))
+        control_masks_chunk.extend(slice(control_masks, chunk_start, after_start))
 
-        if cv_chunk is not None and len(cv_chunk):
-            control_video_chunk.extend([cv_chunk])
-            #control_masks_chunk.extend([black_panel] * len(cv_chunk))
+        # fill masks to match cv
+        control_masks_chunk.extend([black_panel] * (len2(control_video_chunk) - len2(control_masks_chunk)))
 
         # fill remaining length with grey panels
-        control_video_chunk.extend([grey_panel] * (length - len(cv_overlap) - len(cv_chunk)))
-
-        control_video_torch = torch.cat(control_video_chunk, dim=0)
+        control_video_chunk.extend([grey_panel] * (length - len2(control_video_chunk)))
 
         # fill remaining length with white panels
-        control_masks_chunk.extend([white_panel] * (length - len(control_masks_chunk)))
+        control_masks_chunk.extend([white_panel] * (length - len2(control_masks_chunk)))
 
-        control_masks_torch = torch.cat(control_masks_chunk, dim=0)
+        print("video len2:", len2(control_video_chunk))
+        print("masks len2:", len2(control_masks_chunk))
+
+        chunk_info = {
+            "start_node_id": unique_id,
+            "original_control_video": control_video,
+            "previous_chunks": previous_chunks,
+        }
 
         return (
             "chunker_flow_stub",
             previous_chunks,
-            control_video_torch,
-            control_masks_torch,
+            chunk_info,
+            torch.cat(control_video_chunk),
+            torch.cat(control_masks_chunk),
             w,
             h,
             length,
@@ -161,11 +154,13 @@ class ChunkerCombine:
             "required": {
                 "chunker_flow": ("CHUNKER_FLOW_CONTROL", {"rawLink": True, "tooltip": "Connect chunker_flow from Chunker node to here"}),
                 "previous_chunks": ("IMAGE", {"tooltip": "Connect previous_chunks from Chunker node to here"}),
+                "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect **chunk_info** from **Chunker** node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
             },
             "optional": {
             },
             "hidden": {
+                "prompt": "PROMPT",
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
                 "extra_pnginfo": "EXTRA_PNGINFO",
@@ -218,19 +213,25 @@ class ChunkerCombine:
                 contained[child_id] = True
                 self.collect_contained(child_id, upstream, contained)
 
-    def chunker_end(self, chunker_flow, previous_chunks, images, dynprompt=None, unique_id=None, extra_pnginfo=None):
-        forstart_node = dynprompt.get_node(chunker_flow[0])
+    def chunker_end(self, chunker_flow, previous_chunks, chunk_info, images, prompt=None, dynprompt=None, unique_id=None, extra_pnginfo=None):
+        #print("got chunk_info", chunk_info)
+        start_node_id = chunk_info["start_node_id"]
+        original_control_video = chunk_info["original_control_video"]
+        previous_chunks = chunk_info["previous_chunks"]
+
+        forstart_node = dynprompt.get_node(start_node_id)
         loop_count = forstart_node["inputs"]["loop_count"]
         index = forstart_node["inputs"]["index"]
 
         new_images = []
-        #print("close!!!!!!")
-        #if previous_chunks is not None:
-        #    print("previous_chunks length:", len(previous_chunks))
-        #    print("previous_chunks:", previous_chunks)
-        #print("images length:", len(images))
         if previous_chunks is not None: new_images.extend([previous_chunks])
         new_images.extend([images])
+        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
+
+        #print("len2 new_images", len2(new_images))
+        #print("len2 slice of cv", len2(slice(original_control_video, len2(new_images), None)))
+        #print("original_control_video len:", len(original_control_video))
+
         new_images_torch = torch.cat(new_images, dim=0)
 
         if index >= loop_count - 1:
@@ -264,7 +265,7 @@ class ChunkerCombine:
 
         self.explore_output_nodes(dynprompt, upstream, output_nodes, parent_ids)
         contained = {}
-        open_node = chunker_flow[0]
+        open_node = start_node_id # chunker_flow[0]
         self.collect_contained(open_node, upstream, contained)
         contained[unique_id] = True
         contained[open_node] = True

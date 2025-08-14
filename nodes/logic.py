@@ -21,17 +21,17 @@ def len2(thing):
         count += len(item)
     return count
 
-def kijaiWanResize(image, generation_width, generation_height, aspect_ratio_preservation):
+def kijaiWanResize(image, mask, generation_width, generation_height, aspect_ratio):
     VAE_STRIDE = (4, 8, 8)
     PATCH_SIZE = (1, 2, 2)
     H, W = image.shape[1], image.shape[2]
     max_area = generation_width * generation_height
     crop = "disabled"
-    if aspect_ratio_preservation == "keep_input":
+    if aspect_ratio == "keep_input":
         aspect_ratio = H / W
-    elif aspect_ratio_preservation == "stretch_to_new" or aspect_ratio_preservation == "crop_to_new":
+    elif aspect_ratio == "stretch_to_new" or aspect_ratio == "crop_to_new":
         aspect_ratio = generation_height / generation_width
-        if aspect_ratio_preservation == "crop_to_new":
+        if aspect_ratio == "crop_to_new":
             crop = "center"
     lat_h = round(
     np.sqrt(max_area * aspect_ratio) // VAE_STRIDE[1] //
@@ -41,8 +41,9 @@ def kijaiWanResize(image, generation_width, generation_height, aspect_ratio_pres
         PATCH_SIZE[2] * PATCH_SIZE[2])
     h = lat_h * VAE_STRIDE[1]
     w = lat_w * VAE_STRIDE[2]
-    resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1)
-    return resized_image
+    resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1) if image is not None else None
+    resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0] if mask is not None else None
+    return (resized_image, resized_mask)
 
 class Chunker:
     def __init__(self):
@@ -54,7 +55,7 @@ class Chunker:
             "required": {
                 "width": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
                 "height": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
-                "aspect_ratio_preservation": (["keep_input", "stretch_to_new", "crop_to_new"],),
+                "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"],),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
@@ -90,7 +91,7 @@ class Chunker:
         self,
         width,
         height,
-        aspect_ratio_preservation,
+        aspect_ratio,
         chunk_length,
         chunk_overlap,
         total_length,
@@ -107,8 +108,7 @@ class Chunker:
         print(f"🍫  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
         # resize the control_video to input width and height using copy of Kijai's method
-        control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
-        control_masks = kijaiWanResize(control_masks, width, height, aspect_ratio_preservation) if control_masks is not None else None
+        control_video, control_masks = kijaiWanResize(control_video, control_masks, width, height, aspect_ratio)
 
         control_video_length = len(control_video) if control_video is not None else 0
         control_masks_length = len(control_masks) if control_masks is not None else 0

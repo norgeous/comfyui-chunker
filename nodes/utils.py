@@ -1,9 +1,16 @@
+from PIL import Image
 import torch
 import numpy as np
 from comfy.utils import common_upscale
 
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
+
+def panelImage(w, h, r=255, g=255, b=255):
+    return pil2tensor(Image.new('RGB', (w, h), (r, g, b)))
+
+def panelMask(w, h, v=255):
+    return pil2tensor(Image.new('RGB', (w, h), (v, v, v)).convert('L'))
 
 def slice(thing, start=None, end=None):
     if thing is None: return []

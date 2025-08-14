@@ -1,9 +1,8 @@
-from PIL import Image
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import pil2tensor, slice, len2, kijaiWanResize
+from .utils import panelImage, panelMask, slice, len2, kijaiWanResize
 from .repeatnodes import comfyuiRepeatNodes 
 
 class Chunker:
@@ -85,9 +84,9 @@ class Chunker:
         after_start = chunk_start + adjusted_length
 
         # create control_video and create control_masks
-        grey_panel  = pil2tensor(Image.new('RGB', (w, h), (128, 128, 128)))
-        black_panel = pil2tensor(Image.new('RGB', (w, h), (0,   0,   0  )).convert('L'))
-        white_panel = pil2tensor(Image.new('RGB', (w, h), (255, 255, 255)).convert('L'))
+        grey_panel  = panelImage(w, h, 128, 128, 128)
+        black_panel = panelMask(w, h, 0)
+        white_panel = panelMask(w, h, 255)
 
         control_video_chunk = []
         control_masks_chunk = []

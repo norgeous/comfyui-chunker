@@ -1,9 +1,9 @@
 #from .nodes.image_nodes import *
-from .nodes.logic import *
+from .nodes.nodes import *
 
 NODE_CONFIG = {
-    "Chunker": {"class": Chunker, "name": ""},
-    "ChunkerCombine": {"class": ChunkerCombine, "name": ""},
+    "Chunker": {"class": Chunker, "name": "\U0001F36B Chunker"},
+    "ChunkerCombine": {"class": ChunkerCombine, "name": "\U0001F36B Combine"},
 }
 
 NODE_CLASS_MAPPINGS = {

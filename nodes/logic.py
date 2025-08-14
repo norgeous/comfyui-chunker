@@ -1,49 +1,10 @@
 from PIL import Image
 import torch
-import numpy as np
+import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from comfy.utils import common_upscale
-import math
-
-def pil2tensor(image):
-    return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
-
-def slice(thing, start=None, end=None):
-    if thing is None: return []
-    sliced = thing[start:end]
-    if len(sliced) == 0: return []
-    return [sliced]
-
-def len2(thing):
-    count = 0
-    for item in thing:
-        count += len(item)
-    return count
-
-def kijaiWanResize(image, mask, generation_width, generation_height, aspect_ratio):
-    VAE_STRIDE = (4, 8, 8)
-    PATCH_SIZE = (1, 2, 2)
-    H, W = image.shape[1], image.shape[2]
-    max_area = generation_width * generation_height
-    crop = "disabled"
-    if aspect_ratio == "keep_input":
-        aspect_ratio = H / W
-    elif aspect_ratio == "stretch_to_new" or aspect_ratio == "crop_to_new":
-        aspect_ratio = generation_height / generation_width
-        if aspect_ratio == "crop_to_new":
-            crop = "center"
-    lat_h = round(
-    np.sqrt(max_area * aspect_ratio) // VAE_STRIDE[1] //
-    PATCH_SIZE[1] * PATCH_SIZE[1])
-    lat_w = round(
-        np.sqrt(max_area / aspect_ratio) // VAE_STRIDE[2] //
-        PATCH_SIZE[2] * PATCH_SIZE[2])
-    h = lat_h * VAE_STRIDE[1]
-    w = lat_w * VAE_STRIDE[2]
-    resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1) if image is not None else None
-    resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0] if mask is not None else None
-    return (resized_image, resized_mask)
+from .utils import pil2tensor, slice, len2, kijaiWanResize
+from .repeatnodes import comfyuiRepeatNodes 
 
 class Chunker:
     def __init__(self):
@@ -123,12 +84,6 @@ class Chunker:
         chunk_start = overlap_start + adjusted_overlap
         after_start = chunk_start + adjusted_length
 
-        #print("overlap_start", overlap_start)
-        #print("chunk_start", chunk_start)
-        #print("after_start", after_start)
-
-        previous_chunks = control_video[:overlap_start] if control_video is not None else None
-
         # create control_video and create control_masks
         grey_panel  = pil2tensor(Image.new('RGB', (w, h), (128, 128, 128)))
         black_panel = pil2tensor(Image.new('RGB', (w, h), (0,   0,   0  )).convert('L'))
@@ -158,6 +113,8 @@ class Chunker:
 
         # fill remaining masks length with white panels
         control_masks_chunk.extend([white_panel] * (chunk_length - len2(control_masks_chunk)))
+
+        previous_chunks = control_video[:overlap_start] if control_video is not None else None
 
         chunk_info = {
             "start_node_id": unique_id,
@@ -206,46 +163,6 @@ class ChunkerCombine:
     CATEGORY = "Chunker"
     DESCRIPTION = "ChunkerCombine"
 
-    def explore_dependencies(self, node_id, dynprompt, upstream, parent_ids):
-        node_info = dynprompt.get_node(node_id)
-        if "inputs" not in node_info:
-            return
-
-        for k, v in node_info["inputs"].items():
-            if is_link(v):
-                parent_id = v[0]
-                display_id = dynprompt.get_display_node_id(parent_id)
-                display_node = dynprompt.get_node(display_id)
-                class_type = display_node["class_type"]
-                if class_type not in ['ChunkerCombine', 'easy forLoopEnd', 'easy whileLoopEnd']:
-                    parent_ids.append(display_id)
-                if parent_id not in upstream:
-                    upstream[parent_id] = []
-                    self.explore_dependencies(parent_id, dynprompt, upstream, parent_ids)
-
-                upstream[parent_id].append(node_id)
-
-    def explore_output_nodes(self, dynprompt, upstream, output_nodes, parent_ids):
-        for parent_id in upstream:
-            display_id = dynprompt.get_display_node_id(parent_id)
-            for output_id in output_nodes:
-                id = output_nodes[output_id][0]
-                if id in parent_ids and display_id == id and output_id not in upstream[parent_id]:
-                    if '.' in parent_id:
-                        arr = parent_id.split('.')
-                        arr[len(arr)-1] = output_id
-                        upstream[parent_id].append('.'.join(arr))
-                    else:
-                        upstream[parent_id].append(output_id)
-
-    def collect_contained(self, node_id, upstream, contained):
-        if node_id not in upstream:
-            return
-        for child_id in upstream[node_id]:
-            if child_id not in contained:
-                contained[child_id] = True
-                self.collect_contained(child_id, upstream, contained)
-
     def chunker_end(
         self,
         chunk_info,
@@ -271,59 +188,21 @@ class ChunkerCombine:
         print(f"🍫  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
         if index >= loop_count - 1:
-            # We're done with the loop
+            # We're done with the loop, return all completed chunks so far
             return (completed_images_torch,)
 
-        # We want to loop
+        # We want to continue looping
 
         # add the yet to be completed images back into the control_video that is sent back to the start of the loop
         if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
         new_images_torch = torch.cat(new_images, dim=0)
-
-        # Get the list of all nodes between the open and close nodes
-        upstream = {}
-        parent_ids = []
-        self.explore_dependencies(unique_id, dynprompt, upstream, parent_ids)
-        parent_ids = list(set(parent_ids))
-
-        # Get the list of all output nodes between the open and close nodes
-        prompts = dynprompt.get_original_prompt()
-        output_nodes = {}
-        for id in prompts:
-            node = prompts[id]
-            if "inputs" not in node:
-                continue
-            class_type = node["class_type"]
-            class_def = ALL_NODE_CLASS_MAPPINGS[class_type]
-            if hasattr(class_def, 'OUTPUT_NODE') and class_def.OUTPUT_NODE == True:
-                for k, v in node['inputs'].items():
-                    if is_link(v):
-                        output_nodes[id] = v
-
-        self.explore_output_nodes(dynprompt, upstream, output_nodes, parent_ids)
-        contained = {}
-        open_node = start_node_id
-        self.collect_contained(open_node, upstream, contained)
-        contained[unique_id] = True
-        contained[open_node] = True
-
+        
+        # create a copy of the nodes between Chunker and ChunkerCombine
         graph = GraphBuilder()
+        comfyuiRepeatNodes(graph, unique_id, dynprompt, start_node_id)
 
-        for node_id in contained:
-            original_node = dynprompt.get_node(node_id)
-            node = graph.node(original_node["class_type"], "Recurse" if node_id == unique_id else node_id)
-            node.set_override_display_id(node_id)
-        for node_id in contained:
-            original_node = dynprompt.get_node(node_id)
-            node = graph.lookup_node("Recurse" if node_id == unique_id else node_id)
-            for k, v in original_node["inputs"].items():
-                if is_link(v) and v[0] in contained:
-                    parent = graph.lookup_node(v[0])
-                    node.set_input(k, parent.out(v[1]))
-                else:
-                    node.set_input(k, v)
-
-        new_open = graph.lookup_node(open_node)
+        # set the updated inputs on the Chunker node
+        new_open = graph.lookup_node(start_node_id)
         new_open.set_input("control_video", new_images_torch)
         new_open.set_input("index", index + 1)
         my_clone = graph.lookup_node("Recurse")

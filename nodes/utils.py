@@ -1,0 +1,42 @@
+import torch
+import numpy as np
+from comfy.utils import common_upscale
+
+def pil2tensor(image):
+    return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
+
+def slice(thing, start=None, end=None):
+    if thing is None: return []
+    sliced = thing[start:end]
+    if len(sliced) == 0: return []
+    return [sliced]
+
+def len2(thing):
+    count = 0
+    for item in thing:
+        count += len(item)
+    return count
+
+def kijaiWanResize(image, mask, generation_width, generation_height, aspect_ratio):
+    VAE_STRIDE = (4, 8, 8)
+    PATCH_SIZE = (1, 2, 2)
+    H, W = image.shape[1], image.shape[2]
+    max_area = generation_width * generation_height
+    crop = "disabled"
+    if aspect_ratio == "keep_input":
+        aspect_ratio = H / W
+    elif aspect_ratio == "stretch_to_new" or aspect_ratio == "crop_to_new":
+        aspect_ratio = generation_height / generation_width
+        if aspect_ratio == "crop_to_new":
+            crop = "center"
+    lat_h = round(
+    np.sqrt(max_area * aspect_ratio) // VAE_STRIDE[1] //
+    PATCH_SIZE[1] * PATCH_SIZE[1])
+    lat_w = round(
+        np.sqrt(max_area / aspect_ratio) // VAE_STRIDE[2] //
+        PATCH_SIZE[2] * PATCH_SIZE[2])
+    h = lat_h * VAE_STRIDE[1]
+    w = lat_w * VAE_STRIDE[2]
+    resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1) if image is not None else None
+    resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0] if mask is not None else None
+    return (resized_image, resized_mask)

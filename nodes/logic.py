@@ -101,11 +101,13 @@ class Chunker:
         # extra_pnginfo=None,
         unique_id=None,
     ):
-        # resize the input video to input width and height using copy of Kijai's method
-        control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
-
         # calculate how many chunks we need to fill total_length
         loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
+        print(f"🍫 CHUNKER: Starting chunk {index + 1} of {loop_count}...")
+
+        # resize the input video to input width and height using copy of Kijai's method
+        control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
 
         control_video_length = len(control_video) if control_video is not None else 0
         control_masks_length = len(control_masks) if control_masks is not None else 0
@@ -189,10 +191,10 @@ class ChunkerCombine:
             "optional": {
             },
             "hidden": {
-                "prompt": "PROMPT",
+                # "prompt": "PROMPT",
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
-                "extra_pnginfo": "EXTRA_PNGINFO",
+                # "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
 
@@ -243,7 +245,15 @@ class ChunkerCombine:
                 contained[child_id] = True
                 self.collect_contained(child_id, upstream, contained)
 
-    def chunker_end(self, chunk_info, images, prompt=None, dynprompt=None, unique_id=None, extra_pnginfo=None):
+    def chunker_end(
+        self,
+        chunk_info,
+        images,
+        # prompt=None,
+        dynprompt=None,
+        unique_id=None,
+        # extra_pnginfo=None
+    ):
         start_node_id = chunk_info["start_node_id"]
         loop_count = chunk_info["loop_count"]
         original_control_video = chunk_info["original_control_video"]
@@ -259,12 +269,15 @@ class ChunkerCombine:
 
         new_images_torch = torch.cat(new_images, dim=0)
 
+        print("index", index)
+        print("loop_count", loop_count)
+        print(f"🍫 CHUNKER: Completed chunk {index + 1} of {loop_count}")
+
         if index >= loop_count - 1:
             # We're done with the loop
             return (new_images_torch,)
 
         # We want to loop
-        print("starting repetition ", index + 1, " of ", loop_count - 1, "...")
 
         # Get the list of all nodes between the open and close nodes
         upstream = {}

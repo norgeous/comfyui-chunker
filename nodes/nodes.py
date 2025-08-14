@@ -19,7 +19,7 @@ class Chunker:
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
-                "index": ("INT", {"tooltip": "Starting index. Leave this as 0"}),
+                "index": ("INT", {"default": 0, "forceInput": True, "tooltip": "Starting index. Leave this as 0"}),
             },
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images"}),

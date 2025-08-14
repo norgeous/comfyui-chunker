@@ -3,6 +3,8 @@ import torch
 import numpy as np
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
+from comfy.utils import common_upscale
+import math
 
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
@@ -19,6 +21,29 @@ def len2(thing):
         count += len(item)
     return count
 
+def kijaiWanResize(image, generation_width, generation_height, aspect_ratio_preservation):
+    VAE_STRIDE = (4, 8, 8)
+    PATCH_SIZE = (1, 2, 2)
+    H, W = image.shape[1], image.shape[2]
+    max_area = generation_width * generation_height
+    crop = "disabled"
+    if aspect_ratio_preservation == "keep_input":
+        aspect_ratio = H / W
+    elif aspect_ratio_preservation == "stretch_to_new" or aspect_ratio_preservation == "crop_to_new":
+        aspect_ratio = generation_height / generation_width
+        if aspect_ratio_preservation == "crop_to_new":
+            crop = "center"
+    lat_h = round(
+    np.sqrt(max_area * aspect_ratio) // VAE_STRIDE[1] //
+    PATCH_SIZE[1] * PATCH_SIZE[1])
+    lat_w = round(
+        np.sqrt(max_area / aspect_ratio) // VAE_STRIDE[2] //
+        PATCH_SIZE[2] * PATCH_SIZE[2])
+    h = lat_h * VAE_STRIDE[1]
+    w = lat_w * VAE_STRIDE[2]
+    resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1)
+    return resized_image
+
 class Chunker:
     def __init__(self):
         pass
@@ -27,26 +52,27 @@ class Chunker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of frames in each chunk"}),
-                "overlap": ("INT", {"default": 2, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of frames to overlap between chunks"}),
-                "loop_count": ("INT", {"default": 1, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of itterations"}),
+                "width": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
+                "height": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
+                "aspect_ratio_preservation": (["keep_input", "stretch_to_new", "crop_to_new"],),
+                "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
+                "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
+                "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
+                "index": ("INT", {"tooltip": "Starting index. Leave this as 0"}),
             },
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images"}),
                 "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks"}),
-                "width": ("INT", {"defaultInput": True, "tooltip": "Width fallback, used if no image provided. (default: 512)"}),
-                "height": ("INT", {"defaultInput": True, "tooltip": "Height fallback, used if no image provided. (default: 512)"}),
-                "index": ("INT", {"tooltip": "Starting index. Leave this as 0"}),
             },
             "hidden": {
-                "prompt": "PROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO",
+                # "prompt": "PROMPT",
+                # "extra_pnginfo": "EXTRA_PNGINFO",
                 "unique_id": "UNIQUE_ID",
             }
         }
 
     RETURN_TYPES = ("CHUNK_INFO", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunk_info", "control_video", "control_masks", "width", "height", "length", "index")
+    RETURN_NAMES = ("chunk_info", "control_video", "control_masks", "width", "height", "chunk_length", "index")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunk_info\" to the \"ChunkerCombine\" node",
         "Chunk of control_video for WanVaceToVideo",
@@ -58,24 +84,34 @@ class Chunker:
     )
     FUNCTION = "chunker_start"
     CATEGORY = "Chunker"
+    DESCRIPTION = "Chunker!"
 
     def chunker_start(
         self,
-        length,
-        overlap,
-        loop_count,
+        width,
+        height,
+        aspect_ratio_preservation,
+        total_length,
+        chunk_length,
+        chunk_overlap,
+        index,
         control_video=None,
         control_masks=None,
-        width=512,
-        height=512,
-        index=0,
-        prompt=None,
-        extra_pnginfo=None,
+        # prompt=None,
+        # extra_pnginfo=None,
         unique_id=None,
-        #**kwargs
     ):
-        adjusted_overlap = 0 if index == 0 else overlap # exclude overlap in first chunk
-        adjusted_length = length - adjusted_overlap
+        # resize the input video to input width and height using copy of Kijai's method
+        control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
+
+        # calculate how many chunks we need to fill total_length
+        loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
+        control_video_length = len(control_video) if control_video is not None else 0
+        control_masks_length = len(control_masks) if control_masks is not None else 0
+
+        adjusted_overlap = 0 if index == 0 else chunk_overlap # exclude overlap in first chunk
+        adjusted_length = chunk_length - adjusted_overlap
 
         w = control_video.shape[2] if control_video is not None else width
         h = control_video.shape[1] if control_video is not None else height
@@ -84,9 +120,9 @@ class Chunker:
         chunk_start = overlap_start + adjusted_overlap
         after_start = chunk_start + adjusted_length
 
-        print("overlap_start", overlap_start)
-        print("chunk_start", chunk_start)
-        print("after_start", after_start)
+        #print("overlap_start", overlap_start)
+        #print("chunk_start", chunk_start)
+        #print("after_start", after_start)
 
         previous_chunks = control_video[:overlap_start] if control_video is not None else None
 
@@ -98,28 +134,32 @@ class Chunker:
         control_video_chunk = []
         control_masks_chunk = []
 
-        # copy cv chunk
+        # copy cv overlap
         control_video_chunk.extend(slice(control_video, overlap_start, chunk_start))
+
+        # fill black masks to match cv overlap
+        control_masks_chunk.extend([black_panel] * len2(control_video_chunk))
+
+        # copy cv chunk
         control_video_chunk.extend(slice(control_video, chunk_start, after_start))
 
-        # copy masks chunk
-        control_masks_chunk.extend(slice(control_masks, overlap_start, chunk_start))
+        # if single image with no mask mode, add one black panel
+        if control_video_length == 1 and control_masks_length == 0:
+            control_masks_chunk.extend([black_panel])
+
+        # copy control_masks
         control_masks_chunk.extend(slice(control_masks, chunk_start, after_start))
 
-        # fill masks to match cv
-        control_masks_chunk.extend([black_panel] * (len2(control_video_chunk) - len2(control_masks_chunk)))
+        # fill remaining cv length with grey panels
+        control_video_chunk.extend([grey_panel] * (chunk_length - len2(control_video_chunk)))
 
-        # fill remaining length with grey panels
-        control_video_chunk.extend([grey_panel] * (length - len2(control_video_chunk)))
-
-        # fill remaining length with white panels
-        control_masks_chunk.extend([white_panel] * (length - len2(control_masks_chunk)))
-
-        #print("video len2:", len2(control_video_chunk))
-        #print("masks len2:", len2(control_masks_chunk))
+        # fill remaining masks length with white panels
+        control_masks_chunk.extend([white_panel] * (chunk_length - len2(control_masks_chunk)))
 
         chunk_info = {
             "start_node_id": unique_id,
+            "index": index,
+            "loop_count": loop_count,
             "original_control_video": control_video,
             "previous_chunks": previous_chunks,
         }
@@ -130,7 +170,7 @@ class Chunker:
             torch.cat(control_masks_chunk),
             w,
             h,
-            length,
+            chunk_length,
             index,
         )
 
@@ -161,6 +201,7 @@ class ChunkerCombine:
     OUTPUT_TOOLTIPS = ("Combined images from all chunks",)
     FUNCTION = "chunker_end"
     CATEGORY = "Chunker"
+    DESCRIPTION = "ChunkerCombine"
 
     def explore_dependencies(self, node_id, dynprompt, upstream, parent_ids):
         node_info = dynprompt.get_node(node_id)
@@ -204,11 +245,11 @@ class ChunkerCombine:
 
     def chunker_end(self, chunk_info, images, prompt=None, dynprompt=None, unique_id=None, extra_pnginfo=None):
         start_node_id = chunk_info["start_node_id"]
+        loop_count = chunk_info["loop_count"]
         original_control_video = chunk_info["original_control_video"]
         previous_chunks = chunk_info["previous_chunks"]
 
         forstart_node = dynprompt.get_node(start_node_id)
-        loop_count = forstart_node["inputs"]["loop_count"]
         index = forstart_node["inputs"]["index"]
 
         new_images = []
@@ -223,13 +264,10 @@ class ChunkerCombine:
             return (new_images_torch,)
 
         # We want to loop
-
         print("starting repetition ", index + 1, " of ", loop_count - 1, "...")
 
-        #this_node = dynprompt.get_node(unique_id)
-        upstream = {}
-
         # Get the list of all nodes between the open and close nodes
+        upstream = {}
         parent_ids = []
         self.explore_dependencies(unique_id, dynprompt, upstream, parent_ids)
         parent_ids = list(set(parent_ids))
@@ -250,7 +288,7 @@ class ChunkerCombine:
 
         self.explore_output_nodes(dynprompt, upstream, output_nodes, parent_ids)
         contained = {}
-        open_node = start_node_id # chunker_flow[0]
+        open_node = start_node_id
         self.collect_contained(open_node, upstream, contained)
         contained[unique_id] = True
         contained[open_node] = True

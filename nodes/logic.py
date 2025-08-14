@@ -55,9 +55,9 @@ class Chunker:
                 "width": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
                 "height": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
                 "aspect_ratio_preservation": (["keep_input", "stretch_to_new", "crop_to_new"],),
-                "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
+                "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
                 "index": ("INT", {"tooltip": "Starting index. Leave this as 0"}),
             },
             "optional": {
@@ -91,9 +91,9 @@ class Chunker:
         width,
         height,
         aspect_ratio_preservation,
-        total_length,
         chunk_length,
         chunk_overlap,
+        total_length,
         index,
         control_video=None,
         control_masks=None,
@@ -104,7 +104,7 @@ class Chunker:
         # calculate how many chunks we need to fill total_length
         loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
-        print(f"🍫 CHUNKER: Starting chunk {index + 1} of {loop_count}...")
+        print(f"🍫  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
         # resize the input video to input width and height using copy of Kijai's method
         control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
@@ -265,19 +265,19 @@ class ChunkerCombine:
         new_images = []
         if previous_chunks is not None: new_images.extend([previous_chunks])
         new_images.extend([images])
-        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
+        completed_images_torch = torch.cat(new_images, dim=0)
 
-        new_images_torch = torch.cat(new_images, dim=0)
-
-        print("index", index)
-        print("loop_count", loop_count)
-        print(f"🍫 CHUNKER: Completed chunk {index + 1} of {loop_count}")
+        print(f"🍫  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
         if index >= loop_count - 1:
             # We're done with the loop
-            return (new_images_torch,)
+            return (completed_images_torch,)
 
         # We want to loop
+
+        # add the yet to be completed images back into the control_video that is sent back to the start of the loop
+        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
+        new_images_torch = torch.cat(new_images, dim=0)
 
         # Get the list of all nodes between the open and close nodes
         upstream = {}

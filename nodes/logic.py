@@ -65,7 +65,7 @@ class Chunker:
         # calculate how many chunks we need to fill total_length
         loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
-        print(f"🍫  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
+        print(f"\U0001F36B  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
         # resize the control_video to input width and height using copy of Kijai's method
         control_video, control_masks = kijaiWanResize(control_video, control_masks, width, height, aspect_ratio)
@@ -184,7 +184,7 @@ class ChunkerCombine:
         new_images.extend([images])
         completed_images_torch = torch.cat(new_images, dim=0)
 
-        print(f"🍫  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
+        print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
         if index >= loop_count - 1:
             # We're done with the loop, return all completed chunks so far

@@ -106,8 +106,9 @@ class Chunker:
 
         print(f"🍫  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
-        # resize the input video to input width and height using copy of Kijai's method
+        # resize the control_video to input width and height using copy of Kijai's method
         control_video = kijaiWanResize(control_video, width, height, aspect_ratio_preservation) if control_video is not None else None
+        control_masks = kijaiWanResize(control_masks, width, height, aspect_ratio_preservation) if control_masks is not None else None
 
         control_video_length = len(control_video) if control_video is not None else 0
         control_masks_length = len(control_masks) if control_masks is not None else 0

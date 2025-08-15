@@ -17,3 +17,8 @@ Creates chunks of `chunk_length` from a resized version of `control_video` and `
 ### 🍫 Combine
 
 Combines all modified chunks into one single sequence.
+
+| Input         | Required | Default | Note                                     |
+|---------------|----------|---------|------------------------------------------|
+| chunk_info    | YES      | None    |                                          |
+| images        | YES      | None    |                                          |

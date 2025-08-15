@@ -4,10 +4,10 @@ Create longer Wan VACE videos by automatically taking the last few frames of the
 
 ## Nodes
 
-### `🍫 Chunker`
+### 🍫 Chunker
 
-Creates chunks of `chunk_length` from a resized version of `control_video` and `control_masks` if provided. If not provided blank ones are prepared.
+Creates chunks of `chunk_length` from a resized version of `control_video` and `control_masks` if provided. If `control_video` and `control_masks` are not provided then blank ones are created. 
 
-### `🍫 Combine`
+### 🍫 Combine
 
-Combines modified chunks into one single output.
+Combines all modified chunks into one single sequence.

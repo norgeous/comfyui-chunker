@@ -15,14 +15,14 @@ class Chunker:
             "required": {
                 "width": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
                 "height": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
-                "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"],),
+                "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"], {"tooltip": "`keep_input` = use width and height as megapixel density and retain original aspect ratio\n`stretch_to_new` = stretch to exact size specified\n`crop_to_new` = scale and crop to exact specified size"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
             },
             "optional": {
-                "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images"}),
-                "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks"}),
+                "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images to be chunked"}),
+                "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks to be chunked"}),
                 "index": ("INT", {"default": 0, "tooltip": "Starting index. Leave this as 0"}),
             },
             "hidden": {
@@ -147,7 +147,7 @@ class ChunkerCombine:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect **chunk_info** from **Chunker** node to here"}),
+                "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
             },
             "optional": {

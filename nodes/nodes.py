@@ -2,8 +2,8 @@ import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import panelImage, panelMask, slice, len2, kijaiWanResize
-from .repeatnodes import comfyuiRepeatNodes 
+from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
+from .repeatnodes import comfyuiRepeatNodes
 
 class Chunker:
     def __init__(self):
@@ -13,17 +13,17 @@ class Chunker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "width": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
-                "height": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
+                "width": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
+                "height": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
                 "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"],),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
-                "index": ("INT", {"default": 0, "forceInput": True, "tooltip": "Starting index. Leave this as 0"}),
             },
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images"}),
                 "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks"}),
+                "index": ("INT", {"default": 0, "tooltip": "Starting index. Leave this as 0"}),
             },
             "hidden": {
                 # "prompt": "PROMPT",
@@ -55,9 +55,9 @@ class Chunker:
         chunk_length,
         chunk_overlap,
         total_length,
-        index,
         control_video=None,
         control_masks=None,
+        index=0,
         # prompt=None,
         # extra_pnginfo=None,
         unique_id=None,
@@ -68,26 +68,30 @@ class Chunker:
         print(f"\U0001F36B  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
         # resize the control_video to input width and height using copy of Kijai's method
-        control_video, control_masks = kijaiWanResize(control_video, control_masks, width, height, aspect_ratio)
+        control_video = resizeImage(control_video, width, height, aspect_ratio)
 
-        control_video_length = len(control_video) if control_video is not None else 0
-        control_masks_length = len(control_masks) if control_masks is not None else 0
-
-        adjusted_overlap = 0 if index == 0 else chunk_overlap # exclude overlap in first chunk
-        adjusted_length = chunk_length - adjusted_overlap
+        # resize the control_masks to input width and height using copy of Kijai's method
+        control_masks = resizeMask(control_masks, width, height, aspect_ratio)
 
         w = control_video.shape[2] if control_video is not None else width
         h = control_video.shape[1] if control_video is not None else height
 
+        control_video_length = len(control_video) if control_video is not None else 0
+        control_masks_length = len(control_masks) if control_masks is not None else 0
+
+        # exclude overlap in first chunk
+        adjusted_overlap = 0 if index == 0 else chunk_overlap
+        adjusted_length = chunk_length - adjusted_overlap
+
+        # determine where current chunk starts and ends
         overlap_start = index * adjusted_length
         chunk_start = overlap_start + adjusted_overlap
         after_start = chunk_start + adjusted_length
 
         # create control_video and create control_masks
-        grey_panel  = panelImage(w, h, 128, 128, 128)
+        grey_panel  = panelImage(w, h, 127, 127, 127)
         black_panel = panelMask(w, h, 0)
         white_panel = panelMask(w, h, 255)
-
         control_video_chunk = []
         control_masks_chunk = []
 
@@ -113,6 +117,7 @@ class Chunker:
         # fill remaining masks length with white panels
         control_masks_chunk.extend([white_panel] * (chunk_length - len2(control_masks_chunk)))
 
+        # collect previous chunks to be sent to ChunkerCombine
         previous_chunks = control_video[:overlap_start] if control_video is not None else None
 
         chunk_info = {
@@ -125,8 +130,8 @@ class Chunker:
 
         return (
             chunk_info,
-            torch.cat(control_video_chunk),
-            torch.cat(control_masks_chunk),
+            torch.cat(control_video_chunk), # just this chunk
+            torch.cat(control_masks_chunk), # just this chunk
             w,
             h,
             chunk_length,
@@ -195,15 +200,15 @@ class ChunkerCombine:
         # add the yet to be completed images back into the control_video that is sent back to the start of the loop
         if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
         new_images_torch = torch.cat(new_images, dim=0)
-        
+
         # create a copy of the nodes between Chunker and ChunkerCombine
         graph = GraphBuilder()
         comfyuiRepeatNodes(graph, unique_id, dynprompt, start_node_id)
 
         # set the updated inputs on the Chunker node
         new_open = graph.lookup_node(start_node_id)
-        new_open.set_input("control_video", new_images_torch)
-        new_open.set_input("index", index + 1)
+        new_open.set_input("control_video", new_images_torch) # update the start node's control_video with copy which includes the new chunk
+        new_open.set_input("index", index + 1) # increment start node's index, so it knows which chunk is next
         my_clone = graph.lookup_node("Recurse")
 
         return {

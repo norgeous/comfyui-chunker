@@ -1,5 +1,11 @@
 # comfyui-chunker
 
+
+
+https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
+
+
+
 Create longer Wan VACE videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation.
 
 ![image](./docs/chunker-nodes.png)

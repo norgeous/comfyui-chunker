@@ -1,14 +1,10 @@
 # comfyui-chunker
 
-
-
 https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
-
-
 
 Create longer Wan VACE videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation.
 
-![image](./docs/chunker-nodes.png)
+![image](./workflows/chunker-wan21vace-t2v.png)
 
 ## Nodes
 
@@ -30,7 +26,7 @@ Creates chunks of `chunk_length` from a resized version of `control_video` and `
 
 ### 🍫 Combine
 
-Combines all modified chunks into one single sequence.
+Combines all modified chunks into one sequence.
 
 | Input         | Required | Default | Note                                         |
 |---------------|----------|---------|----------------------------------------------|

@@ -42,7 +42,7 @@ def collect_contained(node_id, upstream, contained):
             collect_contained(child_id, upstream, contained)
 
 
-def comfyuiRepeatNodes(graph, unique_id, dynprompt, start_node_id):
+def comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id):
     # Get the list of all nodes between the open and close nodes
     upstream = {}
     parent_ids = []

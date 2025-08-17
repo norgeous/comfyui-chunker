@@ -13,6 +13,7 @@ class Chunker:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "index": ("INT", {"default": 0, "tooltip": "Starting index. This should be hidden in the UI"}),
                 "width": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
                 "height": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
                 "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"], {"tooltip": "`keep_input` = use width and height as megapixel density and retain original aspect ratio\n`stretch_to_new` = stretch to exact size specified\n`crop_to_new` = scale and crop to exact specified size"}),
@@ -23,12 +24,12 @@ class Chunker:
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images to be chunked"}),
                 "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks to be chunked"}),
-                "index": ("INT", {"default": 0, "tooltip": "Starting index. Leave this as 0"}),
             },
             "hidden": {
                 # "prompt": "PROMPT",
-                # "extra_pnginfo": "EXTRA_PNGINFO",
+                # "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
+                # "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
 
@@ -59,8 +60,9 @@ class Chunker:
         control_masks=None,
         index=0,
         # prompt=None,
-        # extra_pnginfo=None,
+        # dynprompt=None,
         unique_id=None,
+        # extra_pnginfo=None,
     ):
         # calculate how many chunks we need to fill total_length
         loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
@@ -128,15 +130,26 @@ class Chunker:
             "previous_chunks": previous_chunks,
         }
 
-        return (
-            chunk_info,
-            torch.cat(control_video_chunk), # just this chunk
-            torch.cat(control_masks_chunk), # just this chunk
-            w,
-            h,
-            chunk_length,
-            index,
-        )
+        ui_values = {
+            "width": w,
+            "height": h,
+            "chunk_length": chunk_length,
+            "index": index,
+            "loop_count": loop_count,
+        }
+
+        return {
+            "ui": {"values": [ui_values]},
+            "result": (
+                chunk_info,
+                torch.cat(control_video_chunk), # just this chunk
+                torch.cat(control_masks_chunk), # just this chunk
+                w,
+                h,
+                chunk_length,
+                index,
+            ),
+        }
 
 
 class ChunkerCombine:
@@ -203,7 +216,7 @@ class ChunkerCombine:
 
         # create a copy of the nodes between Chunker and ChunkerCombine
         graph = GraphBuilder()
-        comfyuiRepeatNodes(graph, unique_id, dynprompt, start_node_id)
+        comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id)
 
         # set the updated inputs on the Chunker node
         new_open = graph.lookup_node(start_node_id)

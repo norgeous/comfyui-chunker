@@ -119,16 +119,16 @@ class Chunker:
         # fill remaining masks length with white panels
         control_masks_chunk.extend([white_panel] * (chunk_length - len2(control_masks_chunk)))
 
-        # collect previous chunks to be sent to ChunkerCombine
+        # collect chunks to be sent to ChunkerCombine
         previous_chunks = control_video[:overlap_start] if control_video is not None else None
+        future_chunks = control_video[after_start:] if control_video is not None else None
 
         chunk_info = {
             "start_node_id": unique_id,
             "index": index,
             "loop_count": loop_count,
-            "original_control_video": control_video,
-            # "future_control_video": slice(control_video, after_start, None),
             "previous_chunks": previous_chunks,
+            "future_chunks": future_chunks,
         }
 
         ui_values = {
@@ -193,8 +193,8 @@ class ChunkerCombine:
         start_node_id = chunk_info["start_node_id"]
         index = chunk_info["index"]
         loop_count = chunk_info["loop_count"]
-        original_control_video = chunk_info["original_control_video"]
         previous_chunks = chunk_info["previous_chunks"]
+        future_chunks = chunk_info["future_chunks"]
 
         new_images = []
         if previous_chunks is not None: new_images.extend([previous_chunks])
@@ -218,7 +218,8 @@ class ChunkerCombine:
         comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id)
 
         # add the yet to be completed images back into the control_video that is sent back to the start of the loop
-        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
+        if future_chunks is not None:  new_images.extend([future_chunks])
+
         new_images_torch = torch.cat(new_images, dim=0)
 
         # set the updated inputs on the Chunker node

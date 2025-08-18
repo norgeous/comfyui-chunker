@@ -127,6 +127,7 @@ class Chunker:
             "index": index,
             "loop_count": loop_count,
             "original_control_video": control_video,
+            # "future_control_video": slice(control_video, after_start, None),
             "previous_chunks": previous_chunks,
         }
 
@@ -195,15 +196,11 @@ class ChunkerCombine:
         original_control_video = chunk_info["original_control_video"]
         previous_chunks = chunk_info["previous_chunks"]
 
-        # forstart_node = dynprompt.get_node(start_node_id)
-        # index = forstart_node["inputs"]["index"]
-
         new_images = []
         if previous_chunks is not None: new_images.extend([previous_chunks])
         new_images.extend([images])
         completed_images_torch = torch.cat(new_images, dim=0)
         completed_images_count = len(completed_images_torch)
-
 
         print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
@@ -227,7 +224,10 @@ class ChunkerCombine:
         # set the updated inputs on the Chunker node
         new_open = graph.lookup_node(start_node_id)
         new_open.set_input("control_video", new_images_torch) # update the start node's control_video with copy which includes the new chunk
-        new_open.set_input("index", index + 1) # increment start node's index, so it knows which chunk is next
+
+        # increment start node's index, so it knows which chunk is next
+        new_open.set_input("index", index + 1)
+
         my_clone = graph.lookup_node("Recurse")
 
         return {

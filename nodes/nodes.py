@@ -190,12 +190,13 @@ class ChunkerCombine:
         # extra_pnginfo=None
     ):
         start_node_id = chunk_info["start_node_id"]
+        index = chunk_info["index"]
         loop_count = chunk_info["loop_count"]
         original_control_video = chunk_info["original_control_video"]
         previous_chunks = chunk_info["previous_chunks"]
 
-        forstart_node = dynprompt.get_node(start_node_id)
-        index = forstart_node["inputs"]["index"]
+        # forstart_node = dynprompt.get_node(start_node_id)
+        # index = forstart_node["inputs"]["index"]
 
         new_images = []
         if previous_chunks is not None: new_images.extend([previous_chunks])

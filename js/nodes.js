@@ -54,14 +54,14 @@ app.registerExtension({
     if (nodeData.name === "Chunker") {
 
       // progress widget
-      chainCallback(nodeType.prototype, "onNodeCreated", function (got) {
-        console.log({ got });
+      chainCallback(nodeType.prototype, "onNodeCreated", function () {
         this.widgets.find(({ name }) => name === "index").hidden = true;
 
 
-        const element = document.createElement("progress");
-        element.max = 100;
-        element.value = 50;
+        const element = document.createElement("div");
+        element.insertAdjacentHTML("afterbegin", '<progress style="display:block; width:100%; height:40px;" max="0" value="0" title="chunk 0 of 0" />')
+        element.style.height = "40px";
+        element.style.padding = "0 5px";
         this.uuid = makeUUID();
         element.id = `chunk-progress-${this.uuid}`
         this.progress = this.addDOMWidget(nodeData.name, "ChunkProgressWidget", element, {
@@ -70,16 +70,24 @@ app.registerExtension({
         });
       });
 
-      // show width, height, chunk_length and index in labels on execute
       const a = nodeType.prototype.onAfterExecuteNode;
       nodeType.prototype.onExecuted = function(ui) {
         const { width, height, chunk_length, index, loop_count } = ui.values[0];
 
+        // show width, height, chunk_length and index in labels
         this.outputs.find(({ name }) => name === "width").label = `${width} width`;
         this.outputs.find(({ name }) => name === "height").label = `${height} height`;
         this.outputs.find(({ name }) => name === "chunk_length").label = `${chunk_length} chunk_length`;
-        this.outputs.find(({ name }) => name === "index").label = `${index} of ${loop_count - 1} index`;
+        this.outputs.find(({ name }) => name === "index").label = `${index} index`;
 
+        // update the progress indicator
+        const progressContainer = this.widgets.find(({ type }) => type === "ChunkProgressWidget");
+        const progress = progressContainer.element.querySelector("progress");
+        progress.value = index + 1;
+        progress.max = loop_count;
+        progress.title = `chunk ${index + 1} of ${loop_count}`;
+
+        // normal return
         const result = a?.apply(this, arguments);
         return result;
       }

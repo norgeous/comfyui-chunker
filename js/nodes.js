@@ -66,7 +66,7 @@ app.registerExtension({
         element.id = `chunk-progress-${this.uuid}`
         this.progress = this.addDOMWidget(nodeData.name, "ChunkProgressWidget", element, {
           // serialize: false,
-          hideOnZoom: false,
+          // hideOnZoom: false,
         });
       });
 
@@ -92,5 +92,16 @@ app.registerExtension({
         return result;
       }
     }
+
+    ({
+      "Chunker": () => {
+      },
+      "ChunkerCombine": () => {
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          const { image_count } = ui.values[0];
+          this.outputs.find(({ name }) => name === "images").label = `${image_count} images`;
+        });
+      },
+    }).bind(this)[nodeData.name]?.()
   },
 });

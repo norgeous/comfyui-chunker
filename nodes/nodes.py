@@ -202,12 +202,17 @@ class ChunkerCombine:
         if previous_chunks is not None: new_images.extend([previous_chunks])
         new_images.extend([images])
         completed_images_torch = torch.cat(new_images, dim=0)
+        completed_images_count = len(completed_images_torch)
+
 
         print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
         if index >= loop_count - 1:
             # We're done with the loop, return all completed chunks
-            return (completed_images_torch,)
+            return {
+                "ui": {"values": [{"image_count": completed_images_count}]},
+                "result":(completed_images_torch,)
+            }
 
         # We want to continue looping
 
@@ -226,6 +231,7 @@ class ChunkerCombine:
         my_clone = graph.lookup_node("Recurse")
 
         return {
+            "ui": {"values": [{"image_count": completed_images_count}]},
             "result": (my_clone.out(0),),
             "expand": graph.finalize(),
         }

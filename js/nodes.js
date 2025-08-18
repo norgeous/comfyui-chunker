@@ -31,50 +31,7 @@ function chainCallback(object, property, callback) {
 
 app.registerExtension({
   name: "chunker",
-
-//  async nodeCreated(node) {
-    //if (node.comfyClass === "Chunker") {
-      // hide input index widget
-      //node.widgets[node.widgets.findIndex(({ name }) => name === "index")].hidden = true;
-
-
-
-
-      //node.widgets[node.widgets.findIndex(({ name }) => name === "index")].height = 0;
-      //node.widgets[node.widgets.findIndex(({ name }) => name === "index")].computedHeight = 0;
-
-      // hide input index noodle
-      //node.removeInput(node.inputs.findIndex(({ name }) => name === "index"));
-
-      //console.log(node);
-    //}
-  //},
-
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
-    //if (nodeData.name === "Chunker") {
-      //const a = nodeType.prototype.onAfterExecuteNode;
-      //nodeType.prototype.onExecuted = function(ui) {
-      //  const { width, height, chunk_length, index, loop_count } = ui.values[0];
-
-      //  // show width, height, chunk_length and index in labels
-      //  this.outputs.find(({ name }) => name === "width").label = `${width} width`;
-      //  this.outputs.find(({ name }) => name === "height").label = `${height} height`;
-      //  this.outputs.find(({ name }) => name === "chunk_length").label = `${chunk_length} chunk_length`;
-      //  this.outputs.find(({ name }) => name === "index").label = `${index} index`;
-
-      ///  // update the progress indicator
-      //  const progressContainer = this.widgets.find(({ type }) => type === "ChunkProgressWidget");
-      //  const progress = progressContainer.element.querySelector("progress");
-      //  progress.value = index + 1;
-      //  progress.max = loop_count;
-      //  progress.title = `chunk ${index + 1} of ${loop_count}`;
-
-      //  // normal return
-      //  const result = a?.apply(this, arguments);
-      //  return result;
-      //}
-    //}
-
     ({
       "Chunker": () => {
         // progress widget
@@ -113,7 +70,7 @@ app.registerExtension({
       },
 
       "ChunkerCombine": () => {
-        // update image count label
+        // update images output count label
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           console.log("chunker combine ui", ui);
           const { image_count } = ui.values[0];

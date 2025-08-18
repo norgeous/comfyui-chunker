@@ -206,18 +206,18 @@ class ChunkerCombine:
         print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
         if index >= loop_count - 1:
-            # We're done with the loop, return all completed chunks so far
+            # We're done with the loop, return all completed chunks
             return (completed_images_torch,)
 
         # We want to continue looping
 
-        # add the yet to be completed images back into the control_video that is sent back to the start of the loop
-        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
-        new_images_torch = torch.cat(new_images, dim=0)
-
         # create a copy of the nodes between Chunker and ChunkerCombine
         graph = GraphBuilder()
         comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id)
+
+        # add the yet to be completed images back into the control_video that is sent back to the start of the loop
+        if original_control_video is not None: new_images.extend(slice(original_control_video, len2(new_images), None))
+        new_images_torch = torch.cat(new_images, dim=0)
 
         # set the updated inputs on the Chunker node
         new_open = graph.lookup_node(start_node_id)

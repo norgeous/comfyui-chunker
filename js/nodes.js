@@ -119,8 +119,29 @@ app.registerExtension({
 
           // update chunk info widget
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
+          
           const { startTimestamp } = JSON.parse(infoContainer.querySelector("#data").innerHTML);
           infoContainer.querySelector("#eta").innerHTML = `s${startTimestamp}, n:${Date.now()}`;
+
+          // intervals = (
+          //     ('weeks', 60 * 60 * 24 * 7),
+          //     ('days', 60 * 60 * 24),
+          //     ('hours', 60 * 60),
+          //     ('minutes', 60),
+          //     ('seconds', 1),
+          // )
+
+          // def display_seconds(seconds):
+          //     for name, count in intervals:
+          //         value = seconds // count
+          //         if value:
+          //             v = seconds / count
+          //             seconds -= value * count
+          //             if value == 1:
+          //                 name = name.rstrip('s')
+          //             return(f"~{v:.1f} {name}")
+
+
           infoContainer.querySelector("#image_count").innerHTML = image_count;
           infoContainer.querySelector("#current_chunk").innerHTML = index + 1;
           infoContainer.querySelector("#loop_count").innerHTML = loop_count;

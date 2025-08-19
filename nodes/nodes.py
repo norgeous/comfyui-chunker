@@ -125,7 +125,6 @@ class Chunker:
         after = control_video[after_start:] if control_video is not None else None
 
         chunk_info = {
-            "start_timestamp": datetime.timestamp(datetime.now()),
             "start_node_id": unique_id,
             "index": index,
             "loop_count": loop_count,
@@ -193,7 +192,6 @@ class ChunkerCombine:
         unique_id=None,
         # extra_pnginfo=None
     ):
-        start_timestamp = chunk_info["start_timestamp"]
         start_node_id = chunk_info["start_node_id"]
         index = chunk_info["index"]
         loop_count = chunk_info["loop_count"]
@@ -244,13 +242,6 @@ class ChunkerCombine:
 
         my_clone = graph.lookup_node("Recurse")
 
-        # calculate eta
-        now = datetime.timestamp(datetime.now())
-        last_chunk_delta = now - start_timestamp
-        chunks_remaining = loop_count - index
-        eta_seconds = last_chunk_delta * chunks_remaining
-        eta = display_seconds(eta_seconds)
-
         ui_values = {
             "output_label_values": {
                 "images": None,
@@ -258,7 +249,6 @@ class ChunkerCombine:
             "image_count": image_count,
             "index": index,
             "loop_count": loop_count,
-            "eta": eta,
         }
 
         return {

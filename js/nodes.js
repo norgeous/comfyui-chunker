@@ -59,10 +59,19 @@ app.registerExtension({
         });
       },
 
+
+
+
+
+
+
+
+
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // create chunk info widget
           const element = document.createElement("div");
+          element.insertAdjacentHTML("beforeend", '<div id="data-store" style="display:none">{}</div>');
           element.insertAdjacentHTML("beforeend", '<div>Collected <span id="image_count">0</span> images so far</div>');
           element.insertAdjacentHTML("beforeend", '<div>Completed chunk <span id="current_chunk">0</span> of <span id="loop_count">0</span></div>');
           element.insertAdjacentHTML("beforeend", '<progress style="display:block; width:100%; height:40px;" max="0" value="0" />');
@@ -80,24 +89,25 @@ app.registerExtension({
 
         chainCallback(nodeType.prototype, "onConnectionsChange", function () {
           updateLabels(this, {input_label_values:{images:undefined},output_label_values:{images:undefined}});
-          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget");
-          infoContainer.element.querySelector("#eta").innerHTML = "???";
-          infoContainer.element.querySelector("#image_count").innerHTML = "0";
-          infoContainer.element.querySelector("#current_chunk").innerHTML = "0";
-          infoContainer.element.querySelector("#loop_count").innerHTML = "0";
-          const progress = infoContainer.element.querySelector("progress");
+          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
+          infoContainer.querySelector("#eta").innerHTML = "???";
+          infoContainer.querySelector("#image_count").innerHTML = "0";
+          infoContainer.querySelector("#current_chunk").innerHTML = "0";
+          infoContainer.querySelector("#loop_count").innerHTML = "0";
+          const progress = infoContainer.querySelector("progress");
           progress.value = 0;
           progress.max = 0;
         });
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this, {input_label_values:{images:undefined},output_label_values:{images:undefined}});
-          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget");
-          infoContainer.element.querySelector("#eta").innerHTML = "???";
-          infoContainer.element.querySelector("#image_count").innerHTML = "0";
-          infoContainer.element.querySelector("#current_chunk").innerHTML = "0";
-          infoContainer.element.querySelector("#loop_count").innerHTML = "0";
-          const progress = infoContainer.element.querySelector("progress");
+          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
+          infoContainer.querySelector("#data").innerHTML = JSON.stringify({ startTimestamp: Date.now() });
+          infoContainer.querySelector("#eta").innerHTML = "???";
+          infoContainer.querySelector("#image_count").innerHTML = "0";
+          infoContainer.querySelector("#current_chunk").innerHTML = "0";
+          infoContainer.querySelector("#loop_count").innerHTML = "0";
+          const progress = infoContainer.querySelector("progress");
           progress.value = 0;
           progress.max = 0;
         });
@@ -105,15 +115,16 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
 
-          const { image_count, index, loop_count, eta } = ui.values[0];
+          const { image_count, index, loop_count } = ui.values[0];
 
           // update chunk info widget
-          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget");
-          infoContainer.element.querySelector("#eta").innerHTML = eta;
-          infoContainer.element.querySelector("#image_count").innerHTML = image_count;
-          infoContainer.element.querySelector("#current_chunk").innerHTML = index + 1;
-          infoContainer.element.querySelector("#loop_count").innerHTML = loop_count;
-          const progress = infoContainer.element.querySelector("progress");
+          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
+          const { startTimestamp } = JSON.parse(infoContainer.querySelector("#data").innerHTML);
+          infoContainer.querySelector("#eta").innerHTML = `s${startTimestamp}, n:${Date.now()}`;
+          infoContainer.querySelector("#image_count").innerHTML = image_count;
+          infoContainer.querySelector("#current_chunk").innerHTML = index + 1;
+          infoContainer.querySelector("#loop_count").innerHTML = loop_count;
+          const progress = infoContainer.querySelector("progress");
           progress.value = index + 1;
           progress.max = loop_count;
         });

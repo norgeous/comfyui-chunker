@@ -1,8 +1,9 @@
+from datetime import datetime
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
+from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask, display_seconds
 from .repeatnodes import comfyuiRepeatNodes
 
 class Chunker:
@@ -14,8 +15,8 @@ class Chunker:
         return {
             "required": {
                 "index": ("INT", {"default": 0, "tooltip": "Starting index. This should be hidden in the UI"}),
-                "width": ("INT", {"default": 480, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
-                "height": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
+                "width": ("INT", {"default": 832, "min": 64, "max": 8096, "step": 8, "tooltip": "Width of the output control_video and control_masks"}),
+                "height": ("INT", {"default": 464, "min": 64, "max": 8096, "step": 8, "tooltip": "Height of the output control_video and control_masks"}),
                 "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"], {"tooltip": "`keep_input` = use width and height as megapixel density and retain original aspect ratio\n`stretch_to_new` = stretch to exact size specified\n`crop_to_new` = scale and crop to exact specified size"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
@@ -65,7 +66,7 @@ class Chunker:
         # extra_pnginfo=None,
     ):
         # calculate how many chunks we need to fill total_length
-        loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+        loop_count = max(1, math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap)))
 
         print(f"\U0001F36B  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
 
@@ -120,15 +121,16 @@ class Chunker:
         control_masks_chunk.extend([white_panel] * (chunk_length - len2(control_masks_chunk)))
 
         # collect chunks to be sent to ChunkerCombine
-        previous_chunks = control_video[:overlap_start] if control_video is not None else None
-        future_chunks = control_video[after_start:] if control_video is not None else None
+        before = control_video[:overlap_start] if control_video is not None else None
+        after = control_video[after_start:] if control_video is not None else None
 
         chunk_info = {
+            "start_timestamp": datetime.timestamp(datetime.now()),
             "start_node_id": unique_id,
             "index": index,
             "loop_count": loop_count,
-            "previous_chunks": previous_chunks,
-            "future_chunks": future_chunks,
+            "before": before,
+            "after": after,
         }
 
         ui_values = {
@@ -190,24 +192,31 @@ class ChunkerCombine:
         unique_id=None,
         # extra_pnginfo=None
     ):
+        start_timestamp = chunk_info["start_timestamp"]
         start_node_id = chunk_info["start_node_id"]
         index = chunk_info["index"]
         loop_count = chunk_info["loop_count"]
-        previous_chunks = chunk_info["previous_chunks"]
-        future_chunks = chunk_info["future_chunks"]
-
-        new_images = []
-        if previous_chunks is not None: new_images.extend([previous_chunks])
-        new_images.extend([images])
-        completed_images_torch = torch.cat(new_images, dim=0)
-        completed_images_count = len(completed_images_torch)
+        before = chunk_info["before"]
+        after = chunk_info["after"]
 
         print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
 
+        out_images = []
+        if before is not None: out_images.extend([before])
+        out_images.extend([images])
+        image_count = len2(out_images)
+
         if index >= loop_count - 1:
             # We're done with the loop, return all completed chunks
+            ui_values = {
+                "image_count_in": "",
+                "image_count_out": image_count,
+                "eta": "Done",
+            }
+            completed_images_torch = torch.cat(out_images, dim=0)
             return {
-                "ui": {"values": [{"image_count": completed_images_count}]},
+                "ui": {"values": [ui_values]},
+                #"ui": {"values": [{"image_count_out": image_count, "eta": "Done"}]},
                 "result":(completed_images_torch,)
             }
 
@@ -218,21 +227,34 @@ class ChunkerCombine:
         comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id)
 
         # add the yet to be completed images back into the control_video that is sent back to the start of the loop
-        if future_chunks is not None:  new_images.extend([future_chunks])
+        if after is not None: out_images.extend([after])
 
-        new_images_torch = torch.cat(new_images, dim=0)
+        out_images_torch = torch.cat(out_images, dim=0)
 
         # set the updated inputs on the Chunker node
-        new_open = graph.lookup_node(start_node_id)
-        new_open.set_input("control_video", new_images_torch) # update the start node's control_video with copy which includes the new chunk
+        new_chunker = graph.lookup_node(start_node_id)
+        new_chunker.set_input("control_video", out_images_torch) # update the start node's control_video with copy which includes the new chunk
 
         # increment start node's index, so it knows which chunk is next
-        new_open.set_input("index", index + 1)
+        new_chunker.set_input("index", index + 1)
 
         my_clone = graph.lookup_node("Recurse")
 
+        # calculate eta
+        now = datetime.timestamp(datetime.now())
+        last_chunk_delta = now - start_timestamp
+        chunks_remaining = loop_count - index
+        eta_seconds = last_chunk_delta * chunks_remaining
+        eta = display_seconds(eta_seconds)
+
+        ui_values = {
+            "image_count_in": image_count,
+            "image_count_out": "",
+            "eta": eta,
+        }
+
         return {
-            "ui": {"values": [{"image_count": completed_images_count}]},
-            "result": (my_clone.out(0),),
+            "ui": {"values": [ui_values]},
+	    "result": (my_clone.out(0),),
             "expand": graph.finalize(),
         }

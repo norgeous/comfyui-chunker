@@ -49,11 +49,31 @@ def kijaiWanResizeCalc(image, generation_width, generation_height, aspect_ratio)
 def resizeImage(image, width, height, aspect_ratio):
     if image is None: return None
     w, h, crop = kijaiWanResizeCalc(image, width, height, aspect_ratio)
+    if image.shape[1] == h and image.shape[2] == w: return image
     resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1)
     return resized_image
 
 def resizeMask(mask, width, height, aspect_ratio):
     if mask is None: return None
     w, h, crop = kijaiWanResizeCalc(mask, width, height, aspect_ratio)
+    if mask.shape[1] == h and mask.shape[2] == w: return mask
     resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0]
     return resized_mask
+
+intervals = (
+    ('weeks', 60 * 60 * 24 * 7),
+    ('days', 60 * 60 * 24),
+    ('hours', 60 * 60),
+    ('minutes', 60),
+    ('seconds', 1),
+)
+
+def display_seconds(seconds):
+    for name, count in intervals:
+        value = seconds // count
+        if value:
+            v = seconds / count
+            seconds -= value * count
+            if value == 1:
+                name = name.rstrip('s')
+            return(f"~{v:.1f} {name}")

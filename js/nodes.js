@@ -47,11 +47,7 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onConnectionsChange", function () {
-          updateLabels(this, {output_label_values:{width:undefined,height:undefined,chunk_length:undefined,index:undefined}});
-        });
-
-        chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this, {output_label_values:{width:undefined,height:undefined,chunk_length:undefined,index:undefined}});
+          updateLabels(this, { output_label_values: { width: undefined, height: undefined, chunk_length: undefined, index: undefined }});
         });
 
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
@@ -71,24 +67,26 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // create chunk info widget
           const element = document.createElement("div");
-          element.insertAdjacentHTML("beforeend", '<div id="data-store" style="display:none">{}</div>');
-          element.insertAdjacentHTML("beforeend", '<div>Collected <span id="image_count">0</span> images so far</div>');
-          element.insertAdjacentHTML("beforeend", '<div>Completed chunk <span id="current_chunk">0</span> of <span id="loop_count">0</span></div>');
-          element.insertAdjacentHTML("beforeend", '<progress style="display:block; width:100%; height:40px;" max="0" value="0" />');
+          element.insertAdjacentHTML("beforeend", '<div id="data_store" style="display:none">{}</div>');
+          element.insertAdjacentHTML("beforeend", '<div>Chunk <span id="current_chunk">0</span> of <span id="loop_count">0</span></div>');
           element.insertAdjacentHTML("beforeend", '<div>ETA: <span id="eta">???</span></div>');
+          element.insertAdjacentHTML("beforeend", '<progress style="display:block; width:100%;" max="0" value="0" />');
+          element.insertAdjacentHTML("beforeend", '<div><span id="image_count">0</span> images</div>');
           element.style.padding = "0 10px";
           element.style.fontSize = "12px";
+          element.style.textAlign = "center";
 
           this.uuid = makeUUID();
           element.id = `chunk-info-${this.uuid}`;
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
             serialize: false,
             hideOnZoom: false,
+            getHeight: () => 70,
           });
         });
 
         chainCallback(nodeType.prototype, "onConnectionsChange", function () {
-          updateLabels(this, {input_label_values:{images:undefined},output_label_values:{images:undefined}});
+          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           infoContainer.querySelector("#eta").innerHTML = "???";
           infoContainer.querySelector("#image_count").innerHTML = "0";
@@ -100,9 +98,9 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this, {input_label_values:{images:undefined},output_label_values:{images:undefined}});
+          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          infoContainer.querySelector("#data").innerHTML = JSON.stringify({ startTimestamp: Date.now() });
+          infoContainer.querySelector("#data_store").innerHTML = JSON.stringify({ startTimestamp: Date.now() });
           infoContainer.querySelector("#eta").innerHTML = "???";
           infoContainer.querySelector("#image_count").innerHTML = "0";
           infoContainer.querySelector("#current_chunk").innerHTML = "0";
@@ -119,34 +117,35 @@ app.registerExtension({
 
           // update chunk info widget
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          
-          const { startTimestamp } = JSON.parse(infoContainer.querySelector("#data").innerHTML);
-          infoContainer.querySelector("#eta").innerHTML = `s${startTimestamp}, n:${Date.now()}`;
 
-          // intervals = (
-          //     ('weeks', 60 * 60 * 24 * 7),
-          //     ('days', 60 * 60 * 24),
-          //     ('hours', 60 * 60),
-          //     ('minutes', 60),
-          //     ('seconds', 1),
-          // )
+          const { startTimestamp } = JSON.parse(infoContainer.querySelector("#data_store").innerHTML);
 
-          // def display_seconds(seconds):
-          //     for name, count in intervals:
-          //         value = seconds // count
-          //         if value:
-          //             v = seconds / count
-          //             seconds -= value * count
-          //             if value == 1:
-          //                 name = name.rstrip('s')
-          //             return(f"~{v:.1f} {name}")
+          const elapsed = Date.now() - startTimestamp;
+          const chunks_completed = index + 1;
+          const chunks_remaining = loop_count - chunks_completed;
+          const average_delta = elapsed / chunks_completed;
+          const etaSeconds = chunks_remaining * average_delta;
 
+          const intervals = {
+            years: 1000 * 60 * 60 * 24 * 7 * 52,
+            weeks: 1000 * 60 * 60 * 24 * 7,
+            days: 1000 * 60 * 60 * 24,
+            hours: 1000 * 60 * 60,
+            minutes: 1000 * 60,
+            seconds: 1000,
+            milliseconds: 1,
+          };
 
+          const unit = Object.entries(intervals).find(([k, v]) => ~~(etaSeconds / v)) || ['done', 1];
+          const value = +(etaSeconds / unit[1]).toFixed(1);
+          const eta = `${value} ${value === 1 ? unit[0].replace(/s$/, '') : unit[0]}`;
+
+          infoContainer.querySelector("#eta").innerHTML = eta;
           infoContainer.querySelector("#image_count").innerHTML = image_count;
           infoContainer.querySelector("#current_chunk").innerHTML = index + 1;
           infoContainer.querySelector("#loop_count").innerHTML = loop_count;
           const progress = infoContainer.querySelector("progress");
-          progress.value = index + 1;
+          progress.value = chunks_completed;
           progress.max = loop_count;
         });
       },

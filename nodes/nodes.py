@@ -3,7 +3,7 @@ import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask, display_seconds
+from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
 from .repeatnodes import comfyuiRepeatNodes
 
 class Chunker:

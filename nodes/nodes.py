@@ -134,11 +134,12 @@ class Chunker:
         }
 
         ui_values = {
-            "width": w,
-            "height": h,
-            "chunk_length": chunk_length,
-            "index": index,
-            "loop_count": loop_count,
+            "output_label_values": {
+                "width": w,
+                "height": h,
+                "chunk_length": chunk_length,
+                "index": index,
+            },
         }
 
         return {
@@ -209,14 +210,17 @@ class ChunkerCombine:
         if index >= loop_count - 1:
             # We're done with the loop, return all completed chunks
             ui_values = {
-                "image_count_in": "",
-                "image_count_out": image_count,
+                "output_label_values": {
+                    "images": image_count,
+                },
+                "image_count": image_count,
+                "index": index,
+                "loop_count": loop_count,
                 "eta": "Done",
             }
             completed_images_torch = torch.cat(out_images, dim=0)
             return {
                 "ui": {"values": [ui_values]},
-                #"ui": {"values": [{"image_count_out": image_count, "eta": "Done"}]},
                 "result":(completed_images_torch,)
             }
 
@@ -248,8 +252,12 @@ class ChunkerCombine:
         eta = display_seconds(eta_seconds)
 
         ui_values = {
-            "image_count_in": image_count,
-            "image_count_out": "",
+            "output_label_values": {
+                "images": None,
+            },
+            "image_count": image_count,
+            "index": index,
+            "loop_count": loop_count,
             "eta": eta,
         }
 

@@ -45,6 +45,14 @@ const humanSeconds = seconds => {
   return `~${value} ${value === 1 ? unit[0].replace(/s$/, '') : unit[0]}`;
 };
 
+const jsonDivStore = (element) => {
+  element.insertAdjacentHTML("afterstart", '<div id="data_store" style="display:block">{}</div>');
+  const storeElement = element.querySelector("#data_store");
+  const get = () => JSON.parse(storeElement.innerHTML);
+  const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data });
+  return { get, set };
+};
+
 const updateLabels = (that, ui_values) => {
   Object.entries(ui_values.input_label_values || [])
     .forEach(([k, v]) => that.inputs.find(({ name }) => name === k).label = [k, v].filter(x => ![undefined, null].includes(x)).join(' '));
@@ -78,7 +86,6 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          element.insertAdjacentHTML("beforeend", '<div id="data_store" style="display:none">{}</div>');
           element.insertAdjacentHTML("beforeend", '<div>Got chunk <span id="current_chunk">0</span> of <span id="loop_count">0</span></div>');
           element.insertAdjacentHTML("beforeend", '<div>ETA: <span id="eta">???</span></div>');
           element.insertAdjacentHTML("beforeend", '<progress style="display:block; width:100%;" max="0" value="0" />');
@@ -88,10 +95,9 @@ app.registerExtension({
           element.style.fontSize = "12px";
           element.style.textAlign = "center";
 
+          this.store = jsonDivStore(element);
           setTimeout(() => {
-            const { startTimestamp = 0 } = JSON.parse(element.querySelector("#data_store").innerHTML);
-
-            console.log({element, startTimestamp});
+            const { startTimestamp, index = 0, loop_count = 0 } = this.store.get();
 
             if (!startTimestamp) {
               element.querySelector("#eta").innerHTML = "Awaiting first chunk...";
@@ -105,7 +111,7 @@ app.registerExtension({
             const etaSeconds = chunks_remaining * average_delta;
             const eta = humanSeconds(etaSeconds);
 
-            element.querySelector("#eta").innerHTML = startTimestamp ? eta : "waiting...";
+            element.querySelector("#eta").innerHTML = eta;
           }, 1_000);
 
           this.uuid = makeUUID();
@@ -132,7 +138,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          infoContainer.querySelector("#data_store").innerHTML = JSON.stringify({ startTimestamp: Date.now() });
+          this.store.set({ startTimestamp: Date.now() });
           infoContainer.querySelector("#eta").innerHTML = "???";
           infoContainer.querySelector("#image_count").innerHTML = "0";
           infoContainer.querySelector("#current_chunk").innerHTML = "0";
@@ -147,17 +153,19 @@ app.registerExtension({
 
           const { image_count, index, loop_count, video_path } = ui.values[0];
 
+          this.store.set(ui.values[0]);
+
           // update chunk info widget
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
 
-          const { startTimestamp } = JSON.parse(infoContainer.querySelector("#data_store").innerHTML);
+          const { startTimestamp } = this.store.get();
 
           const elapsed = Date.now() - startTimestamp;
           const chunks_completed = index + 1;
           const chunks_remaining = loop_count - chunks_completed;
           const average_delta = elapsed / chunks_completed;
           const etaSeconds = chunks_remaining * average_delta;
-            const eta = humanSeconds(etaSeconds);
+          const eta = humanSeconds(etaSeconds);
 
           infoContainer.querySelector("#eta").innerHTML = eta;
           infoContainer.querySelector("#image_count").innerHTML = image_count;

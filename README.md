@@ -35,3 +35,25 @@ Combines all modified chunks into one sequence.
 |---------------|----------|---------|----------------------------------------------|
 | chunk_info    | YES      | None    | Connect chunk_info from Chunker node to here |
 | images        | YES      | None    | Processed chunk of images                    |
+
+## Donations
+
+## Known bugs
+
+- When using Load Image with mask connected, but no mask drawn, then Chunker throws error
+- Chunker "index" input is not fully hidden and Chunker is wrong height as a result of that
+- Combine node is wrong size (too small) when adding a new one
+- VACE sometimes rejects the size (esp. some smaller sizes)
+
+## Future / Ideas
+
+- Styling Combine > chunk-info widget
+- Improve ETA that actually counts down minutes
+  - Improve loading bar, so it's continually moving with improved ETA
+- setting for overlaying frame numbers and chunk info (chunk number and is_overlap) into the preview video
+- prep for release
+  - revise readme and samples
+  - finalise a few workflows
+  - test everything
+  - trash this repo make a new one with one commit
+  - publish to comfyui-manager via PR

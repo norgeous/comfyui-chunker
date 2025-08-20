@@ -21,7 +21,7 @@ class Chunker:
                 "aspect_ratio": (["keep_input", "stretch_to_new", "crop_to_new"], {"tooltip": "`keep_input` = use width and height as megapixel density and retain original aspect ratio\n`stretch_to_new` = stretch to exact size specified\n`crop_to_new` = scale and crop to exact specified size"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
-                "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Count of images in the final output"}),
+                "total_length": ("INT", {"default": 158, "min": 1, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output"}),
             },
             "optional": {
                 "control_video": ("IMAGE", {"tooltip": "None, Single Image or Images to be chunked"}),
@@ -35,8 +35,8 @@ class Chunker:
             }
         }
 
-    RETURN_TYPES = ("CHUNK_INFO", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunk_info", "control_video", "control_masks", "width", "height", "chunk_length", "index")
+    RETURN_TYPES = ("CHUNK_INFO", "IMAGE", "MASK", "INT", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunk_info", "control_video", "control_masks", "width", "height", "chunk_length", "index", "loop_count")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunk_info\" to the \"ChunkerCombine\" node",
         "Chunk of control_video for WanVaceToVideo",
@@ -45,6 +45,7 @@ class Chunker:
         "Height of control_video and control_masks",
         "The length of this chunk",
         "The current itteration index, ie; 0, 1, 2, ...",
+        "Total count of chunks",
     )
     FUNCTION = "chunker_start"
     CATEGORY = "Chunker"
@@ -139,6 +140,7 @@ class Chunker:
                 "height": h,
                 "chunk_length": chunk_length,
                 "index": index,
+                "loop_count": loop_count,
             },
         }
 
@@ -152,6 +154,7 @@ class Chunker:
                 h,
                 chunk_length,
                 index,
+                loop_count,
             ),
         }
 
@@ -166,6 +169,7 @@ class ChunkerCombine:
             "required": {
                 "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
+                "preview_fps": ("INT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
             },
             "optional": {
             },
@@ -183,11 +187,13 @@ class ChunkerCombine:
     FUNCTION = "chunker_end"
     CATEGORY = "Chunker"
     DESCRIPTION = "ChunkerCombine"
+    OUTPUT_NODE = True
 
     def chunker_end(
         self,
         chunk_info,
         images,
+        preview_fps,
         # prompt=None,
         dynprompt=None,
         unique_id=None,
@@ -209,9 +215,10 @@ class ChunkerCombine:
 
         # save preview video
         create_video_node = CreateVideo()
-        video, = create_video_node.create_video(completed_images_torch, 16)
+        video, = create_video_node.create_video(completed_images_torch, preview_fps)
         save_video_node = SaveVideo()
-        save_result = save_video_node.save_video(video, f"video/chunker/{'tmp/tmp' if index+1 != loop_count else 'complete/chunker'}", "auto", "auto")
+        save_to = "video/chunker/tmp/tmp" if index+1 != loop_count else 'video/chunker/complete/chunker'
+        save_result = save_video_node.save_video(video, save_to, "auto", "auto")
         video_path = save_result["ui"]["images"][0]
 
         if index >= loop_count - 1:

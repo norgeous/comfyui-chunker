@@ -12,7 +12,7 @@ def explore_dependencies(node_id, dynprompt, upstream, parent_ids):
             display_id = dynprompt.get_display_node_id(parent_id)
             display_node = dynprompt.get_node(display_id)
             class_type = display_node["class_type"]
-            if class_type not in ['ChunkerCombine']:
+            if class_type not in ["ChunkerCombine"]:
                 parent_ids.append(display_id)
             if parent_id not in upstream:
                 upstream[parent_id] = []
@@ -58,7 +58,7 @@ def comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id):
             continue
         class_type = node["class_type"]
         class_def = ALL_NODE_CLASS_MAPPINGS[class_type]
-        if hasattr(class_def, 'OUTPUT_NODE') and class_def.OUTPUT_NODE == True:
+        if hasattr(class_def, 'OUTPUT_NODE') and class_def.OUTPUT_NODE == True and class_type not in ["ChunkerCombine"]:
             for k, v in node['inputs'].items():
                 if is_link(v):
                     output_nodes[id] = v

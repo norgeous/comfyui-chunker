@@ -12,7 +12,7 @@ def explore_dependencies(node_id, dynprompt, upstream, parent_ids):
             display_id = dynprompt.get_display_node_id(parent_id)
             display_node = dynprompt.get_node(display_id)
             class_type = display_node["class_type"]
-            if class_type not in ['ChunkerCombine', 'easy forLoopEnd', 'easy whileLoopEnd']:
+            if class_type not in ['ChunkerCombine']:
                 parent_ids.append(display_id)
             if parent_id not in upstream:
                 upstream[parent_id] = []
@@ -82,3 +82,11 @@ def comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id):
                 node.set_input(k, parent.out(v[1]))
             else:
                 node.set_input(k, v)
+
+def getNodeIdsByType(prompt, type):
+    ids = []
+    for id in prompt:
+        node = prompt[id]
+        class_type = node["class_type"]
+        if class_type == type: ids.append(id)
+    return ids

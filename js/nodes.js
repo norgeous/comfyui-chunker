@@ -54,17 +54,11 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
         });
       },
-
-
-
-
-
-
-
-
-
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          //this.setSize([150, 100]);
+          //this.resizable = false;
+
           // create chunk info widget
           const element = document.createElement("div");
           element.insertAdjacentHTML("beforeend", '<div id="data_store" style="display:none">{}</div>');
@@ -72,7 +66,8 @@ app.registerExtension({
           element.insertAdjacentHTML("beforeend", '<div>ETA: <span id="eta">???</span></div>');
           element.insertAdjacentHTML("beforeend", '<progress style="display:block; width:100%;" max="0" value="0" />');
           element.insertAdjacentHTML("beforeend", '<div><span id="image_count">0</span> images</div>');
-          element.style.padding = "0 10px";
+          element.insertAdjacentHTML("beforeend", '<video controls autoplay loop style="width:100%; height:calc(100% - 54px); background: black;" />');
+          //element.style.padding = "0 10px";
           element.style.fontSize = "12px";
           element.style.textAlign = "center";
 
@@ -113,7 +108,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
 
-          const { image_count, index, loop_count } = ui.values[0];
+          const { image_count, index, loop_count, video_path } = ui.values[0];
 
           // update chunk info widget
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
@@ -138,12 +133,13 @@ app.registerExtension({
 
           const unit = Object.entries(intervals).find(([k, v]) => ~~(etaSeconds / v)) || ['done', 1];
           const value = +(etaSeconds / unit[1]).toFixed(1);
-          const eta = `${value} ${value === 1 ? unit[0].replace(/s$/, '') : unit[0]}`;
+          const eta = `~${value} ${value === 1 ? unit[0].replace(/s$/, '') : unit[0]}`;
 
           infoContainer.querySelector("#eta").innerHTML = eta;
           infoContainer.querySelector("#image_count").innerHTML = image_count;
           infoContainer.querySelector("#current_chunk").innerHTML = index + 1;
           infoContainer.querySelector("#loop_count").innerHTML = loop_count;
+          if (video_path) infoContainer.querySelector("video").src = `/api/view?${new URLSearchParams(video_path).toString()}`;
           const progress = infoContainer.querySelector("progress");
           progress.value = chunks_completed;
           progress.max = loop_count;

@@ -4,7 +4,8 @@ import math
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
-from .repeatnodes import comfyuiRepeatNodes
+from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
+from comfy_extras.nodes_video import CreateVideo, SaveVideo
 
 class Chunker:
     def __init__(self):
@@ -204,6 +205,14 @@ class ChunkerCombine:
         if before is not None: out_images.extend([before])
         out_images.extend([images])
         image_count = len2(out_images)
+        completed_images_torch = torch.cat(out_images, dim=0)
+
+        # save preview video
+        create_video_node = CreateVideo()
+        video, = create_video_node.create_video(completed_images_torch, 16)
+        save_video_node = SaveVideo()
+        save_result = save_video_node.save_video(video, f"video/chunker/{'tmp/tmp' if index+1 != loop_count else 'complete/chunker'}", "auto", "auto")
+        video_path = save_result["ui"]["images"][0]
 
         if index >= loop_count - 1:
             # We're done with the loop, return all completed chunks
@@ -214,9 +223,8 @@ class ChunkerCombine:
                 "image_count": image_count,
                 "index": index,
                 "loop_count": loop_count,
-                "eta": "Done",
+                "video_path": video_path,
             }
-            completed_images_torch = torch.cat(out_images, dim=0)
             return {
                 "ui": {"values": [ui_values]},
                 "result":(completed_images_torch,)
@@ -240,7 +248,13 @@ class ChunkerCombine:
         # increment start node's index, so it knows which chunk is next
         new_chunker.set_input("index", index + 1)
 
-        my_clone = graph.lookup_node("Recurse")
+        # increment seeds in cloned KSamplers, to prevent same motion
+        ids = getNodeIdsByType(graph.finalize(), "KSampler")
+        for id in ids:
+            real_id = id.replace(f"{unique_id}.0.0.", "")
+            node = graph.lookup_node(real_id)
+            seed = node.get_input("seed")
+            node.set_input("seed", seed + index + 1)
 
         ui_values = {
             "output_label_values": {
@@ -249,7 +263,10 @@ class ChunkerCombine:
             "image_count": image_count,
             "index": index,
             "loop_count": loop_count,
+            "video_path": video_path,
         }
+
+        my_clone = graph.lookup_node("Recurse")
 
         return {
             "ui": {"values": [ui_values]},

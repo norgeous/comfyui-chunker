@@ -31,7 +31,7 @@ function chainCallback(object, property, callback) {
 }
 
 const humanMillis = seconds => {
-  if (seconds < 0) return '0';
+  if (seconds <= 0) return '-';
   const intervals = {
     years: 1000 * 60 * 60 * 24 * 7 * 52,
     weeks: 1000 * 60 * 60 * 24 * 7,
@@ -43,14 +43,13 @@ const humanMillis = seconds => {
   };
   const warn = ['years', 'weeks', 'days', 'hours'];
   const precision = { years: 2, weeks: 2, days: 2, hours: 2, mins: 1, secs: 0, millis: 0 };
-  const secs = Math.abs(seconds);
-  const [k, v] = Object.entries(intervals).find(([k, v]) => ~~(secs / v));
-  const value = +(secs / v).toFixed(precision[k]);
-  return `${value} ${value === 1 ? k.replace(/s$/, '') : k}${warn.includes(k) ? ' !' : ''}`;
+  const [k, v] = Object.entries(intervals).find(([k, v]) => ~~(seconds / v));
+  const value = +(seconds / v).toFixed(precision[k]);
+  return `${value} ${value === 1 ? k.replace(/s$/, '') : k}${warn.includes(k) ? ' \u26A0\uFE0F' : ''}`;
 };
 
 const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("afterBegin", '<pre id="data_store" style="display:none; font-size:8px; text-align:left;">{}</pre>');
+  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="display:none; font-size:8px; text-align:left;">{}</pre>');
   const storeElement = element.querySelector("#data_store");
   const get = () => JSON.parse(storeElement.innerHTML);
   const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);
@@ -90,34 +89,47 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          element.insertAdjacentHTML("beforeEnd", '<div>Got chunk <span id="current_chunk">0</span> of <span id="loop_count">0</span></div>');
-          element.insertAdjacentHTML("beforeEnd", '<div>ETA: <span id="eta">???</span></div>');
-          element.insertAdjacentHTML("beforeEnd", '<progress style="display:block; width:100%;" max="0" value="0" />');
-          element.insertAdjacentHTML("beforeEnd", '<div><span id="image_count">0</span> images</div>');
-          element.insertAdjacentHTML("beforeEnd", '<video controls autoplay loop style="width:100%; height:calc(100% - 54px); background: black;" />');
-          //element.style.padding = "0 10px";
-          element.style.fontSize = "12px";
+          const statusHeight = 20;
+          element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
+          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
+          element.style.display = "flex";
+          element.style.flexDirection = "column";
+          element.style.gap = "8px";
+          element.style.fontSize = "10px";
           element.style.textAlign = "center";
           element.style.color = "var(--descrip-text)";
-          //element.style.background = "var(--content-bg)";
 
           this.store = jsonDivStore(element);
           setInterval(() => {
-            const { startTimestamp, lastTimestamp, index = 0, loop_count = 0 } = this.store.get();
+            const { timestamp1, timestamp2, index = 0, loop_count = 0 } = this.store.get();
 
-            if (!lastTimestamp) {
-              element.querySelector("#eta").innerHTML = "Awaiting first chunk...";
+            if (!timestamp2) {
+              element.querySelector("#status").innerHTML = "";
               return;
             }
 
-            const elapsed = lastTimestamp - startTimestamp;
+            const waitMillis = Date.now() - timestamp2;
+
+            if (!timestamp1) {
+              element.querySelector("#status").innerHTML = `Awaiting images for ${humanMillis(waitMillis)}...`;
+              return;
+            }
+
             const chunks_completed = index + 1;
             const chunks_remaining = loop_count - chunks_completed;
-            const average_delta = elapsed / chunks_completed;
-            const etaMillis = chunks_remaining * average_delta;
-            const elapsed2 = Date.now() - lastTimestamp;
-            const eta = humanMillis(etaMillis - elapsed2);
-            element.querySelector("#eta").innerHTML = eta;
+            const isDone = chunks_completed === loop_count;
+
+            if (isDone) {
+              element.querySelector("#status").innerHTML = "Done";
+              return;
+            }
+
+            const lastChunkDelta = timestamp2 - timestamp1;
+            const sinceLastTimestamp = Date.now() - timestamp2;
+            const nextChunkMillis = lastChunkDelta - sinceLastTimestamp;
+            const finalChunkMillis = (lastChunkDelta * chunks_remaining) - sinceLastTimestamp;
+
+            element.querySelector("#status").innerHTML = `<div>Next: ${humanMillis(nextChunkMillis)}, Final: ${humanMillis(finalChunkMillis)}</div><progress style="display:block; width:100%;" value="${chunks_completed}" max="${loop_count}" />`;
           }, 1_000);
 
           this.uuid = makeUUID();
@@ -125,47 +137,26 @@ app.registerExtension({
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
             serialize: false,
             hideOnZoom: false,
-            getHeight: () => 70,
+            // getHeight: () => 70,
           });
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
-          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          infoContainer.querySelector("#image_count").innerHTML = "0";
-          infoContainer.querySelector("#current_chunk").innerHTML = "0";
-          infoContainer.querySelector("#loop_count").innerHTML = "0";
-          const progress = infoContainer.querySelector("progress");
-          progress.value = 0;
-          progress.max = 0;
         });
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
-          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          this.store.set({ startTimestamp: Date.now(), lastTimestamp: undefined, index: undefined, loop_count: undefined });
-          infoContainer.querySelector("#image_count").innerHTML = "0";
-          infoContainer.querySelector("#current_chunk").innerHTML = "0";
-          infoContainer.querySelector("#loop_count").innerHTML = "0";
-          const progress = infoContainer.querySelector("progress");
-          progress.value = 0;
-          progress.max = 0;
+          this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, loop_count: undefined });
         });
 
+        // or onAfterExecuteNode
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
           const { image_count, index, loop_count, video_path } = ui.values[0];
-          this.store.set({ lastTimestamp: Date.now(), index, loop_count });
+          this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, loop_count });
 
-          // update chunk info widget
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          infoContainer.querySelector("#image_count").innerHTML = image_count;
-          infoContainer.querySelector("#current_chunk").innerHTML = index + 1;
-          infoContainer.querySelector("#loop_count").innerHTML = loop_count;
-          const progress = infoContainer.querySelector("progress");
-          progress.value = index + 1;
-          progress.max = loop_count;
-
           if (video_path) infoContainer.querySelector("video").src = `/api/view?${new URLSearchParams(video_path).toString()}`;
         });
       },

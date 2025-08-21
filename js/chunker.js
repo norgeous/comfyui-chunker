@@ -137,7 +137,7 @@ app.registerExtension({
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
             serialize: false,
             hideOnZoom: false,
-            // getHeight: () => 70,
+            getHeight: () => 200,
           });
         });
 

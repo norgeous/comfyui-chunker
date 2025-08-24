@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-# from https://github.com/munkyfoot/ComfyUI-TextOverlay/blob/main/nodes.py
+# mostly from https://github.com/munkyfoot/ComfyUI-TextOverlay/blob/main/nodes.py
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
@@ -27,7 +27,6 @@ def draw_text(
     line_spacing,
     use_cache=False,
 ):
-    device = device
     _loaded_font = None
     _full_text = None
     _x = None
@@ -148,7 +147,8 @@ def batch_draw_text(
         image_tensor_out = torch.tensor(np.array(image).astype(np.float32) / 255.0)
         image_tensor_out = torch.unsqueeze(image_tensor_out, 0)
         return image_tensor_out
-    else:  # Batch of images
+    else:
+        # Batch of images
         image_np = image.cpu().numpy()
         images = [Image.fromarray((img * 255).astype(np.uint8)) for img in image_np]
         images_out, use_cache = [], False
@@ -156,7 +156,7 @@ def batch_draw_text(
         for i, img in enumerate(images):
             img = draw_text(
                 img,
-                texts[i] or "nothing",
+                texts[i],
                 font_size,
                 font,
                 fill_color_hex,

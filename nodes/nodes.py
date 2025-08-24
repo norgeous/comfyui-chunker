@@ -8,6 +8,13 @@ from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
 from .textOverlay import batch_draw_text
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
 
+def get_debug_frame_text(total, index, chunk_length, chunk_overlap, loop_count):
+    chunk_index = index // (chunk_length - chunk_overlap)
+    chunk_index_o = (index - chunk_overlap) // (chunk_length - chunk_overlap)
+    is_overlap = chunk_index != chunk_index_o
+    o = "\U0001F525" if is_overlap else ""
+    return f"{index + 1:05d} / {total:05d}\n{chunk_index + 1:03d} of {loop_count:03d}\n{o}"
+
 class Chunker:
     def __init__(self):
         pass
@@ -131,6 +138,8 @@ class Chunker:
             "start_node_id": unique_id,
             "index": index,
             "loop_count": loop_count,
+            "chunk_length": chunk_length,
+            "chunk_overlap": chunk_overlap,
             "before": before,
             "after": after,
         }
@@ -170,8 +179,8 @@ class ChunkerCombine:
             "required": {
                 "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
-                "debug_overlay": ("BOOL", {"tooltip": "Show debug in preview"}),
                 "preview_fps": ("INT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
+                "debug": ("BOOLEAN", {"default": False, "tooltip": "Show debug overlay in preview"}),
             },
             "optional": {
             },
@@ -195,7 +204,7 @@ class ChunkerCombine:
         self,
         chunk_info,
         images,
-        debug_overlay,
+        debug,
         preview_fps,
         # prompt=None,
         dynprompt=None,
@@ -205,6 +214,8 @@ class ChunkerCombine:
         start_node_id = chunk_info["start_node_id"]
         index = chunk_info["index"]
         loop_count = chunk_info["loop_count"]
+        chunk_length = chunk_info["chunk_length"]
+        chunk_overlap = chunk_info["chunk_overlap"]
         before = chunk_info["before"]
         after = chunk_info["after"]
 
@@ -218,20 +229,21 @@ class ChunkerCombine:
 
         # save preview video
         create_video_node = CreateVideo()
-        preview_video_torch = completed_images_torch if not debug_overlay else batch_draw_text(
+        preview_video_torch = completed_images_torch if not debug else batch_draw_text(
             completed_images_torch,
-            [f"frame {v:05d}" for v in range(1, len(completed_images_torch))],
-            32,
-            "arial.ttf",
+            #[f"{v:05d}\ntest" for v in range(0, len(completed_images_torch))],
+            [get_debug_frame_text(len(completed_images_torch), i, chunk_length, chunk_overlap, loop_count) for i in range(0, len(completed_images_torch))],
+            18,
+            "ariblk.ttf",
             "#FFFFFF",
             "#000000",
-            0.1,
-            16,
+            0.2,
+            8,
             "right",
             "top",
             0,
             0,
-            4,
+            0,
         )
         video, = create_video_node.create_video(preview_video_torch, preview_fps)
         save_video_node = SaveVideo()

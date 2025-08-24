@@ -5,15 +5,9 @@ from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
 from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
-from .textOverlay import batch_draw_text
+from .textOverlay import overlay_debug
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
 
-def get_debug_frame_text(total, index, chunk_length, chunk_overlap, loop_count):
-    chunk_index = index // (chunk_length - chunk_overlap)
-    chunk_index_o = (index - chunk_overlap) // (chunk_length - chunk_overlap)
-    is_overlap = chunk_index != chunk_index_o
-    o = "\U0001F525" if is_overlap else ""
-    return f"{index + 1:05d} / {total:05d}\n{chunk_index + 1:03d} of {loop_count:03d}\n{o}"
 
 class Chunker:
     def __init__(self):
@@ -227,24 +221,11 @@ class ChunkerCombine:
         image_count = len2(out_images)
         completed_images_torch = torch.cat(out_images, dim=0)
 
+        # apply debug overlay
+        preview_video_torch = overlay_debug(completed_images_torch, debug, chunk_length, chunk_overlap, loop_count)
+
         # save preview video
         create_video_node = CreateVideo()
-        preview_video_torch = completed_images_torch if not debug else batch_draw_text(
-            completed_images_torch,
-            #[f"{v:05d}\ntest" for v in range(0, len(completed_images_torch))],
-            [get_debug_frame_text(len(completed_images_torch), i, chunk_length, chunk_overlap, loop_count) for i in range(0, len(completed_images_torch))],
-            18,
-            "ariblk.ttf",
-            "#FFFFFF",
-            "#000000",
-            0.2,
-            8,
-            "right",
-            "top",
-            0,
-            0,
-            0,
-        )
         video, = create_video_node.create_video(preview_video_torch, preview_fps)
         save_video_node = SaveVideo()
         save_to = "video/chunker/tmp/tmp" if index+1 != loop_count else 'video/chunker/complete/chunker'

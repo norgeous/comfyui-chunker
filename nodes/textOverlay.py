@@ -113,17 +113,17 @@ def draw_text(
 def batch_draw_text(
     image,
     texts,
-    font_size,
-    font,
-    fill_color_hex,
-    stroke_color_hex,
-    stroke_thickness,
-    padding,
-    horizontal_alignment,
-    vertical_alignment,
-    x_shift,
-    y_shift,
-    line_spacing,
+    font_size=18,
+    font="ariblk.ttf",
+    fill_color_hex="#FFFFFF",
+    stroke_color_hex="#000000",
+    stroke_thickness=0.2,
+    padding=8,
+    horizontal_alignment="right",
+    vertical_alignment="top",
+    x_shift=0,
+    y_shift=0,
+    line_spacing=0,
 ):
     # Handles both single and batch image processing for text overlay
     if len(image.shape) == 3:  # Single image
@@ -175,3 +175,35 @@ def batch_draw_text(
         images_np = np.stack(images_out)
         images_tensor = torch.from_numpy(images_np)
         return images_tensor
+
+def get_debug_frame_text(total, index, chunk_length, chunk_overlap, loop_count):
+    chunk_index_max = total // (chunk_length - chunk_overlap)
+    chunk_index = index // (chunk_length - chunk_overlap)
+    is_final_chunk = chunk_index == chunk_index_max
+    final_text = "FINAL" if is_final_chunk else "NOT FINAL"
+    return f"{index + 1:05d} / {total:05d}\n{chunk_index + 1:03d} of {loop_count:03d}\n{final_text}"
+
+def get_overlap_frame_text(index, chunk_length, chunk_overlap):
+    chunk_index = index // (chunk_length - chunk_overlap)
+    chunk_index_o = (index - chunk_overlap) // (chunk_length - chunk_overlap)
+    is_overlap = chunk_index != chunk_index_o
+    if is_overlap: return "OVERLAP" 
+    return ""
+
+def overlay_debug(images, debug, chunk_length, chunk_overlap, loop_count):
+    if not debug: return images
+
+    # draw frame and chunk counters
+    images = batch_draw_text(
+        images,
+        [get_debug_frame_text(len(images), i, chunk_length, chunk_overlap, loop_count) for i in range(0, len(images))],
+    )
+
+    # draw overlap marker
+    images = batch_draw_text(
+        images,
+        [get_overlap_frame_text(i, chunk_length, chunk_overlap) for i in range(0, len(images))],
+        fill_color_hex="#CC0077",
+        vertical_alignment="bottom",
+    )
+    return images

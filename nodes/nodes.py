@@ -5,6 +5,7 @@ from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
 from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
+from .textOverlay import batch_draw_text
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
 
 class Chunker:
@@ -194,6 +195,7 @@ class ChunkerCombine:
         self,
         chunk_info,
         images,
+        debug_overlay,
         preview_fps,
         # prompt=None,
         dynprompt=None,
@@ -216,7 +218,22 @@ class ChunkerCombine:
 
         # save preview video
         create_video_node = CreateVideo()
-        video, = create_video_node.create_video(completed_images_torch, preview_fps)
+        preview_video_torch = completed_images_torch if not debug_overlay else batch_draw_text(
+            completed_images_torch,
+            [f"frame {v:05d}" for v in range(1,len(completed_images_torch))],
+            32,
+            "arial.ttf",
+            "#FFFFFF",
+            "#000000",
+            0.1,
+            16,
+            "right",
+            "top",
+            0,
+            0,
+            4,
+        )
+        video, = create_video_node.create_video(preview_video_torch, preview_fps)
         save_video_node = SaveVideo()
         save_to = "video/chunker/tmp/tmp" if index+1 != loop_count else 'video/chunker/complete/chunker'
         save_result = save_video_node.save_video(video, save_to, "auto", "auto")

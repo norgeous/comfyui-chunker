@@ -220,7 +220,7 @@ class ChunkerCombine:
         create_video_node = CreateVideo()
         preview_video_torch = completed_images_torch if not debug_overlay else batch_draw_text(
             completed_images_torch,
-            [f"frame {v:05d}" for v in range(1,len(completed_images_torch))],
+            [f"frame {v:05d}" for v in range(1, len(completed_images_torch))],
             32,
             "arial.ttf",
             "#FFFFFF",

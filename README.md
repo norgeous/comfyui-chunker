@@ -47,8 +47,6 @@ Combines all modified chunks into one sequence.
 
 ## Future / Ideas
 
-- Styling Combine > chunk-info widget
-- Improve loading bar, so it's continually moving with improved ETA
 - setting for overlaying frame numbers and chunk info (chunk number and is_overlap) into the preview video
 - prep for release
   - revise readme and samples

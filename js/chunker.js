@@ -30,22 +30,20 @@ function chainCallback(object, property, callback) {
   }
 }
 
-const humanMillis = seconds => {
-  if (seconds <= 0) return '-';
-  const intervals = {
-    years: 1000 * 60 * 60 * 24 * 7 * 52,
-    weeks: 1000 * 60 * 60 * 24 * 7,
-    days: 1000 * 60 * 60 * 24,
-    hours: 1000 * 60 * 60,
-    mins: 1000 * 60,
-    secs: 1000,
-    millis: 1,
-  };
-  const warn = ['years', 'weeks', 'days', 'hours'];
-  const precision = { years: 2, weeks: 2, days: 2, hours: 2, mins: 1, secs: 0, millis: 0 };
-  const [k, v] = Object.entries(intervals).find(([k, v]) => ~~(seconds / v));
-  const value = +(seconds / v).toFixed(precision[k]);
-  return `${value} ${value === 1 ? k.replace(/s$/, '') : k}${warn.includes(k) ? ' \u26A0\uFE0F' : ''}`;
+const intervals = [
+  { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2, warn: true },
+  { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2, warn: true },
+  { p: 'days',  s: 'day',  ms: 1000 * 60 * 60 * 24,          precision: 2, warn: true },
+  { p: 'hours', s: 'hour', ms: 1000 * 60 * 60,               precision: 2, warn: true },
+  { p: 'mins',  s: 'min',  ms: 1000 * 60,                    precision: 1 },
+  { p: 'secs',  s: 'sec',  ms: 1000,                         precision: 0 },
+];
+const humanMillis = milliseconds => {
+  if (milliseconds <= 0) return 'overdue';
+  if (milliseconds < 1_000) return '< 1 sec';
+  const { p, s, ms, precision, warn } = intervals.find(({ ms }) => ~~(milliseconds / ms));
+  const value = +(milliseconds / ms).toFixed(precision);
+  return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
 };
 
 const jsonDivStore = (element) => {
@@ -65,12 +63,46 @@ const updateLabels = (that, ui_values) => {
 
 app.registerExtension({
   name: "comfyui-chunker",
+  async setup(app) {
+    app.api.addEventListener("execution_error", (...data) => {
+      console.log("execution_error", data);
+    });
+    app.api.addEventListener("execution_cached", (...data) => {
+      console.log("execution_cached", data);
+    });
+    app.api.addEventListener("progress_state", (data) => {
+      const nodes = Object.values(data.detail.nodes)
+      console.log("progress_state", nodes, data.detail.nodes);
+      const runningNode = nodes.findLast(({ state }) => state === "running");
+      const runningNodeSiblings = nodes.filter(({ parent_node_id }) => runningNode.parent_node_id === parent_node_id);
+      //console.log({ runningNodeSiblings });
+      //const progress = / runningNodeSiblings.length;
+    });
+    app.api.addEventListener("progress_text", (...data) => {
+      console.log("progress_text", data);
+    });
+    app.api.addEventListener("execution_interrupted", () => {
+      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
+    });
+  },
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // try to hide index input
-          this.widgets.find(({ name }) => name === "index").hidden = true;
+          // this.widgets.find(({ name }) => name === "index").hidden = true;
+          this.widgets.find(({ name }) => name === "index").computeSize = [0, -4];
+
+          // button
+          this.addWidget("button", "Swap width / height", null, () => {
+            console.log("click", this);
+            const widthWidget = this.widgets.find(({ name }) => name === "width");
+            const heightWidget = this.widgets.find(({ name }) => name === "height");
+            const w = widthWidget.value;
+            const h = heightWidget.value;
+            widthWidget.value = h;
+            heightWidget.value = w;
+          });
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
@@ -89,13 +121,13 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          const statusHeight = 20;
+          const statusHeight = 26;
           element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
           element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";
-          element.style.gap = "8px";
-          element.style.fontSize = "10px";
+          element.style.gap = "2px";
+          element.style.fontSize = "8px";
           element.style.textAlign = "center";
           element.style.color = "var(--descrip-text)";
 
@@ -129,7 +161,11 @@ app.registerExtension({
             const nextChunkMillis = lastChunkDelta - sinceLastTimestamp;
             const finalChunkMillis = (lastChunkDelta * chunks_remaining) - sinceLastTimestamp;
 
-            element.querySelector("#status").innerHTML = `<div>Next: ${humanMillis(nextChunkMillis)}, Final: ${humanMillis(finalChunkMillis)}</div><progress style="display:block; width:100%;" value="${chunks_completed}" max="${loop_count}" />`;
+            element.querySelector("#status").innerHTML = `
+              <div>Next: ${humanMillis(nextChunkMillis)}, Final: ${humanMillis(finalChunkMillis)}</div>
+              <progress style="display:block; width:100%;" value="${chunks_completed}" max="${loop_count}"></progress>
+              <div>Showing up to ${chunks_completed} of ${loop_count}</div>
+            `;
           }, 1_000);
 
           this.uuid = makeUUID();
@@ -150,8 +186,11 @@ app.registerExtension({
           this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, loop_count: undefined });
         });
 
-        // or onAfterExecuteNode
+        chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
+          console.log("onAfterExecuteNode");
+        });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          console.log("onExecuted");
           updateLabels(this, ui.values[0]);
           const { image_count, index, loop_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, loop_count });

@@ -169,6 +169,7 @@ class ChunkerCombine:
             "required": {
                 "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
+                "debug_overlay": ("BOOL", {"tooltip": "Show debug in preview"}),
                 "preview_fps": ("INT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
             },
             "optional": {

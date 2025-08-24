@@ -89,13 +89,11 @@ app.registerExtension({
     ({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // try to hide index input
-          // this.widgets.find(({ name }) => name === "index").hidden = true;
-          this.widgets.find(({ name }) => name === "index").computeSize = [0, -4];
+          // hide "index" input
+          this.widgets.find(({ name }) => name === "index").computeSize = () => [0, -4];
 
-          // button
+          // add Swap button
           this.addWidget("button", "Swap width / height", null, () => {
-            console.log("click", this);
             const widthWidget = this.widgets.find(({ name }) => name === "width");
             const heightWidget = this.widgets.find(({ name }) => name === "height");
             const w = widthWidget.value;

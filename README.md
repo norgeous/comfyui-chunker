@@ -40,8 +40,6 @@ Combines all modified chunks into one sequence.
 
 ## Known bugs
 
-- Chunker "index" input is not fully hidden and Chunker is wrong height as a result of that
-- Combine node is wrong size (too small) when adding a new one
 - VACE sometimes rejects the size (esp. some smaller sizes)
 - When using Load Image with mask connected, but no mask drawn, then Chunker throws error
 

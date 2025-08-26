@@ -45,7 +45,6 @@ Combines all modified chunks into one sequence.
 
 ## Future / Ideas
 
-- setting for overlaying frame numbers and chunk info (chunk number and is_overlap) into the preview video
 - prep for release
   - revise readme and samples
   - finalise a few workflows

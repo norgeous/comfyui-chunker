@@ -14,39 +14,22 @@ def hex_to_rgb(hex_color):
 def draw_text(
     image,
     text,
-    font_size,
-    font,
-    fill_color_hex,
-    stroke_color_hex,
-    stroke_thickness,
-    padding,
-    horizontal_alignment,
-    vertical_alignment,
-    x_shift,
-    y_shift,
-    line_spacing,
+    font_size=18,
+    fill_color_hex="#FFFFFF",
+    stroke_color_hex="#000000",
+    stroke_thickness=0.2,
+    padding=8,
+    horizontal_alignment="center",
+    vertical_alignment="bottom",
+    x_shift=0,
+    y_shift=0,
+    line_spacing=0,
     use_cache=False,
 ):
-    _loaded_font = None
+    _loaded_font = ImageFont.load_default(font_size)
     _full_text = None
     _x = None
     _y = None
-
-    # Load font from the fonts directory or use default if not found or specified to not use cache
-    if _loaded_font is None or use_cache is False:
-        fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
-        font_path = os.path.join(fonts_dir, font)
-
-        # Check if the font file exists in the fonts directory
-        if not os.path.exists(font_path):
-            # If not, set path to font name directly - this will cause PIL to search for the font in the system
-            font_path = font
-
-        try:
-            _loaded_font = ImageFont.truetype(font_path, font_size)
-        except Exception as e:
-            print(f"Error loading font: {e}... Using default font")
-            _loaded_font = ImageFont.load_default(font_size)
 
     # Prepare to draw on the image
     draw = ImageDraw.Draw(image)
@@ -112,18 +95,7 @@ def draw_text(
 
 def batch_draw_text(
     image,
-    texts,
-    font_size=18,
-    font="ariblk.ttf",
-    fill_color_hex="#FFFFFF",
-    stroke_color_hex="#000000",
-    stroke_thickness=0.2,
-    padding=8,
-    horizontal_alignment="right",
-    vertical_alignment="top",
-    x_shift=0,
-    y_shift=0,
-    line_spacing=0,
+    configs,
 ):
     # Handles both single and batch image processing for text overlay
     if len(image.shape) == 3:  # Single image
@@ -131,18 +103,7 @@ def batch_draw_text(
         image = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
         image = draw_text(
             image,
-            texts[0],
-            font_size,
-            font,
-            fill_color_hex,
-            stroke_color_hex,
-            stroke_thickness,
-            padding,
-            horizontal_alignment,
-            vertical_alignment,
-            x_shift,
-            y_shift,
-            line_spacing,
+            **configs[0],
         )
         image_tensor_out = torch.tensor(np.array(image).astype(np.float32) / 255.0)
         image_tensor_out = torch.unsqueeze(image_tensor_out, 0)
@@ -152,58 +113,82 @@ def batch_draw_text(
         image_np = image.cpu().numpy()
         images = [Image.fromarray((img * 255).astype(np.uint8)) for img in image_np]
         images_out, use_cache = [], False
-        # for img in images:
+
+        # for each img in images
         for i, img in enumerate(images):
-            img = draw_text(
-                img,
-                texts[i],
-                font_size,
-                font,
-                fill_color_hex,
-                stroke_color_hex,
-                stroke_thickness,
-                padding,
-                horizontal_alignment,
-                vertical_alignment,
-                x_shift,
-                y_shift,
-                line_spacing,
-                use_cache,
-            )
+
+            # for each config in configs
+            for config in configs[i]:
+                img = draw_text(
+                    img,
+                    **config,
+                    #use_cache,
+                )
             images_out.append(np.array(img).astype(np.float32) / 255.0)
             use_cache = True
         images_np = np.stack(images_out)
         images_tensor = torch.from_numpy(images_np)
         return images_tensor
 
-def get_debug_frame_text(total, index, chunk_length, chunk_overlap, loop_count):
-    chunk_index_max = total // (chunk_length - chunk_overlap)
-    chunk_index = index // (chunk_length - chunk_overlap)
-    is_final_chunk = chunk_index == chunk_index_max
-    final_text = "FINAL" if is_final_chunk else "NOT FINAL"
-    return f"{index + 1:05d} / {total:05d}\n{chunk_index + 1:03d} of {loop_count:03d}\n{final_text}"
-
-def get_overlap_frame_text(index, chunk_length, chunk_overlap):
-    chunk_index = index // (chunk_length - chunk_overlap)
-    chunk_index_o = (index - chunk_overlap) // (chunk_length - chunk_overlap)
-    is_overlap = chunk_index != chunk_index_o
-    if is_overlap: return "OVERLAP" 
-    return ""
-
-def overlay_debug(images, debug, chunk_length, chunk_overlap, loop_count):
-    if not debug: return images
-
-    # draw frame and chunk counters
-    images = batch_draw_text(
-        images,
-        [get_debug_frame_text(len(images), i, chunk_length, chunk_overlap, loop_count) for i in range(0, len(images))],
+def calc(i, total, length, overlap):
+    chunk_index_max = ((total - overlap) // (length - overlap)) - 1
+    chunk_index = min(chunk_index_max, (i) // (length - overlap))
+    chunk_index_no_overlap = max(0, (i - overlap) // (length - overlap))
+    chunk = chunk_index + 1
+    chunk_max = chunk_index_max + 1
+    return (
+        f"{str(i + 1).zfill(len(str(total)))} / {total}",
+        f"{str(chunk).zfill(len(str(chunk_max)))} of {chunk_max}",
+        chunk_index_no_overlap != chunk_index,
+        f"chunks {chunk - 1} + {chunk}",
     )
 
-    # draw overlap marker
+def get_overlay_configs(i, total, length, overlap):
+    frame_label, chunk_label, is_overlap, overlap_label = calc(i, total, length, overlap)
+    configs = []
+    configs.append(
+        {
+            "text": f"{frame_label}\n{chunk_label}",
+            "vertical_alignment": "top",
+            "horizontal_alignment": "right",
+        },
+    )
+    configs.append(
+        {
+            "text": f"chunk_length: {length}\nchunk_overlap: {overlap}",
+            "font_size": 12,
+            "vertical_alignment": "bottom",
+            "horizontal_alignment": "right",
+        },
+    )
+    if is_overlap:
+        configs.append(
+            {
+                "text": "OVERLAP",
+                "font_size": 24,
+                "fill_color_hex": "#FF0000",
+                "stroke_color_hex": "#FFFFFF",
+                "vertical_alignment": "top",
+                "horizontal_alignment": "left",
+            },
+        )
+        configs.append(
+            {
+                "text": overlap_label,
+                "font_size": 14,
+                "fill_color_hex": "#FF0000",
+                "stroke_color_hex": "#FFFFFF",
+                "vertical_alignment": "top",
+                "horizontal_alignment": "left",
+                "y_shift": 24 + 4,
+            },
+        )
+    return configs
+
+def overlay_debug(images, debug, chunk_length, chunk_overlap):
+    if not debug: return images
     images = batch_draw_text(
         images,
-        [get_overlap_frame_text(i, chunk_length, chunk_overlap) for i in range(0, len(images))],
-        fill_color_hex="#CC0077",
-        vertical_alignment="bottom",
+        [get_overlay_configs(i, len(images), chunk_length, chunk_overlap) for i in range(0, len(images))],
     )
     return images

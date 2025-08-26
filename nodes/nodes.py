@@ -8,11 +8,10 @@ from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
 from .textOverlay import overlay_debug
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
 
+def log(*args):
+    print(f"\U0001F36B  Chunker:", *args)
 
 class Chunker:
-    def __init__(self):
-        pass
-
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -30,10 +29,7 @@ class Chunker:
                 "control_masks": ("MASK", {"tooltip": "None, Single Mask or Masks to be chunked"}),
             },
             "hidden": {
-                # "prompt": "PROMPT",
-                # "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
-                # "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
 
@@ -64,15 +60,12 @@ class Chunker:
         control_video=None,
         control_masks=None,
         index=0,
-        # prompt=None,
-        # dynprompt=None,
         unique_id=None,
-        # extra_pnginfo=None,
     ):
         # calculate how many chunks we need to fill total_length
         loop_count = max(1, math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap)))
 
-        print(f"\U0001F36B  CHUNKER: Starting chunk {index + 1} of {loop_count}...")
+        log(f"Starting chunk {index + 1} of {loop_count}...")
 
         # resize the control_video to input width and height using copy of Kijai's method
         control_video = resizeImage(control_video, width, height, aspect_ratio)
@@ -164,9 +157,6 @@ class Chunker:
 
 
 class ChunkerCombine:
-    def __init__(self):
-        pass
-
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -174,15 +164,13 @@ class ChunkerCombine:
                 "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
                 "preview_fps": ("INT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
-                "debug": ("BOOLEAN", {"default": False, "tooltip": "Show debug overlay in preview"}),
+                "debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
             },
             "optional": {
             },
             "hidden": {
-                # "prompt": "PROMPT",
                 "dynprompt": "DYNPROMPT",
                 "unique_id": "UNIQUE_ID",
-                # "extra_pnginfo": "EXTRA_PNGINFO",
             }
         }
 
@@ -200,10 +188,8 @@ class ChunkerCombine:
         images,
         debug,
         preview_fps,
-        # prompt=None,
         dynprompt=None,
         unique_id=None,
-        # extra_pnginfo=None
     ):
         start_node_id = chunk_info["start_node_id"]
         index = chunk_info["index"]
@@ -213,7 +199,7 @@ class ChunkerCombine:
         before = chunk_info["before"]
         after = chunk_info["after"]
 
-        print(f"\U0001F36B  CHUNKER: Finished chunk {index + 1} of {loop_count}!")
+        log(f"Finished chunk {index + 1} of {loop_count}!")
 
         out_images = []
         if before is not None: out_images.extend([before])
@@ -222,13 +208,13 @@ class ChunkerCombine:
         completed_images_torch = torch.cat(out_images, dim=0)
 
         # apply debug overlay
-        preview_video_torch = overlay_debug(completed_images_torch, debug, chunk_length, chunk_overlap, loop_count)
+        preview_video_torch = overlay_debug(completed_images_torch, debug, chunk_length, chunk_overlap)
 
         # save preview video
         create_video_node = CreateVideo()
         video, = create_video_node.create_video(preview_video_torch, preview_fps)
         save_video_node = SaveVideo()
-        save_to = "video/chunker/tmp/tmp" if index+1 != loop_count else 'video/chunker/complete/chunker'
+        save_to = "video/chunker/tmp/tmp" if index+1 != loop_count else 'video/chunker/tmp/complete'
         save_result = save_video_node.save_video(video, save_to, "auto", "auto")
         video_path = save_result["ui"]["images"][0]
 
@@ -266,7 +252,7 @@ class ChunkerCombine:
         # increment start node's index, so it knows which chunk is next
         new_chunker.set_input("index", index + 1)
 
-        # increment seeds in cloned KSamplers, to prevent same motion
+        # increment seeds in cloned KSamplers, to prevent same motion in each chunk
         ids = getNodeIdsByType(graph.finalize(), "KSampler")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")

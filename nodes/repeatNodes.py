@@ -1,5 +1,7 @@
-from comfy_execution.graph_utils import GraphBuilder, is_link
+from comfy_execution.graph_utils import is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
+
+# from https://github.com/yolain/ComfyUI-Easy-Use/blob/main/py/nodes/logic.py
 
 def explore_dependencies(node_id, dynprompt, upstream, parent_ids):
     node_info = dynprompt.get_node(node_id)

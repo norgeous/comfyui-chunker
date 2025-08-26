@@ -1,15 +1,11 @@
 from datetime import datetime
 import torch
 import math
-from comfy_execution.graph_utils import GraphBuilder, is_link
-from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import panelImage, panelMask, slice, len2, resizeImage, resizeMask
-from .repeatnodes import comfyuiRepeatNodes, getNodeIdsByType
-from .textOverlay import overlay_debug
+from comfy_execution.graph_utils import GraphBuilder
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
-
-def log(*args):
-    print(f"\U0001F36B  Chunker:", *args)
+from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
+from .utils import log, panelImage, panelMask, slice, len2, resizeImage, resizeMask, overlay_debug
+from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 
 class Chunker:
     @classmethod
@@ -208,7 +204,7 @@ class ChunkerCombine:
         completed_images_torch = torch.cat(out_images, dim=0)
 
         # apply debug overlay
-        preview_video_torch = overlay_debug(completed_images_torch, debug, chunk_length, chunk_overlap)
+        preview_video_torch = overlay_debug(completed_images_torch, chunk_length, chunk_overlap) if debug else completed_images_torch
 
         # save preview video
         create_video_node = CreateVideo()

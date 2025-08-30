@@ -77,7 +77,7 @@ def frameIndexInfo(i, total, length, overlap):
         f"chunks {chunk - 1} + {chunk}",
     )
 
-def getOverlayConfigs(i, total, length, overlap):
+def getOverlayConfigs(i, total, w, h, length, overlap):
     frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, total, length, overlap)
     configs = []
     configs.append(
@@ -89,7 +89,7 @@ def getOverlayConfigs(i, total, length, overlap):
     )
     configs.append(
         {
-            "text": f"chunk_length: {length}\nchunk_overlap: {overlap}",
+            "text": f"size: {w} x {h}\nchunk_length: {length}\nchunk_overlap: {overlap}",
             "font_size": 12,
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
@@ -120,8 +120,10 @@ def getOverlayConfigs(i, total, length, overlap):
     return configs
 
 def overlay_debug(images, chunk_length, chunk_overlap):
+    w = images.shape[2]
+    h = images.shape[1]
     images = batch_draw_text(
         images,
-        [getOverlayConfigs(i, len(images), chunk_length, chunk_overlap) for i in range(0, len(images))],
+        [getOverlayConfigs(i, len(images), w, h, chunk_length, chunk_overlap) for i in range(0, len(images))],
     )
     return images

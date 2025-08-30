@@ -31,18 +31,19 @@ function chainCallback(object, property, callback) {
 }
 
 const intervals = [
-  { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2, warn: true },
-  { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2, warn: true },
-  { p: 'days',  s: 'day',  ms: 1000 * 60 * 60 * 24,          precision: 2, warn: true },
-  { p: 'hours', s: 'hour', ms: 1000 * 60 * 60,               precision: 2, warn: true },
+  { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2 },
+  { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2 },
+  { p: 'days',  s: 'day',  ms: 1000 * 60 * 60 * 24,          precision: 2 },
+  { p: 'hours', s: 'hour', ms: 1000 * 60 * 60,               precision: 2 },
   { p: 'mins',  s: 'min',  ms: 1000 * 60,                    precision: 1 },
   { p: 'secs',  s: 'sec',  ms: 1000,                         precision: 0 },
 ];
 const humanMillis = milliseconds => {
   if (milliseconds <= 0) return 'overdue';
   if (milliseconds < 1_000) return '< 1 sec';
-  const { p, s, ms, precision, warn } = intervals.find(({ ms }) => ~~(milliseconds / ms));
+  const { p, s, ms, precision } = intervals.find(({ ms }) => ~~(milliseconds / ms));
   const value = +(milliseconds / ms).toFixed(precision);
+  const warn = milliseconds >= 1000 * 60 * 30; // 30 min
   return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
 };
 
@@ -64,24 +65,14 @@ const updateLabels = (that, ui_values) => {
 app.registerExtension({
   name: "comfyui-chunker",
   async setup(app) {
-    app.api.addEventListener("execution_error", (...data) => {
-      console.log("execution_error", data);
-    });
     app.api.addEventListener("execution_cached", (...data) => {
-      console.log("execution_cached", data);
-    });
-    app.api.addEventListener("progress_state", (data) => {
-      const nodes = Object.values(data.detail.nodes)
-      console.log("progress_state", nodes, data.detail.nodes);
-      const runningNode = nodes.findLast(({ state }) => state === "running");
-      const runningNodeSiblings = nodes.filter(({ parent_node_id }) => runningNode.parent_node_id === parent_node_id);
-      //console.log({ runningNodeSiblings });
-      //const progress = / runningNodeSiblings.length;
-    });
-    app.api.addEventListener("progress_text", (...data) => {
-      console.log("progress_text", data);
+      //console.log("execution_cached", data);
     });
     app.api.addEventListener("execution_interrupted", () => {
+      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
+    });
+    app.api.addEventListener("execution_error", (...data) => {
+      //console.log("execution_error", data);
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
   },
@@ -119,13 +110,13 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          const statusHeight = 26;
+          const statusHeight = 32;
           element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
           element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";
           element.style.gap = "2px";
-          element.style.fontSize = "8px";
+          element.style.fontSize = "10px";
           element.style.textAlign = "center";
           element.style.color = "var(--descrip-text)";
 
@@ -171,7 +162,7 @@ app.registerExtension({
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
             serialize: false,
             hideOnZoom: false,
-            getHeight: () => 200,
+            getHeight: () => 220,
           });
         });
 

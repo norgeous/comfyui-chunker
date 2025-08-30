@@ -1,8 +1,10 @@
-from datetime import datetime
 import torch
 import math
+from datetime import datetime
+#from tqdm import tqdm
 from comfy_execution.graph_utils import GraphBuilder
 from comfy_extras.nodes_video import CreateVideo, SaveVideo
+from comfy.utils import ProgressBar
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 from .utils import log, panelImage, panelMask, slice, len2, resizeImage, resizeMask, overlay_debug
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
@@ -62,6 +64,13 @@ class Chunker:
         loop_count = max(1, math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap)))
 
         log(f"Starting chunk {index + 1} of {loop_count}...")
+
+        comfy_pbar = ProgressBar(loop_count)
+        #comfy_pbar.update(1)
+        comfy_pbar.update_absolute(index + 1)
+
+        #tqdm_pbar = tqdm(loop_count, desc="CHUNKING?")
+        #tqdm_pbar.update(1)
 
         # resize the control_video to input width and height using copy of Kijai's method
         control_video = resizeImage(control_video, width, height, aspect_ratio)
@@ -159,7 +168,7 @@ class ChunkerCombine:
             "required": {
                 "chunk_info": ("CHUNK_INFO", {"tooltip": "Connect chunk_info from Chunker node to here"}),
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
-                "preview_fps": ("INT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
+                "preview_fps": ("FLOAT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
                 "debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
             },
             "optional": {
@@ -196,6 +205,10 @@ class ChunkerCombine:
         after = chunk_info["after"]
 
         log(f"Finished chunk {index + 1} of {loop_count}!")
+
+        comfy_pbar = ProgressBar(loop_count)
+        #comfy_pbar.update(1)
+        comfy_pbar.update_absolute(index + 1)
 
         out_images = []
         if before is not None: out_images.extend([before])

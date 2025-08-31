@@ -1,6 +1,7 @@
 from PIL import Image
 import torch
 import numpy as np
+import math
 from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 
@@ -65,8 +66,10 @@ def resizeMask(mask, width, height, aspect_ratio):
     return resized_mask
 
 def frameIndexInfo(i, total, length, overlap):
-    chunk_index_max = ((total - overlap) // (length - overlap)) - 1
-    chunk_index = min(chunk_index_max, (i) // (length - overlap))
+    #chunk_index_max = ((total - overlap) // (length - overlap)) - 1
+    chunk_index_max = math.ceil((total - overlap) / (length - overlap)) - 1
+    #chunk_index = min(chunk_index_max, (i) // (length - overlap))
+    chunk_index = (i) // (length - overlap)
     chunk_index_no_overlap = max(0, (i - overlap) // (length - overlap))
     chunk = chunk_index + 1
     chunk_max = chunk_index_max + 1

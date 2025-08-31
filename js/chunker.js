@@ -64,6 +64,7 @@ const updateLabels = (that, ui_values) => {
 
 app.registerExtension({
   name: "comfyui-chunker",
+
   async setup(app) {
     app.api.addEventListener("execution_cached", (...data) => {
       //console.log("execution_cached", data);
@@ -76,26 +77,34 @@ app.registerExtension({
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
   },
+
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
+      "ChunkerSequencer": () => {
+        chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          // add Swap button
+          //this.addWidget("button", "Swap width / height", null, () => {
+          //  const widthWidget = this.widgets.find(({ name }) => name === "width");
+          //  const heightWidget = this.widgets.find(({ name }) => name === "height");
+          //  const w = widthWidget.value;
+          //  const h = heightWidget.value;
+          //  widthWidget.value = h;
+          //  heightWidget.value = w;
+          //});
+        });
+      },
+
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // hide "index" input
-          this.widgets.find(({ name }) => name === "index").computeSize = () => [0, -4];
-
-          // add Swap button
-          this.addWidget("button", "Swap width / height", null, () => {
-            const widthWidget = this.widgets.find(({ name }) => name === "width");
-            const heightWidget = this.widgets.find(({ name }) => name === "height");
-            const w = widthWidget.value;
-            const h = heightWidget.value;
-            widthWidget.value = h;
-            heightWidget.value = w;
-          });
+          // hide widget inputs
+          //this.widgets.find(({ name }) => name === "index").computeSize = () => [0, -4];
+          //this.widgets.find(({ name }) => name === "overlap_images").computeSize = () => [0, -4];
+          //this.widgets.find(({ name }) => name === "overlap_masks").computeSize = () => [0, -4];
+          //this.setSize([250, 0]);
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { output_label_values: { width: undefined, height: undefined, chunk_length: undefined, index: undefined, loop_count: undefined }});
+          updateLabels(this, { output_label_values: { index: undefined }});
         });
 
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
@@ -105,9 +114,6 @@ app.registerExtension({
 
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          //this.setSize([150, 100]);
-          //this.resizable = false;
-
           // create chunk info widget
           const element = document.createElement("div");
           const statusHeight = 32;

@@ -80,6 +80,12 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
+      "ChunkerConfig": () => {
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+        });
+      },
+
       "ChunkerSequencer": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // add Swap button
@@ -92,14 +98,20 @@ app.registerExtension({
           //  heightWidget.value = w;
           //});
         });
+
+        chainCallback(nodeType.prototype, "onConnectInput", function () {
+          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
+        });
+
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+        });
       },
 
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // hide widget inputs
-          //this.widgets.find(({ name }) => name === "index").computeSize = () => [0, -4];
-          //this.widgets.find(({ name }) => name === "overlap_images").computeSize = () => [0, -4];
-          //this.widgets.find(({ name }) => name === "overlap_masks").computeSize = () => [0, -4];
+          // hide store input
+          this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
           //this.setSize([250, 0]);
         });
 
@@ -114,6 +126,9 @@ app.registerExtension({
 
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          // hide store input
+          this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
+
           // create chunk info widget
           const element = document.createElement("div");
           const statusHeight = 32;

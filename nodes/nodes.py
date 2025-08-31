@@ -21,8 +21,8 @@ class ChunkerConfig:
             },
         }
 
-    RETURN_TYPES = ("CHUNKER_CONFIG",)
-    RETURN_NAMES = ("chunker_config",)
+    RETURN_TYPES = ("CHUNKER_CONFIG", "INT")
+    RETURN_NAMES = ("chunker_config", "chunk_count")
     OUTPUT_TOOLTIPS = (
         "includes all settings",
     )
@@ -37,16 +37,28 @@ class ChunkerConfig:
         chunk_overlap,
         total_length,
     ):
+        loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
         chunker_config = {
             "mode": mode,
             "chunk_length": chunk_length,
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
-            "loop_count": 100,
+            "loop_count": loop_count,
         },
 
+        ui_values = {   
+            "output_label_values": {
+                "chunk_count": loop_count,
+            },
+        }
+
         return {
-            "result": chunker_config,
+            "ui": {"values": [ui_values]},
+            "result": (
+                chunker_config,
+                loop_count,
+            ),
         }
 
 
@@ -86,7 +98,7 @@ class ChunkerSequencer:#ChunkerRemix
         h = images.shape[1] if images is not None else 512
 
         grey_panel  = panelImage(w, h, 127, 127, 127)
-        black_panel = panelMask(w, h, 0)
+        #black_panel = panelMask(w, h, 0)
         white_panel = panelMask(w, h, 255)
 
         out_images = []

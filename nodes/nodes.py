@@ -45,9 +45,9 @@ class ChunkerConfig:
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
             "loop_count": loop_count,
-        },
+        }
 
-        ui_values = {   
+        ui_values = {
             "output_label_values": {
                 "chunk_count": loop_count,
             },
@@ -68,7 +68,9 @@ class ChunkerSequencer:#ChunkerRemix
         return {
             "required": {
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "TODO"}),
-                "sequence": ("STRING", {"default": "", "multiline": True, "tooltip": "TODO"}),
+                "start_image_count": ("INT", {"tooltip": "TODO"}),
+                "use_end_image": (["every_chunk", "final_chunk_only", "never"], {"tooltip": "TODO"}),
+                #"sequence": ("STRING", {"default": "", "multiline": True, "tooltip": "TODO"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "None, single image or batch of images to be resequenced"}),
@@ -89,7 +91,8 @@ class ChunkerSequencer:#ChunkerRemix
     def main(
         self,
         chunker_config,
-        sequence,
+        start_image_count,
+        use_end_image,
         images=None,
         masks=None,
     ):
@@ -98,14 +101,33 @@ class ChunkerSequencer:#ChunkerRemix
         h = images.shape[1] if images is not None else 512
 
         grey_panel  = panelImage(w, h, 127, 127, 127)
-        #black_panel = panelMask(w, h, 0)
+        black_panel = panelMask(w, h, 0)
         white_panel = panelMask(w, h, 255)
 
         out_images = []
-        out_images.extend([grey_panel] * c["total_length"])
-
         out_masks = []
-        out_masks.extend([white_panel] * c["total_length"])
+
+        # for every frame in sequence, select a frame
+        given_count = len(images) if images is not None else 0
+        given_count_masks = len(masks) if masks is not None else 0
+        used_count = 0
+        for i in range(c["total_length"]):
+            if given_count > 0:
+                if (
+                    i < start_image_count
+                    or
+                    use_end_image == "every_chunk" and i > c["chunk_overlap"] and ((i+1 - c["chunk_overlap"]) / (c["chunk_length"] - c["chunk_overlap"])) % 1 == 0
+                    or
+                    use_end_image in ["every_chunk","final_chunk_only"] and i == c["total_length"] - 1
+                ):
+                    next = min(used_count, given_count-1)
+                    out_images.extend([images[next:next + 1]])
+                    out_masks.extend([masks[next:next + 1]] if given_count_masks > next else [black_panel])
+                    used_count += 1
+                    continue
+
+            out_images.extend([grey_panel])
+            out_masks.extend([white_panel])
 
         out_images_torch = torch.cat(out_images)
         out_masks_torch = torch.cat(out_masks)
@@ -147,8 +169,8 @@ class Chunker:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT")
-    RETURN_NAMES = ("chunker_data", "images", "masks", "index")
+    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "chunk_length", "index")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
         "Chunk of images",
@@ -229,6 +251,9 @@ class Chunker:
                 chunker_data,
                 out_images_torch, # just this chunk
                 out_masks_torch, # just this chunk
+                w,
+                h,
+                c["chunk_length"],
                 s["index"],
             ),
         }
@@ -281,6 +306,7 @@ class ChunkerCombine:
         s = {
             "images_previous": None,
             "masks_previous": None,
+            "preview_previous": None,
         } if type(store) is int else store
 
         log(f"Finished chunk {d["index"] + 1} of {c["loop_count"]}!")
@@ -292,10 +318,14 @@ class ChunkerCombine:
         out_images_torch = torch.cat(out_images)
 
         is_done = len(out_images_torch) >= c["total_length"]
-        log(is_done,'=',len(out_images_torch) ,'>=', c["total_length"])
 
-        # make preview video
-        preview_video_torch = overlay_debug(out_images_torch, c["chunk_length"], c["chunk_overlap"]) if show_debug else out_images_torch
+        # make preview video for new images
+        preview_video = []
+        if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
+        previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
+        preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["loop_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else out_images_torch
+        preview_video.extend([preview_video_chunk])
+        preview_video_torch = torch.cat(preview_video)
 
         # save preview video
         create_video_node = CreateVideo()
@@ -345,6 +375,7 @@ class ChunkerCombine:
         new_combine = graph.lookup_node("Recurse")
         new_combine.set_input("store", {
             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else out_images_torch,
+            "preview_previous": preview_video_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else preview_images_torch,
         })
 
         ui_values = {

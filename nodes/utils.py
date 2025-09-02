@@ -65,23 +65,28 @@ def resizeMask(mask, width, height, aspect_ratio):
     resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0]
     return resized_mask
 
-def frameIndexInfo(i, total, length, overlap):
+
+
+
+
+def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, length, overlap):
     #chunk_index_max = ((total - overlap) // (length - overlap)) - 1
-    chunk_index_max = math.ceil((total - overlap) / (length - overlap)) - 1
+    #chunk_index_max = math.ceil((total - overlap) / (length - overlap)) - 1
     #chunk_index = min(chunk_index_max, (i) // (length - overlap))
-    chunk_index = (i) // (length - overlap)
-    chunk_index_no_overlap = max(0, (i - overlap) // (length - overlap))
+    #chunk_index = (i) // (length - overlap)
+    #chunk_index_no_overlap = max(0, (i - overlap) // (length - overlap))
+    #chunk_max = chunk_index_max + 1
     chunk = chunk_index + 1
-    chunk_max = chunk_index_max + 1
+    is_overlap = True if chunk_index > 0 and i < overlap else False
     return (
-        f"{str(i + 1).zfill(len(str(total)))} / {total}",
-        f"{str(chunk).zfill(len(str(chunk_max)))} of {chunk_max}",
-        chunk_index_no_overlap != chunk_index,
-        f"chunks {chunk - 1} + {chunk}",
+        f"{str(previous_count + i + 1).zfill(len(str(total)))} / {total}", # frame_label
+        f"{str(chunk).zfill(len(str(chunk_count)))} of {chunk_count}", # chunk_label
+        is_overlap,
+        f"chunks {chunk - 1} + {chunk}", # overlap_label
     )
 
-def getOverlayConfigs(i, total, w, h, length, overlap):
-    frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, total, length, overlap)
+def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, length, overlap):
+    frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, length, overlap)
     configs = []
     configs.append(
         {
@@ -122,11 +127,11 @@ def getOverlayConfigs(i, total, w, h, length, overlap):
         )
     return configs
 
-def overlay_debug(images, chunk_length, chunk_overlap):
+def overlay_debug(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length):
     w = images.shape[2]
     h = images.shape[1]
     images = batch_draw_text(
         images,
-        [getOverlayConfigs(i, len(images), w, h, chunk_length, chunk_overlap) for i in range(0, len(images))],
+        [getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap) for i in range(0, len(images))],
     )
     return images

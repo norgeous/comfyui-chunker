@@ -87,20 +87,8 @@ app.registerExtension({
       },
 
       "ChunkerSequencer": () => {
-        chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // add Swap button
-          //this.addWidget("button", "Swap width / height", null, () => {
-          //  const widthWidget = this.widgets.find(({ name }) => name === "width");
-          //  const heightWidget = this.widgets.find(({ name }) => name === "height");
-          //  const w = widthWidget.value;
-          //  const h = heightWidget.value;
-          //  widthWidget.value = h;
-          //  heightWidget.value = w;
-          //});
-        });
-
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
+          //updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
         });
 
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
@@ -199,6 +187,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
           console.log("onAfterExecuteNode");
         });
+
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           console.log("onExecuted");
           updateLabels(this, ui.values[0]);

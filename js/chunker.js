@@ -143,7 +143,7 @@ app.registerExtension({
 
           this.store = jsonDivStore(element);
           setInterval(() => {
-            const { timestamp1, timestamp2, index = 0, loop_count = 0 } = this.store.get();
+            const { timestamp1, timestamp2, index = 0, chunk_count = 0 } = this.store.get();
 
             if (!timestamp2) {
               element.querySelector("#status").innerHTML = "";
@@ -158,8 +158,8 @@ app.registerExtension({
             }
 
             const chunks_completed = index + 1;
-            const chunks_remaining = loop_count - chunks_completed;
-            const isDone = chunks_completed === loop_count;
+            const chunks_remaining = chunk_count - chunks_completed;
+            const isDone = chunks_completed === chunk_count;
 
             if (isDone) {
               element.querySelector("#status").innerHTML = "Done";
@@ -173,8 +173,8 @@ app.registerExtension({
 
             element.querySelector("#status").innerHTML = `
               <div>Next: ${humanMillis(nextChunkMillis)}, Final: ${humanMillis(finalChunkMillis)}</div>
-              <progress style="display:block; width:100%;" value="${chunks_completed}" max="${loop_count}"></progress>
-              <div>Showing up to ${chunks_completed} of ${loop_count}</div>
+              <progress style="display:block; width:100%;" value="${chunks_completed}" max="${chunk_count}"></progress>
+              <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
           }, 1_000);
 
@@ -193,7 +193,7 @@ app.registerExtension({
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
-          this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, loop_count: undefined });
+          this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
 
         chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
@@ -203,8 +203,8 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           console.log("onExecuted");
           updateLabels(this, ui.values[0]);
-          const { image_count, index, loop_count, video_path } = ui.values[0];
-          this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, loop_count });
+          const { image_count, index, chunk_count, video_path } = ui.values[0];
+          this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
 
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           if (video_path) infoContainer.querySelector("video").src = `/api/view?${new URLSearchParams(video_path).toString()}`;

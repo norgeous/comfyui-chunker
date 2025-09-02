@@ -353,8 +353,13 @@ class ChunkerCombine:
         # if no more chunks needed return early
         if is_done:
             ui_values = {
+                "input_label_values": {
+                    "images": len(images),
+                    "masks": len(masks),
+                },
                 "output_label_values": {
                     "images": len(out_images_torch),
+                    #"masks": len(out_masks_torch),
                 },
                 # "image_count": image_count,
                 "index": d["index"],
@@ -394,8 +399,13 @@ class ChunkerCombine:
         })
 
         ui_values = {
+            "input_label_values": {
+                "images": len(images),
+                "masks": len(masks),
+            },
             "output_label_values": {
                 "images": None,
+                "masks": None,
             },
             "index": d["index"],
             "chunk_count": c["chunk_count"],

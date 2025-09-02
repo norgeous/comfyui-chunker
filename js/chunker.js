@@ -81,6 +81,18 @@ app.registerExtension({
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
       "ChunkerConfig": () => {
+        chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          // hide store input
+          //this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
+          //this.setSize([250, 0]);
+          const mode = this.widgets.find(({ name }) => name === "mode");
+          const chunk_length = this.widgets.find(({ name }) => name === "chunk_length");
+          const chunk_overlap = this.widgets.find(({ name }) => name === "chunk_overlap");
+          const total_length = this.widgets.find(({ name }) => name === "total_length");
+          chainCallback(total_length, "callback", value => {
+            console.log('total_length changed', { total_length, value });
+          });
+        });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
         });

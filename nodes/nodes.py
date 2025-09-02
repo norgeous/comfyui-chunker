@@ -1,12 +1,10 @@
 import torch
 import math
-from datetime import datetime
 from comfy_execution.graph_utils import GraphBuilder
-from comfy_extras.nodes_video import CreateVideo, SaveVideo
-from comfy.utils import ProgressBar
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import log, panelImage, panelMask, slice, len2, resizeImage, resizeMask, overlay_debug
+from .utils import log, panelImage, panelMask, overlay_debug
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
+from .saveVideo import save_video
 
 
 class ChunkerConfig:
@@ -14,17 +12,18 @@ class ChunkerConfig:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "mode": (["wan"], {"tooltip": "TODO"}),
+                "mode": (["Wan","None"], {"tooltip": "TODO"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 500, "min": 1, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output"}),
             },
         }
 
-    RETURN_TYPES = ("CHUNKER_CONFIG", "INT")
-    RETURN_NAMES = ("chunker_config", "chunk_count")
+    RETURN_TYPES = ("CHUNKER_CONFIG", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_config", "chunk_length","chunk_overlap","total_length","chunk_count")
     OUTPUT_TOOLTIPS = (
         "includes all settings",
+        "count of chunks",
     )
     FUNCTION = "main"
     CATEGORY = "Chunker"
@@ -39,6 +38,17 @@ class ChunkerConfig:
     ):
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
+        if mode == "Wan":
+            # check chunk_length matches 4n+1
+            #chunk_length = 49
+
+            # adjust total_length, so that last chunk matches 4n+1
+            previous_chunks_total = (chunk_length * (chunk_count - 1)) - (chunk_overlap * (chunk_count - 1))
+            last_chunk_length = total_length - previous_chunks_total
+            is_valid_wan_length = ((last_chunk_length - 1) / 4) % 1 == 0
+            log(last_chunk_length, is_valid_wan_length)
+            #total_length = 100
+
         chunker_config = {
             "mode": mode,
             "chunk_length": chunk_length,
@@ -49,6 +59,9 @@ class ChunkerConfig:
 
         ui_values = {
             "output_label_values": {
+                "chunk_length": chunk_length,
+                "chunk_overlap": chunk_overlap,
+                "total_length": total_length,
                 "chunk_count": chunk_count,
             },
         }
@@ -57,6 +70,9 @@ class ChunkerConfig:
             "ui": {"values": [ui_values]},
             "result": (
                 chunker_config,
+                chunk_length,
+                chunk_overlap,
+                total_length,
                 chunk_count,
             ),
         }
@@ -241,6 +257,9 @@ class Chunker:
             "output_label_values": {
                 "images": len(out_images_torch),
                 "masks": len(out_masks_torch),
+                "width": w,
+                "height": h,
+                "chunk_length": c["chunk_length"],
                 "index": s["index"],
             },
         }
@@ -328,12 +347,8 @@ class ChunkerCombine:
         preview_video_torch = torch.cat(preview_video)
 
         # save preview video
-        create_video_node = CreateVideo()
-        video, = create_video_node.create_video(preview_video_torch, preview_fps)
-        save_video_node = SaveVideo()
-        save_to = "video/chunker/tmp/tmp" if not is_done else 'video/chunker/tmp/complete'
-        save_result = save_video_node.save_video(video, save_to, "auto", "auto")
-        video_path = save_result["ui"]["images"][0]
+        filename_prefix = "video/chunker/tmp/tmp" if not is_done else "video/chunker/tmp/complete"
+        video_path = save_video(preview_video_torch, preview_fps, filename_prefix)
 
         # if no more chunks needed return early
         if is_done:
@@ -375,7 +390,7 @@ class ChunkerCombine:
         new_combine = graph.lookup_node("Recurse")
         new_combine.set_input("store", {
             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else out_images_torch,
-            "preview_previous": preview_video_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else preview_images_torch,
+            "preview_previous": preview_video_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else preview_video_torch,
         })
 
         ui_values = {

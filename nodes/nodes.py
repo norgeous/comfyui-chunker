@@ -37,19 +37,19 @@ class ChunkerConfig:
         chunk_overlap,
         total_length,
     ):
-        loop_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         chunker_config = {
             "mode": mode,
             "chunk_length": chunk_length,
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
-            "loop_count": loop_count,
+            "chunk_count": chunk_count,
         }
 
         ui_values = {
             "output_label_values": {
-                "chunk_count": loop_count,
+                "chunk_count": chunk_count,
             },
         }
 
@@ -57,7 +57,7 @@ class ChunkerConfig:
             "ui": {"values": [ui_values]},
             "result": (
                 chunker_config,
-                loop_count,
+                chunk_count,
             ),
         }
 
@@ -201,7 +201,7 @@ class Chunker:
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
 
-        log(f"Starting chunk {s["index"] + 1} of {c["loop_count"]}...")
+        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
 
         black_panel = panelMask(w, h, 0)
 
@@ -309,7 +309,7 @@ class ChunkerCombine:
             "preview_previous": None,
         } if type(store) is int else store
 
-        log(f"Finished chunk {d["index"] + 1} of {c["loop_count"]}!")
+        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
         # combine all chunks so far
         out_images = []
@@ -323,7 +323,7 @@ class ChunkerCombine:
         preview_video = []
         if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
         previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
-        preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["loop_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else out_images_torch
+        preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else out_images_torch
         preview_video.extend([preview_video_chunk])
         preview_video_torch = torch.cat(preview_video)
 
@@ -343,7 +343,7 @@ class ChunkerCombine:
                 },
                 # "image_count": image_count,
                 "index": d["index"],
-                "loop_count": c["loop_count"],
+                "chunk_count": c["chunk_count"],
                 "video_path": video_path,
             }
             return {
@@ -383,7 +383,7 @@ class ChunkerCombine:
                 "images": None,
             },
             "index": d["index"],
-            "loop_count": c["loop_count"],
+            "chunk_count": c["chunk_count"],
             "video_path": video_path,
         }
 

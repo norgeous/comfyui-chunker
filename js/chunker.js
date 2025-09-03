@@ -95,7 +95,7 @@ app.registerExtension({
         });
       },
 
-      "ChunkerSequencer": () => {
+      "ChunkerResequencer": () => {
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           //updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
         });

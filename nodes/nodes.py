@@ -78,7 +78,7 @@ class ChunkerConfig:
         }
 
 
-class ChunkerSequencer:#ChunkerRemix
+class ChunkerResequencer:
     @classmethod
     def INPUT_TYPES(cls):
         return {

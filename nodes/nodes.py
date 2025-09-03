@@ -327,11 +327,7 @@ class ChunkerCombine:
         dynprompt=None,
         unique_id=None,
         store=None,
-        *args,
-        **kwargs
     ):
-        log(args, kwargs)
-        log("store:",store)
         d = chunker_data
         c = d["chunker_config"]
         s = {

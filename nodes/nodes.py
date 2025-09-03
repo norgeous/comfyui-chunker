@@ -28,11 +28,11 @@ class ChunkerConfig:
         "Total length of output images",
         "Count of chunks",
     )
-    FUNCTION = "main"
+    FUNCTION = "execute"
     CATEGORY = "Chunker"
     DESCRIPTION = "Chunker config"
 
-    def main(
+    def execute(
         self,
         mode,
         chunk_length,
@@ -100,11 +100,11 @@ class ChunkerResequencer:
         "remixed sequence of images",
         "remixed sequence of masks",
     )
-    FUNCTION = "main"
+    FUNCTION = "execute"
     CATEGORY = "Chunker"
     DESCRIPTION = "Remix or generate image and mask sequences"
 
-    def main(
+    def execute(
         self,
         chunker_config,
         start_image_count,
@@ -196,11 +196,11 @@ class Chunker:
         "Length of current chunk",
         "The current itteration index, ie; 0, 1, 2, ...",
     )
-    FUNCTION = "main"
+    FUNCTION = "execute"
     CATEGORY = "Chunker"
     DESCRIPTION = "Chunker"
 
-    def main(
+    def execute(
         self,
         chunker_config,
         images=None,
@@ -312,12 +312,12 @@ class ChunkerCombine:
         "Combined images from all chunks",
         "Combined masks from all chunks",
     )
-    FUNCTION = "main"
+    FUNCTION = "execute"
     CATEGORY = "Chunker"
     DESCRIPTION = "ChunkerCombine"
     OUTPUT_NODE = True
 
-    def main(
+    def execute(
         self,
         chunker_data,
         preview_fps,

@@ -86,7 +86,7 @@ class ChunkerResequencer:
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "TODO"}),
                 "start_image_count": ("INT", {"tooltip": "TODO"}),
                 "use_end_image": (["every_chunk", "final_chunk_only", "never"], {"tooltip": "TODO"}),
-                #"sequence": ("STRING", {"default": "", "multiline": True, "tooltip": "TODO"}),
+                "sequence": ("STRING", {"default": "", "multiline": True, "tooltip": "TODO"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "None, single image or batch of images to be resequenced"}),
@@ -109,6 +109,7 @@ class ChunkerResequencer:
         chunker_config,
         start_image_count,
         use_end_image,
+        sequence,
         images=None,
         masks=None,
     ):

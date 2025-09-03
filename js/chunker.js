@@ -82,9 +82,6 @@ app.registerExtension({
     ({
       "ChunkerConfig": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // hide store input
-          //this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
-          //this.setSize([250, 0]);
           const mode = this.widgets.find(({ name }) => name === "mode");
           const chunk_length = this.widgets.find(({ name }) => name === "chunk_length");
           const chunk_overlap = this.widgets.find(({ name }) => name === "chunk_overlap");
@@ -111,8 +108,7 @@ app.registerExtension({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // hide store input
-          this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
-          //this.setSize([250, 0]);
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
@@ -127,7 +123,7 @@ app.registerExtension({
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // hide store input
-          this.widgets.find(({ name }) => name === "store").computeSize = () => [0, -4];
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
 
           // create chunk info widget
           const element = document.createElement("div");
@@ -176,6 +172,9 @@ app.registerExtension({
               <progress style="display:block; width:100%;" value="${chunks_completed}" max="${chunk_count}"></progress>
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
+
+            // attempt to fix the dodgy video width
+            element.querySelector("video").width = "100%";
           }, 1_000);
 
           this.uuid = makeUUID();
@@ -197,11 +196,11 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
-          console.log("onAfterExecuteNode");
+          //console.log("onAfterExecuteNode");
         });
 
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          console.log("onExecuted");
+          //console.log("onExecuted");
           updateLabels(this, ui.values[0]);
           const { image_count, index, chunk_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });

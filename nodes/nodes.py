@@ -22,8 +22,11 @@ class ChunkerConfig:
     RETURN_TYPES = ("CHUNKER_CONFIG", "INT", "INT", "INT", "INT")
     RETURN_NAMES = ("chunker_config", "chunk_length","chunk_overlap","total_length","chunk_count")
     OUTPUT_TOOLTIPS = (
-        "includes all settings",
-        "count of chunks",
+        "Includes all settings",
+        "Count of images in each chunk",
+        "Count of images to overlap between each chunk",
+        "Total length of output images",
+        "Count of chunks",
     )
     FUNCTION = "main"
     CATEGORY = "Chunker"
@@ -39,15 +42,12 @@ class ChunkerConfig:
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         if mode == "Wan":
-            # check chunk_length matches 4n+1
-            #chunk_length = 49
-
-            # adjust total_length, so that last chunk matches 4n+1
+            # we want to avoid the situation where the last chunk of images is not a valid length for Wan
+            # adjust total_length, so that the final chunk matches 4n+1
             previous_chunks_total = (chunk_length * (chunk_count - 1)) - (chunk_overlap * (chunk_count - 1))
-            last_chunk_length = total_length - previous_chunks_total
-            is_valid_wan_length = ((last_chunk_length - 1) / 4) % 1 == 0
-            log(last_chunk_length, is_valid_wan_length)
-            #total_length = 100
+            final_chunk_length = total_length - previous_chunks_total
+            adjusted_final_chunk_length = (round(final_chunk_length / 4) * 4) + 1 # force 4n+1
+            total_length = previous_chunks_total + adjusted_final_chunk_length
 
         chunker_config = {
             "mode": mode,
@@ -173,12 +173,12 @@ class Chunker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "store": ("INT",), # hidden by js
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "tbd"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Images to be chunked"}),
                 "masks": ("MASK", {"tooltip": "Masks to be chunked"}),
+                "store": ("*",), # hidden by js
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -191,6 +191,9 @@ class Chunker:
         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
         "Chunk of images",
         "Chunk of masks",
+        "Width of images",
+        "Height of images",
+        "Length of current chunk",
         "The current itteration index, ie; 0, 1, 2, ...",
     )
     FUNCTION = "main"
@@ -199,10 +202,10 @@ class Chunker:
 
     def main(
         self,
-        store,
         chunker_config,
         images=None,
         masks=None,
+        store=None,
         unique_id=None,
     ):
         if images is None and masks is None:
@@ -212,7 +215,7 @@ class Chunker:
         s = {
             "index": 0,
             "images_overlap": None,
-        } if type(store) is int else store
+        } if store is None else store
 
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
@@ -243,6 +246,11 @@ class Chunker:
         out_images_torch = torch.cat(out_images)
         out_masks_torch = torch.cat(out_masks)
 
+        this_chunk_length = max(len(out_images_torch), len(out_masks_torch))
+
+        if c["mode"] == "Wan":
+            this_chunk_length = (round(this_chunk_length / 4) * 4) + 1 # force 4n+1
+
         chunker_data = {
             "start_node_id": unique_id,
             "index": s["index"],
@@ -259,7 +267,7 @@ class Chunker:
                 "masks": len(out_masks_torch),
                 "width": w,
                 "height": h,
-                "chunk_length": c["chunk_length"],
+                "chunk_length": this_chunk_length,
                 "index": s["index"],
             },
         }
@@ -272,7 +280,7 @@ class Chunker:
                 out_masks_torch, # just this chunk
                 w,
                 h,
-                c["chunk_length"],
+                this_chunk_length,
                 s["index"],
             ),
         }
@@ -283,14 +291,14 @@ class ChunkerCombine:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "store": ("INT",), # hidden by js
                 "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
-                "preview_fps": ("FLOAT", {"default": 16, "min": 1, "max": 120, "step": 1, "tooltip": "The FPS of the preview video"}),
+                "preview_fps": ("FLOAT", {"default": 16.0, "min": 1.0, "max": 120.0, "step": 1.0, "tooltip": "The FPS of the preview video"}),
                 "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
                 "masks": ("MASK", {"tooltip": "Processed chunk of masks"}),
+                "store": ("*",), # hidden by js
             },
             "hidden": {
                 "dynprompt": "DYNPROMPT",
@@ -311,22 +319,26 @@ class ChunkerCombine:
 
     def main(
         self,
-        store,
         chunker_data,
-        images,
-        masks,
-        show_debug,
         preview_fps,
+        show_debug,
+        images=None,
+        masks=None,
         dynprompt=None,
         unique_id=None,
+        store=None,
+        *args,
+        **kwargs
     ):
+        log(args, kwargs)
+        log("store:",store)
         d = chunker_data
         c = d["chunker_config"]
         s = {
             "images_previous": None,
             "masks_previous": None,
             "preview_previous": None,
-        } if type(store) is int else store
+        } if store is None else store
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
@@ -337,6 +349,7 @@ class ChunkerCombine:
         out_images_torch = torch.cat(out_images)
 
         is_done = len(out_images_torch) >= c["total_length"]
+        log(f"{is_done} = {len(out_images_torch)} >= {c['total_length']}")
 
         # make preview video for new images
         preview_video = []
@@ -354,8 +367,8 @@ class ChunkerCombine:
         if is_done:
             ui_values = {
                 "input_label_values": {
-                    "images": len(images),
-                    "masks": len(masks),
+                    "images": len(images) if images is not None else None,
+                    "masks": len(masks) if masks is not None else None,
                 },
                 "output_label_values": {
                     "images": len(out_images_torch),
@@ -368,7 +381,10 @@ class ChunkerCombine:
             }
             return {
                 "ui": {"values": [ui_values]},
-                "result":(out_images_torch,)
+                "result":(
+                    out_images_torch,
+                    #out_masks_torch,
+                )
             }
 
 
@@ -397,11 +413,12 @@ class ChunkerCombine:
             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else out_images_torch,
             "preview_previous": preview_video_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 else preview_video_torch,
         })
+        print(new_combine)
 
         ui_values = {
             "input_label_values": {
-                "images": len(images),
-                "masks": len(masks),
+                "images": len(images) if images is not None else None,
+                "masks": len(masks) if masks is not None else None,
             },
             "output_label_values": {
                 "images": None,

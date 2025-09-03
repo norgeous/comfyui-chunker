@@ -205,17 +205,17 @@ class Chunker:
         chunker_config,
         images=None,
         masks=None,
-        store=None,
         unique_id=None,
+        store={
+            "index": 0,
+            "images_overlap": None,
+        }
     ):
         if images is None and masks is None:
             raise Exception("Please provide images OR masks")
 
         c = chunker_config
-        s = {
-            "index": 0,
-            "images_overlap": None,
-        } if store is None else store
+        s = store
 
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
@@ -326,15 +326,15 @@ class ChunkerCombine:
         masks=None,
         dynprompt=None,
         unique_id=None,
-        store=None,
-    ):
-        d = chunker_data
-        c = d["chunker_config"]
-        s = {
+        store={
             "images_previous": None,
             "masks_previous": None,
             "preview_previous": None,
-        } if store is None else store
+        },
+    ):
+        d = chunker_data
+        c = d["chunker_config"]
+        s = store
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 

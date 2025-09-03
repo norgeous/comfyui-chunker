@@ -1,8 +1,8 @@
 from PIL import Image
 import torch
 import numpy as np
-import math
-from comfy.utils import common_upscale
+# import math
+# from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 
 def log(*args):

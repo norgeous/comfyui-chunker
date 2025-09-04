@@ -84,14 +84,10 @@ class ChunkerResequencer:
         return {
             "required": {
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "TODO"}),
-                #"start_image_count": ("INT", {"tooltip": "TODO"}),
-                #"use_end_image": (["every_chunk", "final_chunk_only", "never"], {"tooltip": "TODO"}),
-                #"sequence": ("STRING", {"default": "", "multiline": True, "tooltip": "TODO"}),
-                #"start_image_count_each_chunk": ("INT", {"tooltip": "TODO"}),
-                #"end_image_count_each_chunk": ("INT", {"tooltip": "TODO"}),
-                "first_chunk_start_image_count": ("INT", {"tooltip": "TODO"}),
-                "each_chunk_image_count": ("INT", {"tooltip": "count of images to be used as middle and end images in each chunk"}),
-                "final_chunk_end_image_count": ("INT", {"tooltip": "TODO"}),
+                "start_image": ("BOOLEAN", {"tooltip": "TODO"}),
+                "image_count_every_chunk": ("INT", {"tooltip": "Count of images to be used in each chunk"}),
+                "end_image_every_chunk": ("BOOLEAN", {"tooltip": "TODO"}),
+                "end_image": ("BOOLEAN", {"tooltip": "TODO"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "None, single image or batch of images to be resequenced"}),
@@ -112,12 +108,10 @@ class ChunkerResequencer:
     def execute(
         self,
         chunker_config,
-        #start_image_count,
-        #use_end_image,
-        # sequence,
-        first_chunk_start_image_count,
-        each_chunk_image_count,
-        final_chunk_end_image_count,
+        start_image,
+        image_count_every_chunk,
+        end_image_every_chunk,
+        end_image,
         images=None,
         masks=None,
     ):
@@ -133,26 +127,49 @@ class ChunkerResequencer:
         out_masks = []
 
         # for every frame in sequence, select a frame
-        given_count = len(images) if images is not None else 0
-        given_count_masks = len(masks) if masks is not None else 0
-        used_count = 0
-        for i in range(c["total_length"]):
-            if given_count > 0:
+        if images is None:
+            out_images.extend([grey_panel] * c["total_length"])
+            out_masks.extend([white_panel] * c["total_length"])
+        else:
+            next_image = 0
+            next_mask = 0
+            middle_images_positions = []
+            delta = c["chunk_length"] / (image_count_every_chunk + 1)
+            for i in range(1, image_count_every_chunk):
+                middle_images_positions.append(round(i * delta))
+            for i in range(c["total_length"]):
+                chunk_position_fraction = max(0, i+1 - c["chunk_overlap"]) / (c["chunk_length"] - c["chunk_overlap"]) % 1
+                is_end = i > c["chunk_overlap"] and chunk_position_fraction == 0
+
+                # is_at_fraction = chunk_position_fraction == (image_count_every_chunk / (image_count_every_chunk + 1))
+                # log(i, chunk_position_fraction, (image_count_every_chunk / (image_count_every_chunk + 1)), is_end, is_at_fraction)
+                log(i, middle_images_positions)
+
                 if (
-                    i < start_image_count
+                    (start_image and i == 0)
                     or
-                    use_end_image == "every_chunk" and i > c["chunk_overlap"] and ((i+1 - c["chunk_overlap"]) / (c["chunk_length"] - c["chunk_overlap"])) % 1 == 0
+                    (image_count_every_chunk > 0 and i in middle_images_positions)
                     or
-                    use_end_image in ["every_chunk","final_chunk_only"] and i == c["total_length"] - 1
+                    (end_image_every_chunk and is_end)
+                    or
+                    (end_image and i == c["total_length"] - 1)
                 ):
-                    next = min(used_count, given_count-1)
-                    out_images.extend([images[next:next + 1]])
-                    out_masks.extend([masks[next:next + 1]] if given_count_masks > next else [black_panel])
-                    used_count += 1
+                    # then add the next image at this index
+                    out_images.extend([images[next_image:next_image+1]])
+                    next_image = (next_image + 1) % len(images)
+
+                    # and add a mask at the same index
+                    if masks is not None:
+                        out_masks.extend([masks[next_mask:next_mask+1]])
+                        next_mask = (next_mask + 1) % len(masks)
+                    else:
+                        out_masks.extend([black_panel])
+
                     continue
 
-            out_images.extend([grey_panel])
-            out_masks.extend([white_panel])
+                # otherwise this index is "blank"
+                out_images.extend([grey_panel])
+                out_masks.extend([white_panel])
 
         out_images_torch = torch.cat(out_images)
         out_masks_torch = torch.cat(out_masks)
@@ -368,11 +385,16 @@ class ChunkerCombine:
 
         is_done = d["index"] + 1 >= c["chunk_count"]
 
-        log(
-            "is_done",
-            is_done,
-            s
-        )
+
+
+
+
+
+
+
+
+
+
 
         # make preview video for new images
         preview_video_torch = None

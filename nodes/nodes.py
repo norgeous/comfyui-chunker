@@ -251,6 +251,8 @@ class Chunker:
         out_masks = []
 
         adjusted_chunk_overlap = 0 if s["index"] == 0 else c["chunk_overlap"]
+        images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
+        masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
 
         # add images_overlap if it exists
         if s["images_overlap"] is not None: out_images.extend([s["images_overlap"]])
@@ -265,20 +267,28 @@ class Chunker:
                 out_masks.extend([black_panel] * len(s["images_overlap"]))
 
         # cut chunk from images and masks and add them
-        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + adjusted_chunk_overlap
-        end = start + c["chunk_length"] - adjusted_chunk_overlap
-        if images is not None: out_images.extend([images[start:end]])
-        if masks is not None: out_masks.extend([masks[start:end]])
+        #start = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + adjusted_chunk_overlap
+        #istart = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + images_overlap_count
+        #mstart = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + masks_overlap_count
+        #iend = istart + c["chunk_length"] - adjusted_chunk_overlap
+        #mend = mstart + c["chunk_length"] - adjusted_chunk_overlap
+
+
+        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
+        end = start + c["chunk_length"]
+
+        if images is not None: out_images.extend([images[start + images_overlap_count:end]])
+        if masks is not None: out_masks.extend([masks[start + masks_overlap_count:end]])
 
         # convert to tensor
         #log(out_images)
         #log(out_masks)
 
-        log("M", masks, start, end)
-        if masks is not None: log("M.s", masks.shape)
+        #log("M", masks, start, end)
+        #if masks is not None: log("M.s", masks.shape)
 
-        log("MO", s["masks_overlap"])
-        if s["masks_overlap"] is not None: log("MO.s", s["masks_overlap"].shape)
+        #log("MO", s["masks_overlap"])
+        #if s["masks_overlap"] is not None: log("MO.s", s["masks_overlap"].shape)
 
         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
         out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None # that?
@@ -378,37 +388,45 @@ class ChunkerCombine:
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
-        # combine all chunks so far
+        # combine previous chunks with new chunks
+        log("torch.cat images")
         out_images = []
         if s["images_previous"] is not None: out_images.extend([s["images_previous"]])
         if images is not None: out_images.extend([images])
         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
 
         out_masks = []
+        log("torch.cat masks")
         if s["masks_previous"] is not None: out_masks.extend([s["masks_previous"]])
         if masks is not None: out_masks.extend([masks])
-        out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None # here?
+        out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None
 
         is_done = d["index"] + 1 >= c["chunk_count"]
 
         # make preview video for new images and masks
         preview_video_torch = None
         video_path = None
+
+        # add previous preview
         preview_video = []
         if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
         previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
+
         if masks is not None and images is None:
             # convert mask to image
-            imasks = mask_to_image(out_masks_torch)
-            preview_video_chunk = overlay_debug(imasks, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else out_images_torch
+            imasks = mask_to_image(masks)
+            preview_video_chunk = overlay_debug(imasks, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else imasks
             preview_video.extend([preview_video_chunk])
+            log("torch.cat preview")
             preview_video_torch = torch.cat(preview_video)
         if images is not None and masks is None:
-            preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else out_images_torch
+            preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else images
             preview_video.extend([preview_video_chunk])
+            log("torch.cat preview")
             preview_video_torch = torch.cat(preview_video)
+
+        # save preview video
         if preview_video_torch is not None:
-            # save preview video
             filename_prefix = "video/chunker/tmp/tmp" if not is_done else "video/chunker/tmp/complete"
             video_path = save_video(preview_video_torch, preview_fps, filename_prefix)
 

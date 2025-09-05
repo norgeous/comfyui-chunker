@@ -19,7 +19,7 @@ def panelMask(w, h, v=255):
 
 def mask_to_image(mask):
     result = mask.reshape((-1, 1, mask.shape[-2], mask.shape[-1])).movedim(1, -1).expand(-1, -1, -1, 3)
-    return (result,)
+    return result
 
 # def slice(thing, start=None, end=None):
 #     if thing is None: return []

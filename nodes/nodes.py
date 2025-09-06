@@ -4,7 +4,7 @@ from comfy_execution.graph_utils import GraphBuilder
 from comfy_api.input_impl import VideoFromFile
 from .utils import log, panelImage, panelMask, mask_to_image, overlay_debug
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .saveVideo import save_video
+from .video import save_video, load_video_images_exclude_overlap
 
 
 class ChunkerConfig:
@@ -333,6 +333,56 @@ class Chunker:
         }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class ChunkerCombine:
     @classmethod
     def INPUT_TYPES(cls):
@@ -406,9 +456,11 @@ class ChunkerCombine:
         preview_video_torch = None
         video_path = None
 
-        preview_previous = VideoFromFile(s["preview_previous_video_path"]).get_components().images if s["preview_previous_video_path"] is not None else None
-        preview_previous = preview_previous[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and preview_previous is not None else None
-        log("loaded video images", preview_previous)
+        # preview_previous = VideoFromFile(s["preview_previous_video_path"]).get_components().images if s["preview_previous_video_path"] is not None else None
+        # preview_previous = preview_previous[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and preview_previous is not None else None
+        # log("loaded video images", preview_previous)
+
+        preview_previous = load_video_images_exclude_overlap(s["preview_previous_video_path"], c["chunk_overlap"])
 
         # add previous preview
         preview_video = []
@@ -433,7 +485,7 @@ class ChunkerCombine:
         # save preview video
         if preview_video_torch is not None:
             filename_prefix = "video/chunker/tmp/tmp" if not is_done else "video/chunker/tmp/complete"
-            video_path = save_video(preview_video_torch, preview_fps, filename_prefix)
+            video_path, full_path = save_video(preview_video_torch, preview_fps, filename_prefix)
 
         log("video_path", video_path)
 
@@ -488,7 +540,8 @@ class ChunkerCombine:
         new_combine.set_input("store", {
             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_images_torch is not None else out_images_torch,
             "masks_previous": out_masks_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_masks_torch is not None else out_masks_torch,
-            "preview_previous_video_path": f"/home/user/ComfyUI/output/{video_path['subfolder']}/{video_path['filename']}", # TODO path.join
+            # "preview_previous_video_path": f"/home/user/ComfyUI/output/{video_path['subfolder']}/{video_path['filename']}", # TODO path.join
+            "preview_previous_video_path": full_path
         })
 
         ui_values = {

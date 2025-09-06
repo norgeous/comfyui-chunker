@@ -23,12 +23,12 @@ def save_video(images, fps, filename_prefix):
     video.save_to(full_path, format=format, codec=codec, metadata=None)
 
     return (
+        full_path,
         {
             "filename": file,
             "subfolder": subfolder,
             "type": "output",
         },
-        full_path,
     )
 
 def load_video_images_exclude_overlap(full_path, overlap):

@@ -21,58 +21,6 @@ def mask_to_image(mask):
     result = mask.reshape((-1, 1, mask.shape[-2], mask.shape[-1])).movedim(1, -1).expand(-1, -1, -1, 3)
     return result
 
-# def slice(thing, start=None, end=None):
-#     if thing is None: return []
-#     sliced = thing[start:end]
-#     if len(sliced) == 0: return []
-#     return [sliced]
-
-# def len2(thing):
-#     count = 0
-#     for item in thing:
-#         count += len(item)
-#     return count
-
-# def kijaiWanResizeCalc(image, generation_width, generation_height, aspect_ratio):
-#     VAE_STRIDE = (4, 8, 8)
-#     PATCH_SIZE = (1, 2, 2)
-#     H, W = image.shape[1], image.shape[2]
-#     max_area = generation_width * generation_height
-#     crop = "disabled"
-#     if aspect_ratio == "keep_input":
-#         aspect_ratio = H / W
-#     elif aspect_ratio == "stretch_to_new" or aspect_ratio == "crop_to_new":
-#         aspect_ratio = generation_height / generation_width
-#         if aspect_ratio == "crop_to_new":
-#             crop = "center"
-#     lat_h = round(
-#     np.sqrt(max_area * aspect_ratio) // VAE_STRIDE[1] //
-#     PATCH_SIZE[1] * PATCH_SIZE[1])
-#     lat_w = round(
-#         np.sqrt(max_area / aspect_ratio) // VAE_STRIDE[2] //
-#         PATCH_SIZE[2] * PATCH_SIZE[2])
-#     h = lat_h * VAE_STRIDE[1]
-#     w = lat_w * VAE_STRIDE[2]
-#     return (w, h, crop)
-
-# def resizeImage(image, width, height, aspect_ratio):
-#     if image is None: return None
-#     w, h, crop = kijaiWanResizeCalc(image, width, height, aspect_ratio)
-#     if image.shape[1] == h and image.shape[2] == w: return image
-#     resized_image = common_upscale(image.movedim(-1, 1), w, h, "lanczos", crop).movedim(1, -1)
-#     return resized_image
-
-# def resizeMask(mask, width, height, aspect_ratio):
-#     if mask is None: return None
-#     w, h, crop = kijaiWanResizeCalc(mask, width, height, aspect_ratio)
-#     if mask.shape[1] == h and mask.shape[2] == w: return mask
-#     resized_mask = common_upscale(mask.unsqueeze(1).repeat(1, 3, 1, 1), w, h, "lanczos", crop).movedim(1,-1)[:, :, :, 0]
-#     return resized_mask
-
-
-
-
-
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1
     is_overlap = True if chunk_index > 0 and i < overlap else False
@@ -133,3 +81,30 @@ def overlay_debug(images, previous_count, chunk_index, chunk_count, chunk_length
         [getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap) for i in range(0, len(images))],
     )
     return images
+
+def simple_blend(image1, image2, blend_factor=0.5):
+        blended_image = image1 * (1 - blend_factor) + image2 * blend_factor
+        blended_image = torch.clamp(blended_image, 0, 1)
+        return blended_image
+
+def combine_images_and_masks(images, masks):
+    masks = mask_to_image(masks) if masks is not None else None
+    out = None
+    if images is not None and masks is None: out = images
+    if images is None and masks is not None: out = masks
+    if images is not None and masks is not None: out = simple_blend(images, masks)
+    return out
+
+def create_preview_video(images, masks, show_debug, previous_count, d, c):
+    preview_video_chunk = combine_images_and_masks(images, masks)
+    if show_debug: 
+        preview_video_chunk = overlay_debug(
+            preview_video_chunk,
+            previous_count,
+            d["index"],
+            c["chunk_count"],
+            c["chunk_length"],
+            c["chunk_overlap"],
+            c["total_length"],
+        )
+    return preview_video_chunk

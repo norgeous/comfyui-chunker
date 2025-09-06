@@ -174,7 +174,7 @@ app.registerExtension({
             `;
 
             // attempt to fix the dodgy video width
-            element.querySelector("video").style.width = "100%";
+            element.querySelector("video").style.width = Math.random() ? "100%" : "99.99%";
           }, 1_000);
 
           this.uuid = makeUUID();

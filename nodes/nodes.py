@@ -1,7 +1,7 @@
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
+from comfy_api.input_impl import VideoFromFile
 from .utils import log, panelImage, panelMask, mask_to_image, overlay_debug
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .saveVideo import save_video
@@ -259,8 +259,8 @@ class Chunker:
 
         # add masks_overlap if it exists
         if s["masks_overlap"] is not None:
-            #out_masks.extend([s["masks_overlap"]])
-            out_masks.extend(s["masks_overlap"])
+            out_masks.extend([s["masks_overlap"]])
+            #out_masks.extend(s["masks_overlap"])
         else:
             # add as many black masks as images in overlap
             if s["images_overlap"] is not None:
@@ -376,7 +376,8 @@ class ChunkerCombine:
         store={
             "images_previous": None,
             "masks_previous": None,
-            "preview_previous": None,
+            #"preview_previous": None,
+            "preview_previous_video_path": None,
         },
     ):
         if images is None and masks is None:
@@ -385,8 +386,6 @@ class ChunkerCombine:
         d = chunker_data
         c = d["chunker_config"]
         s = store
-
-        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
         # combine previous chunks with new chunks
         log("torch.cat images")
@@ -407,10 +406,16 @@ class ChunkerCombine:
         preview_video_torch = None
         video_path = None
 
+        preview_previous = VideoFromFile(s["preview_previous_video_path"]).get_components().images if s["preview_previous_video_path"] is not None else None
+        preview_previous = preview_previous[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and preview_previous is not None else None
+        log("loaded video images", preview_previous)
+
         # add previous preview
         preview_video = []
-        if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
-        previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
+        #if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
+        #previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
+        if preview_previous is not None: preview_video.extend([preview_previous])
+        previous_count = len(preview_previous) if preview_previous is not None else 0
 
         if masks is not None and images is None:
             # convert mask to image
@@ -429,6 +434,8 @@ class ChunkerCombine:
         if preview_video_torch is not None:
             filename_prefix = "video/chunker/tmp/tmp" if not is_done else "video/chunker/tmp/complete"
             video_path = save_video(preview_video_torch, preview_fps, filename_prefix)
+
+        log("video_path", video_path)
 
         # if no more chunks needed return early
         if is_done:
@@ -454,7 +461,6 @@ class ChunkerCombine:
                 )
             }
 
-
         # clone all the nodes between Chunker and ChunkerCombine
         graph = GraphBuilder()
         comfyuiRepeatNodes(dynprompt, graph, unique_id, d["start_node_id"])
@@ -475,12 +481,14 @@ class ChunkerCombine:
             seed = node.get_input("seed")
             node.set_input("seed", seed + d["index"] + 1)
 
+        log("big slice operations next")
+
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
         new_combine.set_input("store", {
             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_images_torch is not None else out_images_torch,
             "masks_previous": out_masks_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_masks_torch is not None else out_masks_torch,
-            "preview_previous": preview_video_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and preview_video_torch is not None else preview_video_torch,
+            "preview_previous_video_path": f"/home/user/ComfyUI/output/{video_path['subfolder']}/{video_path['filename']}", # TODO path.join
         })
 
         ui_values = {
@@ -496,6 +504,8 @@ class ChunkerCombine:
             "chunk_count": c["chunk_count"],
             "video_path": video_path,
         }
+
+        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
         return {
             "ui": {"values": [ui_values]},

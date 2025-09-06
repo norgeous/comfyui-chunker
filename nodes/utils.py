@@ -1,12 +1,10 @@
 from PIL import Image
 import torch
 import numpy as np
-# import math
-# from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 
-def log(*args):
-    print(f"\U0001F36B  Chunker:", *args)
+def log(*args, **kwargs):
+    print(f"\U0001F36B  Chunker:", *args, **kwargs)
 
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
@@ -20,6 +18,10 @@ def panelMask(w, h, v=255):
 def mask_to_image(mask):
     result = mask.reshape((-1, 1, mask.shape[-2], mask.shape[-1])).movedim(1, -1).expand(-1, -1, -1, 3)
     return result
+
+def image_to_mask(image):
+    mask = image[:, :, :, 0]
+    return mask
 
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1
@@ -95,9 +97,10 @@ def combine_images_and_masks(images, masks):
     if images is not None and masks is not None: out = simple_blend(images, masks)
     return out
 
-def create_preview_video(images, masks, show_debug, previous_count, d, c):
+def create_preview_video(images, masks, show_debug, d, c):
+    previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
-    if show_debug: 
+    if show_debug:
         preview_video_chunk = overlay_debug(
             preview_video_chunk,
             previous_count,

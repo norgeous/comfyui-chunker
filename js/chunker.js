@@ -139,6 +139,10 @@ app.registerExtension({
 
           this.store = jsonDivStore(element);
           setInterval(() => {
+            // fix the dodgy video width
+            const vid = element.querySelector("video");
+            vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
+
             const { timestamp1, timestamp2, index = 0, chunk_count = 0 } = this.store.get();
 
             if (!timestamp2) {
@@ -172,9 +176,6 @@ app.registerExtension({
               <progress style="display:block; width:100%;" value="${chunks_completed}" max="${chunk_count}"></progress>
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
-
-            // attempt to fix the dodgy video width
-            element.querySelector("video").style.width = Math.random() ? "100%" : "99.99%";
           }, 1_000);
 
           this.uuid = makeUUID();

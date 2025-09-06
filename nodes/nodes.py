@@ -1,9 +1,9 @@
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import log, panelImage, panelMask, create_preview_video
+from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, create_preview_video
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .video import save_video, load_video_images_exclude_overlap
+from .video import save_video, load_video_images_exclude_overlap, ffmpeg_cat
 
 
 class ChunkerConfig:
@@ -266,28 +266,10 @@ class Chunker:
                 out_masks.extend([black_panel] * len(s["images_overlap"]))
 
         # cut chunk from images and masks and add them
-        #start = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + adjusted_chunk_overlap
-        #istart = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + images_overlap_count
-        #mstart = s["index"] * (c["chunk_length"] - c["chunk_overlap"]) + masks_overlap_count
-        #iend = istart + c["chunk_length"] - adjusted_chunk_overlap
-        #mend = mstart + c["chunk_length"] - adjusted_chunk_overlap
-
-
         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
         end = start + c["chunk_length"]
-
         if images is not None: out_images.extend([images[start + images_overlap_count:end]])
         if masks is not None: out_masks.extend([masks[start + masks_overlap_count:end]])
-
-        # convert to tensor
-        #log(out_images)
-        #log(out_masks)
-
-        #log("M", masks, start, end)
-        #if masks is not None: log("M.s", masks.shape)
-
-        #log("MO", s["masks_overlap"])
-        #if s["masks_overlap"] is not None: log("MO.s", s["masks_overlap"].shape)
 
         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
         out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None # that?
@@ -386,38 +368,77 @@ class ChunkerCombine:
         s = store
 
         # load previous from files
-        previous_images = load_video_images_exclude_overlap(s["previous_video_path_images"], c["chunk_overlap"])
-        previous_masks = load_video_images_exclude_overlap(s["previous_video_path_masks"], c["chunk_overlap"])
-        previous_preview = load_video_images_exclude_overlap(s["previous_video_path_preview"], c["chunk_overlap"])
+        log("[debug] Combine -> loading previous (remove soon)")
+        # previous_images = load_video_images_exclude_overlap(s["previous_video_path_images"], c["chunk_overlap"])
+        #previous_masks = load_video_images_exclude_overlap(s["previous_video_path_masks"], c["chunk_overlap"])
+        #log(s["previous_video_path_preview"])
+        #previous_preview = load_video_images_exclude_overlap(s["previous_video_path_preview"], c["chunk_overlap"])
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
+        end = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"])) - 1
 
-        # save all image chunks to file
+        # # save all image chunks to file
+        # images_full_path = None
+        # out_images_torch = images
+        # log("[debug] Combine -> cat images start", end="")
+        # if previous_images is not None and images is not None: out_images_torch = torch.cat([previous_images, images])
+        # print("done")
+        # if images is not None:
+        #     filename_prefix = "video/chunker/tmp/imageschunk" if not is_done else "video/chunker/tmp/imagescomplete"
+        #     images_full_path, images_video_path = save_video(out_images_torch, 30, filename_prefix)
+
+        # images
         images_full_path = None
-        out_images_torch = torch.cat([previous_images, images]) if images is not None else None
         if images is not None:
-            filename_prefix = "video/chunker/tmp/imageschunk" if not is_done else "video/chunker/tmp/imagescomplete"
-            images_full_path, = save_video(out_images_torch, preview_fps, filename_prefix)
+            # save new image chunk to file
+            log("[debug] Combine -> saving images...", end="")
+            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/images-new")
+            print("done")
+            # combine with previous image chunks
+            if s["previous_video_path_images"] is not None:
+                filename_prefix = "video/chunker/tmp/images-combined" if not is_done else "video/chunker/tmp/images-complete"
+                log("[debug] Combine -> ffmpeg cat images start...", end="")
+                images_full_path, images_video_path = ffmpeg_cat([s["previous_video_path_images"], images_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
+                print("done")
 
-        # save all masks chunks to file
+        # masks
         masks_full_path = None
-        out_masks_torch = torch.cat([previous_masks, masks]) if masks is not None else None
         if masks is not None:
-            filename_prefix = "video/chunker/tmp/maskschunk" if not is_done else "video/chunker/tmp/maskscomplete"
-            masks_full_path, = save_video(out_masks_torch, preview_fps, filename_prefix)
+            # save new mask chunk to file
+            log("[debug] Combine -> saving masks...", end="")
+            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/masks-new")
+            print("done")
+            # combine with previous mask chunks
+            if s["previous_video_path_masks"] is not None:
+                filename_prefix = "video/chunker/tmp/masks-combined" if not is_done else "video/chunker/tmp/masks-complete"
+                log("[debug] Combine -> ffmpeg cat masks start...", end="")
+                masks_full_path, masks_video_path = ffmpeg_cat([s["previous_video_path_masks"], masks_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
+                print("done")
 
-        # save all preview chunks to file
-        previous_count = len(previous_preview) if previous_preview is not None else 0
-        preview = create_preview_video(images, masks, show_debug, previous_count, d, c)
-        out_preview_torch = torch.cat([previous_preview, preview]) if preview is not None else None
-        filename_prefix = "video/chunker/tmp/previewchunk" if not is_done else "video/chunker/tmp/previewcomplete"
-        preview_full_path, preview_video_path = save_video(out_preview_torch, preview_fps, filename_prefix)
+        # preview
+        preview_full_path = None
+        log("[debug] Combine -> create preview overlay...", end="")
+        preview = create_preview_video(images, masks, show_debug, d, c)
+        print("done")
+        if preview is not None:
+            # save new preview chunk to file
+            log("[debug] Combine -> saving preview...", end="")
+            preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/preview-new")
+            print("done")
+            # combine with previous preview chunks
+            if s["previous_video_path_preview"] is not None:
+                filename_prefix = "video/chunker/tmp/preview-combined" if not is_done else "video/chunker/tmp/preview-complete"
+                log("[debug] Combine -> ffmpeg cat preview...", end="")
+                preview_full_path, preview_video_path = ffmpeg_cat([s["previous_video_path_preview"], preview_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
+                print("done")
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
 
         # if no more chunks needed, return early
         if is_done:
+            out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
+            out_masks_torch = load_video_images_exclude_overlap(masks_full_path, 0)
             ui_values = {
                 "input_label_values": {
                     "images": len(images) if images is not None else 0,
@@ -435,7 +456,7 @@ class ChunkerCombine:
                 "ui": {"values": [ui_values]},
                 "result":(
                     out_images_torch,
-                    out_masks_torch,
+                    image_to_mask(out_masks_torch),
                 )
             }
 
@@ -490,219 +511,3 @@ class ChunkerCombine:
             ),
             "expand": graph.finalize(),
         }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class ChunkerCombine:
-#     @classmethod
-#     def INPUT_TYPES(cls):
-#         return {
-#             "required": {
-#                 "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
-#                 "preview_fps": ("FLOAT", {"default": 16.0, "min": 1.0, "max": 120.0, "step": 1.0, "tooltip": "The FPS of the preview video"}),
-#                 "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
-#             },
-#             "optional": {
-#                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
-#                 "masks": ("MASK", {"tooltip": "Processed chunk of masks"}),
-#                 "store": ("*",), # hidden by js
-#             },
-#             "hidden": {
-#                 "dynprompt": "DYNPROMPT",
-#                 "unique_id": "UNIQUE_ID",
-#             }
-#         }
-
-#     RETURN_TYPES = ("IMAGE", "MASK")
-#     RETURN_NAMES = ("images", "masks")
-#     OUTPUT_TOOLTIPS = (
-#         "Combined images from all chunks",
-#         "Combined masks from all chunks",
-#     )
-#     FUNCTION = "execute"
-#     CATEGORY = "Chunker"
-#     DESCRIPTION = "ChunkerCombine"
-#     OUTPUT_NODE = True
-
-#     def execute(
-#         self,
-#         chunker_data,
-#         preview_fps,
-#         show_debug,
-#         images=None,
-#         masks=None,
-#         dynprompt=None,
-#         unique_id=None,
-#         store={
-#             "images_previous": None,
-#             "masks_previous": None,
-#             #"preview_previous": None,
-#             "preview_previous_video_path": None,
-#         },
-#     ):
-#         if images is None and masks is None:
-#             raise Exception("Please provide images OR masks")
-
-#         d = chunker_data
-#         c = d["chunker_config"]
-#         s = store
-
-#         # combine previous chunks with new chunks
-#         log("torch.cat images")
-#         out_images = []
-#         if s["images_previous"] is not None: out_images.extend([s["images_previous"]])
-#         if images is not None: out_images.extend([images])
-#         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
-
-#         out_masks = []
-#         log("torch.cat masks")
-#         if s["masks_previous"] is not None: out_masks.extend([s["masks_previous"]])
-#         if masks is not None: out_masks.extend([masks])
-#         out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None
-
-#         is_done = d["index"] + 1 >= c["chunk_count"]
-
-#         # make preview video for new images and masks
-#         preview_video_torch = None
-#         video_path = None
-
-#         # preview_previous = VideoFromFile(s["preview_previous_video_path"]).get_components().images if s["preview_previous_video_path"] is not None else None
-#         # preview_previous = preview_previous[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and preview_previous is not None else None
-#         # log("loaded video images", preview_previous)
-
-#         preview_previous = load_video_images_exclude_overlap(s["preview_previous_video_path"], c["chunk_overlap"])
-
-#         # add previous preview
-#         preview_video = []
-#         #if s["preview_previous"] is not None: preview_video.extend([s["preview_previous"]])
-#         #previous_count = len(s["preview_previous"]) if s["preview_previous"] is not None else 0
-#         if preview_previous is not None: preview_video.extend([preview_previous])
-#         previous_count = len(preview_previous) if preview_previous is not None else 0
-
-#         if masks is not None and images is None:
-#             # convert mask to image
-#             imasks = mask_to_image(masks)
-#             preview_video_chunk = overlay_debug(imasks, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else imasks
-#             preview_video.extend([preview_video_chunk])
-#             log("torch.cat preview")
-#             preview_video_torch = torch.cat(preview_video)
-#         if images is not None and masks is None:
-#             preview_video_chunk = overlay_debug(images, previous_count, d["index"], c["chunk_count"], c["chunk_length"], c["chunk_overlap"], c["total_length"]) if show_debug else images
-#             preview_video.extend([preview_video_chunk])
-#             log("torch.cat preview")
-#             preview_video_torch = torch.cat(preview_video)
-
-#         # save preview video
-#         if preview_video_torch is not None:
-#             filename_prefix = "video/chunker/tmp/tmp" if not is_done else "video/chunker/tmp/complete"
-#             video_path, full_path = save_video(preview_video_torch, preview_fps, filename_prefix)
-
-#         log("video_path", video_path)
-
-#         # if no more chunks needed return early
-#         if is_done:
-#             ui_values = {
-#                 "input_label_values": {
-#                     "images": len(images) if images is not None else 0,
-#                     "masks": len(masks) if masks is not None else 0,
-#                 },
-#                 "output_label_values": {
-#                     "images": len(out_images_torch) if out_images_torch is not None else 0,
-#                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
-#                 },
-#                 # "image_count": image_count,
-#                 "index": d["index"],
-#                 "chunk_count": c["chunk_count"],
-#                 "video_path": video_path,
-#             }
-#             return {
-#                 "ui": {"values": [ui_values]},
-#                 "result":(
-#                     out_images_torch,
-#                     out_masks_torch,
-#                 )
-#             }
-
-#         # clone all the nodes between Chunker and ChunkerCombine
-#         graph = GraphBuilder()
-#         comfyuiRepeatNodes(dynprompt, graph, unique_id, d["start_node_id"])
-
-#         # update the store in the new_chunker
-#         new_chunker = graph.lookup_node(d["start_node_id"])
-#         new_chunker.set_input("store", {
-#             "index": d["index"] + 1,
-#             "images_overlap": images[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and images is not None else None,
-#             "masks_overlap": masks[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and masks is not None else None,
-#         })
-
-#         # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan)
-#         ids = getNodeIdsByType(graph.finalize(), "KSampler")
-#         for id in ids:
-#             real_id = id.replace(f"{unique_id}.0.0.", "")
-#             node = graph.lookup_node(real_id)
-#             seed = node.get_input("seed")
-#             node.set_input("seed", seed + d["index"] + 1)
-
-#         log("big slice operations next")
-
-#         # update the store in the new_combine (this node)
-#         new_combine = graph.lookup_node("Recurse")
-#         new_combine.set_input("store", {
-#             "images_previous": out_images_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_images_torch is not None else out_images_torch,
-#             "masks_previous": out_masks_torch[:-c["chunk_overlap"]] if c["chunk_overlap"] > 0 and out_masks_torch is not None else out_masks_torch,
-#             # "preview_previous_video_path": f"/home/user/ComfyUI/output/{video_path['subfolder']}/{video_path['filename']}", # TODO path.join
-#             "preview_previous_video_path": full_path
-#         })
-
-#         ui_values = {
-#             "input_label_values": {
-#                 "images": len(images) if images is not None else 0,
-#                 "masks": len(masks) if masks is not None else 0,
-#             },
-#             "output_label_values": {
-#                 "images": None,
-#                 "masks": None,
-#             },
-#             "index": d["index"],
-#             "chunk_count": c["chunk_count"],
-#             "video_path": video_path,
-#         }
-
-#         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
-
-#         return {
-#             "ui": {"values": [ui_values]},
-#             "result": (
-#                 new_combine.out(0),
-#                 new_combine.out(1),
-#             ),
-#             "expand": graph.finalize(),
-#         }
-
-
-
-

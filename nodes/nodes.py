@@ -368,7 +368,7 @@ class ChunkerCombine:
         s = store
 
         # load previous from files
-        log("[debug] Combine -> loading previous (remove soon)")
+        #log("[debug] Combine -> loading previous (remove soon)")
         # previous_images = load_video_images_exclude_overlap(s["previous_video_path_images"], c["chunk_overlap"])
         #previous_masks = load_video_images_exclude_overlap(s["previous_video_path_masks"], c["chunk_overlap"])
         #log(s["previous_video_path_preview"])
@@ -398,7 +398,7 @@ class ChunkerCombine:
             # combine with previous image chunks
             if s["previous_video_path_images"] is not None:
                 filename_prefix = "video/chunker/tmp/images-combined" if not is_done else "video/chunker/tmp/images-complete"
-                log("[debug] Combine -> ffmpeg cat images start...", end="")
+                log("[debug] Combine -> ffmpeg cat images...", end="")
                 images_full_path, images_video_path = ffmpeg_cat([s["previous_video_path_images"], images_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
                 print("done")
 
@@ -412,7 +412,7 @@ class ChunkerCombine:
             # combine with previous mask chunks
             if s["previous_video_path_masks"] is not None:
                 filename_prefix = "video/chunker/tmp/masks-combined" if not is_done else "video/chunker/tmp/masks-complete"
-                log("[debug] Combine -> ffmpeg cat masks start...", end="")
+                log("[debug] Combine -> ffmpeg cat masks...", end="")
                 masks_full_path, masks_video_path = ffmpeg_cat([s["previous_video_path_masks"], masks_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
                 print("done")
 

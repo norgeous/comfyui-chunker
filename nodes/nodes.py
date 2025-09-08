@@ -386,7 +386,7 @@ class ChunkerCombine:
             log("[debug] Combine -> saving masks...", end="")
             masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/masks-chunk")
             print("done")
-            s["masks_chunks"].append(masks_full_path)
+            s["mask_chunks"].append(masks_full_path)
 
         # create preview from inputs
         log("[debug] Combine -> creating preview...", end="")

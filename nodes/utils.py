@@ -97,6 +97,7 @@ def combine_images_and_masks(images, masks):
     if images is not None and masks is None: out = images
     if images is None and masks is not None: out = masks
     if images is not None and masks is not None: out = simple_blend(images, masks)
+    #if images is not None and masks is not None: out = torch.cat((images, masks), dim=1) # side-by-side
     return out
 
 def create_preview_video(images, masks, show_debug, d, c):

@@ -45,16 +45,18 @@ def load_video_images_exclude_overlap(full_path, overlap):
     return images[:-overlap]
 
 
-def ffmpeg_cat(paths, end, length, overlap, filename_prefix):
+def ffmpeg_cat(paths, length, overlap, filename_prefix, crf=18, select_overlaps_from="this_chunk"):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
-    inputs = [ffmpeg.input(p) for p in paths]
-    inputs = [
-        ffmpeg.input(paths[0]).filter("select", f"between(n,0,{end})"),
-        ffmpeg.input(paths[1]),
-    ]
-    joined = ffmpeg.concat(inputs[0], inputs[1], v=1, a=0)
+    if select_overlaps_from == "this_chunk":
+        inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length - overlap})") if i < len(paths) - 1 else ffmpeg.input(path) for i, path in enumerate(paths)]
+    else
+        inputs = [ffmpeg.input(path).filter("select", f"between(n,{length - overlap},{length})") if i > 0 else ffmpeg.input(path) for i, path in enumerate(paths)]
+    joined = ffmpeg.concat(*inputs, v=1, a=0)
     try:
-        joined.output(full_path).run(capture_stdout=True, capture_stderr=True)
+        joined.output(
+            full_path,
+            crf=crf, # between 0 (max quality) and 51 (low quality)
+        ).run(capture_stdout=True, capture_stderr=True)
     except ffmpeg.Error as e:
         print('stdout:', e.stdout.decode('utf8'))
         print('stderr:', e.stderr.decode('utf8'))

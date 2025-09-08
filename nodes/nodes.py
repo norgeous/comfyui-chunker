@@ -264,6 +264,7 @@ class Chunker:
             # add as many black masks as images in overlap
             if s["images_overlap"] is not None:
                 out_masks.extend([black_panel] * len(s["images_overlap"]))
+                masks_overlap_count += len(s["images_overlap"])
 
         # cut chunk from images and masks and add them
         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
@@ -322,6 +323,7 @@ class ChunkerCombine:
                 "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
                 "preview_fps": ("FLOAT", {"default": 16.0, "min": 1.0, "max": 120.0, "step": 1.0, "tooltip": "The FPS of the preview video"}),
                 "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
+                "select_overlaps_from": (["this_chunk", "previous_chunk"], {"default": "this_chunk", "tooltip": "TODO"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
@@ -350,14 +352,15 @@ class ChunkerCombine:
         chunker_data,
         preview_fps,
         show_debug,
+        select_overlaps_from,
         images=None,
         masks=None,
         dynprompt=None,
         unique_id=None,
         store={
-            "previous_video_path_images": None,
-            "previous_video_path_masks": None,
-            "previous_video_path_preview": None,
+            "image_chunks": [],
+            "mask_chunks": [],
+            "preview_chunks": [],
         },
     ):
         if images is None and masks is None:
@@ -367,78 +370,84 @@ class ChunkerCombine:
         c = d["chunker_config"]
         s = store
 
-        # load previous from files
-        #log("[debug] Combine -> loading previous (remove soon)")
-        # previous_images = load_video_images_exclude_overlap(s["previous_video_path_images"], c["chunk_overlap"])
-        #previous_masks = load_video_images_exclude_overlap(s["previous_video_path_masks"], c["chunk_overlap"])
-        #log(s["previous_video_path_preview"])
-        #previous_preview = load_video_images_exclude_overlap(s["previous_video_path_preview"], c["chunk_overlap"])
-
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
         end = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"])) - 1
 
-        # # save all image chunks to file
-        # images_full_path = None
-        # out_images_torch = images
-        # log("[debug] Combine -> cat images start", end="")
-        # if previous_images is not None and images is not None: out_images_torch = torch.cat([previous_images, images])
-        # print("done")
-        # if images is not None:
-        #     filename_prefix = "video/chunker/tmp/imageschunk" if not is_done else "video/chunker/tmp/imagescomplete"
-        #     images_full_path, images_video_path = save_video(out_images_torch, 30, filename_prefix)
-
-        # images
-        images_full_path = None
+        # save new image chunk to file
         if images is not None:
-            # save new image chunk to file
             log("[debug] Combine -> saving images...", end="")
-            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/images-new")
+            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/image-chunk")
             print("done")
-            # combine with previous image chunks
-            if s["previous_video_path_images"] is not None:
-                filename_prefix = "video/chunker/tmp/images-combined" if not is_done else "video/chunker/tmp/images-complete"
-                log("[debug] Combine -> ffmpeg cat images...", end="")
-                images_full_path, images_video_path = ffmpeg_cat([s["previous_video_path_images"], images_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
-                print("done")
+            s["image_chunks"].append(images_full_path)
 
-        # masks
-        masks_full_path = None
+        # save new mask chunk to file
         if masks is not None:
-            # save new mask chunk to file
             log("[debug] Combine -> saving masks...", end="")
-            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/masks-new")
+            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/masks-chunk")
             print("done")
-            # combine with previous mask chunks
-            if s["previous_video_path_masks"] is not None:
-                filename_prefix = "video/chunker/tmp/masks-combined" if not is_done else "video/chunker/tmp/masks-complete"
-                log("[debug] Combine -> ffmpeg cat masks...", end="")
-                masks_full_path, masks_video_path = ffmpeg_cat([s["previous_video_path_masks"], masks_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
-                print("done")
+            s["masks_chunks"].append(masks_full_path)
 
-        # preview
-        preview_full_path = None
-        log("[debug] Combine -> create preview overlay...", end="")
+        # create preview from inputs
+        log("[debug] Combine -> creating preview...", end="")
         preview = create_preview_video(images, masks, show_debug, d, c)
         print("done")
-        if preview is not None:
-            # save new preview chunk to file
-            log("[debug] Combine -> saving preview...", end="")
-            preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/preview-new")
-            print("done")
-            # combine with previous preview chunks
-            if s["previous_video_path_preview"] is not None:
-                filename_prefix = "video/chunker/tmp/preview-combined" if not is_done else "video/chunker/tmp/preview-complete"
-                log("[debug] Combine -> ffmpeg cat preview...", end="")
-                preview_full_path, preview_video_path = ffmpeg_cat([s["previous_video_path_preview"], preview_full_path], end, c["chunk_length"], c["chunk_overlap"], filename_prefix)
-                print("done")
 
-        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}!")
+        # save new preview chunk to file
+        log("[debug] Combine -> saving preview...", end="")
+        preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/preview-chunk")
+        print("done")
+        s["preview_chunks"].append(preview_full_path)
+
+	# combine all preview chunks with ffmpeg
+        filename_prefix = "video/chunker/tmp/preview-chunks" if not is_done else "video/chunker/preview"
+        log("[debug] Combine -> ffmpeg combine preview...", end="")
+        preview_full_path, preview_video_path = ffmpeg_cat(
+            s["preview_chunks"],
+            c["chunk_length"],
+            c["chunk_overlap"],
+            filename_prefix,
+            crf=18,
+            select_overlaps_from=select_overlaps_from,
+        )
+        print("done")
 
         # if no more chunks needed, return early
         if is_done:
-            out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
-            out_masks_torch = load_video_images_exclude_overlap(masks_full_path, 0)
+            # combine all image chunks with ffmpeg
+            out_images_torch = None
+            if len(s["image_chunks"]) > 0:
+                log("[debug] Combine -> ffmpeg combine images...", end="")
+                images_full_path, images_video_path = ffmpeg_cat(
+                    s["image_chunks"],
+                    c["chunk_length"],
+                    c["chunk_overlap"],
+                    "video/chunker/images",
+                    crf=0,
+                    select_overlaps_from=select_overlaps_from,
+                )
+                print("done")
+                log("[debug] Combine -> load images as tensor...", end="")
+                out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
+                print("done")
+
+            # combine all mask chunks with ffmpeg
+            out_masks_torch = None
+            if len(s["mask_chunks"]) > 0:
+                log("[debug] Combine -> ffmpeg combine masks...", end="")
+                masks_full_path, masks_video_path = ffmpeg_cat(
+                    s["mask_chunks"],
+                    c["chunk_length"],
+                    c["chunk_overlap"],
+                    "video/chunker/masks",
+                    crf=0,
+                    select_overlaps_from=select_overlaps_from,
+                )
+                print("done")
+                log("[debug] Combine -> load masks as tensor...", end="")
+                out_masks_torch = load_video_images_exclude_overlap(masks_full_path, 0)
+                print("done")
+
             ui_values = {
                 "input_label_values": {
                     "images": len(images) if images is not None else 0,
@@ -452,6 +461,9 @@ class ChunkerCombine:
                 "chunk_count": c["chunk_count"],
                 "video_path": preview_video_path,
             }
+
+            log(f"Finished all chunks {d["index"] + 1} of {c["chunk_count"]}!")
+
             return {
                 "ui": {"values": [ui_values]},
                 "result":(
@@ -483,9 +495,9 @@ class ChunkerCombine:
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
         new_combine.set_input("store", {
-            "previous_video_path_images": images_full_path,
-            "previous_video_path_masks": masks_full_path,
-            "previous_video_path_preview": preview_full_path,
+            "image_chunks": s["image_chunks"],
+            "mask_chunks": s["mask_chunks"],
+            "preview_chunks": s["preview_chunks"],
         })
 
         ui_values = {
@@ -502,6 +514,7 @@ class ChunkerCombine:
             "video_path": preview_video_path,
         }
 
+        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}")
 
         return {
             "ui": {"values": [ui_values]},

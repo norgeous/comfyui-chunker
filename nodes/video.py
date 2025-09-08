@@ -48,9 +48,9 @@ def load_video_images_exclude_overlap(full_path, overlap):
 def ffmpeg_cat(paths, length, overlap, filename_prefix, crf=18, select_overlaps_from="this_chunk"):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
     if select_overlaps_from == "this_chunk":
-        inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length - overlap})") if i < len(paths) - 1 else ffmpeg.input(path) for i, path in enumerate(paths)]
+        inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length - overlap})") if i == 0 else ffmpeg.input(path) for i, path in enumerate(paths)]
     else:
-        inputs = [ffmpeg.input(path).filter("select", f"between(n,{length - overlap},{length})") if i > 0 else ffmpeg.input(path) for i, path in enumerate(paths)]
+        inputs = [ffmpeg.input(path) if i == 0 else ffmpeg.input(path).filter("select", f"between(n,{overlap},{length})") for i, path in enumerate(paths)]
     joined = ffmpeg.concat(*inputs, v=1, a=0)
     try:
         joined.output(

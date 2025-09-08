@@ -377,14 +377,14 @@ class ChunkerCombine:
         # save new image chunk to file
         if images is not None:
             log("[debug] Combine -> saving images...", end="")
-            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/image-chunk")
+            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/chunk/image/chunk")
             print("done")
             s["image_chunks"].append(images_full_path)
 
         # save new mask chunk to file
         if masks is not None:
             log("[debug] Combine -> saving masks...", end="")
-            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/masks-chunk")
+            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/chunk/masks/chunk")
             print("done")
             s["mask_chunks"].append(masks_full_path)
 
@@ -395,12 +395,12 @@ class ChunkerCombine:
 
         # save new preview chunk to file
         log("[debug] Combine -> saving preview...", end="")
-        preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/preview-chunk")
+        preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/chunk/preview/chunk")
         print("done")
         s["preview_chunks"].append(preview_full_path)
 
 	# combine all preview chunks with ffmpeg
-        filename_prefix = "video/chunker/tmp/preview-chunks" if not is_done else "video/chunker/preview"
+        filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
         log("[debug] Combine -> ffmpeg combine preview...", end="")
         preview_full_path, preview_video_path = ffmpeg_cat(
             s["preview_chunks"],

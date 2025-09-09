@@ -56,10 +56,14 @@ const jsonDivStore = (element) => {
 };
 
 const updateLabels = (that, ui_values) => {
-  Object.entries(ui_values.input_label_values || [])
-    .forEach(([k, v]) => that.inputs.find(({ name }) => name === k).label = [k, v].filter(x => ![undefined, null].includes(x)).join(' '));
-  Object.entries(ui_values.output_label_values || [])
-    .forEach(([k, v]) => that.outputs.find(({ name }) => name === k).label = [v, k].filter(x => ![undefined, null].includes(x)).join(' '));
+  Object.entries(ui_values.input_label_values || []).forEach(([k, v]) => {
+    const input = that.inputs.find(({ name }) => name === k);
+    if (input) input.label = [k, v].filter(x => ![undefined, null].includes(x)).join(' ');
+  });
+  Object.entries(ui_values.output_label_values || []).forEach(([k, v]) => {
+    const output = that.outputs.find(({ name }) => name === k);
+    if (output) output.label = [v, k].filter(x => ![undefined, null].includes(x)).join(' ');
+  });
 };
 
 app.registerExtension({

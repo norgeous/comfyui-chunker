@@ -1,3 +1,5 @@
+import os
+import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
@@ -322,7 +324,6 @@ class Chunker:
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "tbd"}),
             },
             "optional": {
-                "images": ("IMAGE"),
                 "images_path": (sorted(get_input_filenames()), {"tooltip": "Images to be chunked"}),
                 "masks_path": (sorted(get_input_filenames()), {"tooltip": "Masks to be chunked"}),
                 "store": ("*",), # hidden by js
@@ -365,8 +366,11 @@ class Chunker:
         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
         end = start + c["chunk_length"]
 
-        images = ffmpeg_load_chunk(images_path, start, end, "video/chunker/tmp/chunk/image-load/chunk")
-        masks = ffmpeg_load_chunk(masks_path, start, end, "video/chunker/tmp/chunk/mask-load/chunk")
+        images_path_full = os.path.join(folder_paths.get_input_directory(), images_path)
+        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks_path)
+
+        images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk")
+        masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk"))
 
         if images is None and masks is None:
             raise Exception("Please provide images OR masks")
@@ -374,7 +378,6 @@ class Chunker:
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
 
-        # adjusted_chunk_overlap = 0 if s["index"] == 0 else c["chunk_overlap"]
         images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
         masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
 

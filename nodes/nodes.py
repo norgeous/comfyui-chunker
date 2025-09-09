@@ -314,6 +314,7 @@ class Chunker:
             ),
         }
 
+
 class ChunkerCombine:
     @classmethod
     def INPUT_TYPES(cls):

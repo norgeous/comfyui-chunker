@@ -226,18 +226,18 @@ class Chunker:
         chunker_config,
         images=None,
         masks=None,
+        store=None,
         unique_id=None,
-        store={
-            "index": 0,
-            "images_overlap": None,
-            "masks_overlap": None,
-        }
     ):
         if images is None and masks is None:
             raise Exception("Please provide images OR masks")
 
         c = chunker_config
-        s = store
+        s = store if store is not None else {
+            "index": 0,
+            "images_overlap": None,
+            "masks_overlap": None,
+        }
 
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
@@ -314,7 +314,6 @@ class Chunker:
             ),
         }
 
-
 class ChunkerCombine:
     @classmethod
     def INPUT_TYPES(cls):
@@ -355,20 +354,20 @@ class ChunkerCombine:
         select_overlaps_from,
         images=None,
         masks=None,
+        store=None,
         dynprompt=None,
         unique_id=None,
-        store={
-            "image_chunks": [],
-            "mask_chunks": [],
-            "preview_chunks": [],
-        },
     ):
         if images is None and masks is None:
             raise Exception("Please provide images OR masks")
 
         d = chunker_data
         c = d["chunker_config"]
-        s = store
+        s = store if store is not None else {
+            "image_chunks": [],
+            "mask_chunks": [],
+            "preview_chunks": [],
+        }
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
@@ -415,7 +414,7 @@ class ChunkerCombine:
         # if no more chunks needed, return early
         if is_done:
             # combine all image chunks with ffmpeg
-            out_images_torch = None
+            images_full_path = None
             if len(s["image_chunks"]) > 0:
                 log("[debug] Combine -> ffmpeg combine images...", end="")
                 images_full_path, images_video_path = ffmpeg_cat(
@@ -423,16 +422,13 @@ class ChunkerCombine:
                     c["chunk_length"],
                     c["chunk_overlap"],
                     "video/chunker/images",
-                    crf=0,
+                    crf=10,
                     select_overlaps_from=select_overlaps_from,
                 )
                 print("done")
-                log("[debug] Combine -> load images as tensor...", end="")
-                out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
-                print("done")
 
             # combine all mask chunks with ffmpeg
-            out_masks_torch = None
+            masks_full_path = None
             if len(s["mask_chunks"]) > 0:
                 log("[debug] Combine -> ffmpeg combine masks...", end="")
                 masks_full_path, masks_video_path = ffmpeg_cat(
@@ -440,10 +436,19 @@ class ChunkerCombine:
                     c["chunk_length"],
                     c["chunk_overlap"],
                     "video/chunker/masks",
-                    crf=0,
+                    crf=10,
                     select_overlaps_from=select_overlaps_from,
                 )
                 print("done")
+
+            out_images_torch = None
+            if images_full_path is not None:
+                log("[debug] Combine -> load images as tensor...", end="")
+                out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
+                print("done")
+
+            out_masks_torch = None
+            if masks_full_path is not None:
                 log("[debug] Combine -> load masks as tensor...", end="")
                 out_masks_torch = load_video_images_exclude_overlap(masks_full_path, 0)
                 print("done")

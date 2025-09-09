@@ -45,7 +45,7 @@ def load_video_images_exclude_overlap(full_path, overlap):
     return images[:-overlap]
 
 
-def ffmpeg_load_chunk(path, start, end, crf=0):
+def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
     input = ffmpeg.input(path).filter("select", f"between(n,{start},{end})")
     try:

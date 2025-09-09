@@ -1,9 +1,9 @@
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, create_preview_video
+from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .video import save_video, load_video_images_exclude_overlap, ffmpeg_cat
+from .video import save_video, load_video_images_exclude_overlap, ffmpeg_load_chunk, ffmpeg_cat
 
 
 class ChunkerConfig:
@@ -189,6 +189,131 @@ class ChunkerResequencer:
         }
 
 
+# class Chunker:
+#     @classmethod
+#     def INPUT_TYPES(cls):
+#         return {
+#             "required": {
+#                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "tbd"}),
+#             },
+#             "optional": {
+#                 "images": ("IMAGE", {"tooltip": "Images to be chunked"}),
+#                 "masks": ("MASK", {"tooltip": "Masks to be chunked"}),
+#                 "store": ("*",), # hidden by js
+#             },
+#             "hidden": {
+#                 "unique_id": "UNIQUE_ID",
+#             }
+#         }
+
+#     RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT")
+#     RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "chunk_length", "index")
+#     OUTPUT_TOOLTIPS = (
+#         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
+#         "Chunk of images",
+#         "Chunk of masks",
+#         "Width of images",
+#         "Height of images",
+#         "Length of current chunk",
+#         "The current itteration index, ie; 0, 1, 2, ...",
+#     )
+#     FUNCTION = "execute"
+#     CATEGORY = "Chunker"
+#     DESCRIPTION = "Chunker"
+
+#     def execute(
+#         self,
+#         chunker_config,
+#         images=None,
+#         masks=None,
+#         store=None,
+#         unique_id=None,
+#     ):
+#         if images is None and masks is None:
+#             raise Exception("Please provide images OR masks")
+
+#         c = chunker_config
+#         s = store if store is not None else {
+#             "index": 0,
+#             "images_overlap": None,
+#             "masks_overlap": None,
+#         }
+
+#         w = images.shape[2] if images is not None else 512
+#         h = images.shape[1] if images is not None else 512
+
+#         log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
+
+#         black_panel = panelMask(w, h, 0)
+
+#         out_images = []
+#         out_masks = []
+
+#         adjusted_chunk_overlap = 0 if s["index"] == 0 else c["chunk_overlap"]
+#         images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
+#         masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
+
+#         # add images_overlap if it exists
+#         if s["images_overlap"] is not None: out_images.extend([s["images_overlap"]])
+
+#         # add masks_overlap if it exists
+#         if s["masks_overlap"] is not None:
+#             out_masks.extend([s["masks_overlap"]])
+#             #out_masks.extend(s["masks_overlap"])
+#         else:
+#             # add as many black masks as images in overlap
+#             if s["images_overlap"] is not None:
+#                 out_masks.extend([black_panel] * len(s["images_overlap"]))
+#                 masks_overlap_count += len(s["images_overlap"])
+
+#         # cut chunk from images and masks and add them
+#         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
+#         end = start + c["chunk_length"]
+#         if images is not None: out_images.extend([images[start + images_overlap_count:end]])
+#         if masks is not None: out_masks.extend([masks[start + masks_overlap_count:end]])
+
+#         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
+#         out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None # that?
+
+#         this_chunk_length = max(
+#             len(out_images_torch) if out_images_torch is not None else 0,
+#             len(out_masks_torch) if out_masks_torch is not None else 0,
+#         )
+
+#         chunker_data = {
+#             "start_node_id": unique_id,
+#             "index": s["index"],
+#             "chunker_config": c,
+#         }
+
+#         ui_values = {
+#             "input_label_values": {
+#                 "images": len(images) if images is not None else 0,
+#                 "masks": len(masks) if masks is not None else 0,
+#             },
+#             "output_label_values": {
+#                 "images": len(out_images_torch) if out_images_torch is not None else 0,
+#                 "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
+#                 "width": w,
+#                 "height": h,
+#                 "chunk_length": this_chunk_length,
+#                 "index": s["index"],
+#             },
+#         }
+
+#         return {
+#             "ui": {"values": [ui_values]},
+#             "result": (
+#                 chunker_data,
+#                 out_images_torch, # just this chunk
+#                 out_masks_torch, # just this chunk
+#                 w,
+#                 h,
+#                 this_chunk_length,
+#                 s["index"],
+#             ),
+#         }
+
 class Chunker:
     @classmethod
     def INPUT_TYPES(cls):
@@ -197,8 +322,9 @@ class Chunker:
                 "chunker_config": ("CHUNKER_CONFIG", {"tooltip": "tbd"}),
             },
             "optional": {
-                "images": ("IMAGE", {"tooltip": "Images to be chunked"}),
-                "masks": ("MASK", {"tooltip": "Masks to be chunked"}),
+                "images": ("IMAGE"),
+                "images_path": (sorted(get_input_filenames()), {"tooltip": "Images to be chunked"}),
+                "masks_path": (sorted(get_input_filenames()), {"tooltip": "Masks to be chunked"}),
                 "store": ("*",), # hidden by js
             },
             "hidden": {
@@ -224,14 +350,11 @@ class Chunker:
     def execute(
         self,
         chunker_config,
-        images=None,
-        masks=None,
+        images_path=None,
+        masks_path=None,
         store=None,
         unique_id=None,
     ):
-        if images is None and masks is None:
-            raise Exception("Please provide images OR masks")
-
         c = chunker_config
         s = store if store is not None else {
             "index": 0,
@@ -239,8 +362,21 @@ class Chunker:
             "masks_overlap": None,
         }
 
+        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
+        end = start + c["chunk_length"]
+
+        images = ffmpeg_load_chunk(images_path, start, end, "video/chunker/tmp/chunk/image-load/chunk")
+        masks = ffmpeg_load_chunk(masks_path, start, end, "video/chunker/tmp/chunk/mask-load/chunk")
+
+        if images is None and masks is None:
+            raise Exception("Please provide images OR masks")
+
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
+
+        # adjusted_chunk_overlap = 0 if s["index"] == 0 else c["chunk_overlap"]
+        images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
+        masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
 
         log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
 
@@ -249,17 +385,12 @@ class Chunker:
         out_images = []
         out_masks = []
 
-        adjusted_chunk_overlap = 0 if s["index"] == 0 else c["chunk_overlap"]
-        images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
-        masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
-
         # add images_overlap if it exists
         if s["images_overlap"] is not None: out_images.extend([s["images_overlap"]])
 
         # add masks_overlap if it exists
         if s["masks_overlap"] is not None:
             out_masks.extend([s["masks_overlap"]])
-            #out_masks.extend(s["masks_overlap"])
         else:
             # add as many black masks as images in overlap
             if s["images_overlap"] is not None:
@@ -267,13 +398,11 @@ class Chunker:
                 masks_overlap_count += len(s["images_overlap"])
 
         # cut chunk from images and masks and add them
-        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
-        end = start + c["chunk_length"]
         if images is not None: out_images.extend([images[start + images_overlap_count:end]])
         if masks is not None: out_masks.extend([masks[start + masks_overlap_count:end]])
 
         out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
-        out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None # that?
+        out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None
 
         this_chunk_length = max(
             len(out_images_torch) if out_images_torch is not None else 0,
@@ -313,6 +442,23 @@ class Chunker:
                 s["index"],
             ),
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class ChunkerCombine:

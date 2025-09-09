@@ -1,3 +1,5 @@
+import os
+import folder_paths
 from PIL import Image
 import torch
 import numpy as np
@@ -114,3 +116,13 @@ def create_preview_video(images, masks, show_debug, d, c):
             c["total_length"],
         )
     return preview_video_chunk
+
+def get_input_filenames():
+    input_dir = folder_paths.get_input_directory()
+    files = []
+    for f in os.listdir(input_dir):
+        if os.path.isfile(os.path.join(input_dir, f)):
+            file_parts = f.split('.')
+            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4"]):
+                files.append(f)
+    return files

@@ -3,7 +3,7 @@ import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, create_preview_video, get_input_filenames
+from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resizeImage, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .video import save_video, load_video_images_exclude_overlap, ffmpeg_load_chunk, ffmpeg_cat
 
@@ -389,7 +389,7 @@ class Chunker:
         out_masks = []
 
         # add images_overlap if it exists
-        if s["images_overlap"] is not None: out_images.extend([s["images_overlap"]])
+        if s["images_overlap"] is not None: out_images.extend([resizeImage(s["images_overlap"], w, h)])
 
         # add masks_overlap if it exists
         if s["masks_overlap"] is not None:

@@ -3,6 +3,7 @@ import folder_paths
 from PIL import Image
 import torch
 import numpy as np
+from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 
 def log(*args, **kwargs):
@@ -26,6 +27,12 @@ def image_to_mask(image):
     if image is None: return None;
     mask = image[:, :, :, 0]
     return mask
+
+def resizeImage(image, width, height):
+    if image is None: return None
+    if image.shape[1] == height and image.shape[2] == width: return image
+    resized_image = common_upscale(image.movedim(-1, 1), width, height, "lanczos", "disabled").movedim(1, -1)
+    return resized_image
 
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1

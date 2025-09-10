@@ -3,7 +3,7 @@ import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resizeImage, create_preview_video, get_input_filenames
+from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .video import save_video, load_video_images_exclude_overlap, ffmpeg_load_chunk, ffmpeg_cat
 
@@ -378,6 +378,8 @@ class Chunker:
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512
 
+        masks = resize_mask(masks, w, h)
+
         images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
         masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
 
@@ -389,11 +391,11 @@ class Chunker:
         out_masks = []
 
         # add images_overlap if it exists
-        if s["images_overlap"] is not None: out_images.extend([resizeImage(s["images_overlap"], w, h)])
+        if s["images_overlap"] is not None: out_images.extend([resize_image(s["images_overlap"], w, h)])
 
         # add masks_overlap if it exists
         if s["masks_overlap"] is not None:
-            out_masks.extend([s["masks_overlap"]])
+            out_masks.extend([resize_mask(s["masks_overlap"], w, h)])
         else:
             # add as many black masks as images in overlap
             if s["images_overlap"] is not None:

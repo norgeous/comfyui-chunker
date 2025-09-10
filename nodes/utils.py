@@ -28,11 +28,16 @@ def image_to_mask(image):
     mask = image[:, :, :, 0]
     return mask
 
-def resizeImage(image, width, height):
+def resize_image(image, width, height):
     if image is None: return None
     if image.shape[1] == height and image.shape[2] == width: return image
     resized_image = common_upscale(image.movedim(-1, 1), width, height, "lanczos", "disabled").movedim(1, -1)
     return resized_image
+
+def resize_mask(mask, width, height):
+    image = mask_to_image(mask)
+    resized_image = resize_image(image, width, height)
+    return image_to_mask(resized_image)
 
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1

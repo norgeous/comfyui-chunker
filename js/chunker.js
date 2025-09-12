@@ -1,4 +1,4 @@
-import { app } from '../../../scripts/app.js';
+import { app, ComfyApp } from '../../../scripts/app.js';
 import { api } from '../../../scripts/api.js'
 
 //from melmass
@@ -68,34 +68,35 @@ const updateLabels = (that, ui_values) => {
 };
 
 const uploadFile = async (file, progressCallback) => {
-    try {
-        // Wrap file in formdata so it includes filename
-        const body = new FormData();
-        const i = file.webkitRelativePath.lastIndexOf('/');
-        const subfolder = file.webkitRelativePath.slice(0, i+1);
-        const new_file = new File([file], file.name, {
-            type: file.type,
-            lastModified: file.lastModified,
-        });
-        body.append("image", new_file);
-        if (i > 0) body.append("subfolder", subfolder);
-        const url = api.apiURL("/upload/image");
-        const resp = await new Promise((resolve) => {
-            let req = new XMLHttpRequest();
-            req.upload.onprogress = (e) => progressCallback?.(e.loaded/e.total);
-            req.onload = () => resolve(req);
-            req.open('post', url, true);
-            req.send(body);
-        });
+  try {
+    // Wrap file in formdata so it includes filename
+    const body = new FormData();
+    const i = file.webkitRelativePath.lastIndexOf('/');
+    const subfolder = file.webkitRelativePath.slice(0, i+1);
+    const new_file = new File([file], file.name, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+    body.append("image", new_file);
+    if (i > 0) body.append("subfolder", subfolder);
+    const url = api.apiURL("/upload/image");
+    const resp = await new Promise((resolve) => {
+      let req = new XMLHttpRequest();
+      req.upload.onprogress = (e) => progressCallback?.(e.loaded/e.total);
+      req.onload = () => resolve(req);
+      req.open('post', url, true);
+      req.send(body);
+    });
 
-        if (resp.status !== 200) {
-            alert(resp.status + " - " + resp.statusText);
-        }
-        return resp;
-    } catch (error) {
-        alert(error);
+    if (resp.status !== 200) {
+      alert(resp.status + " - " + resp.statusText);
     }
+    return resp;
+  } catch (error) {
+    alert(error);
+  }
 };
+
 const doUpload = async (file, node, pathWidget) => {
   const resp = await uploadFile(file, (p) => node.progress = p);
   node.progress = undefined;
@@ -106,41 +107,42 @@ const doUpload = async (file, node, pathWidget) => {
   pathWidget.callback?.(filename);
   return true;
 };
+
 const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
   const node = that
   const pathWidget = that.widgets.find((w) => w.name === widgetName);
   const fileInput = document.createElement("input");
   chainCallback(that, "onRemoved", () => fileInput?.remove());
 
-            Object.assign(fileInput, {
-                type: "file",
-                accept: ["video/mp4", "image/png", "image/jpeg"].join(','),
-                style: "display: none",
-                onchange: async () => {
-                    if (fileInput.files.length) {
-                        return await doUpload(fileInput.files[0], node, pathWidget)
-                    }
-                },
-            });
-            that.onDragOver = (e) => !!e?.dataTransfer?.types?.includes?.('Files');
-            that.onDragDrop = async function(e) {
-                if (!e?.dataTransfer?.types?.includes?.('Files')) {
-                    return false;
-                }
-                //TODO: Allow dragging multiple files at once?
-                const item = e.dataTransfer?.files?.[0];
-                if (accept.includes(item?.type)) {
-                    return await doUpload(item, node, pathWidget);
-                }
-                return false;
-            };
+  Object.assign(fileInput, {
+    type: "file",
+    accept: ["video/mp4", "image/png", "image/jpeg"].join(','),
+    style: "display: none",
+    onchange: async () => {
+      if (fileInput.files.length) {
+        return await doUpload(fileInput.files[0], node, pathWidget)
+      }
+    },
+  });
+  that.onDragOver = (e) => !!e?.dataTransfer?.types?.includes?.('Files');
+  that.onDragDrop = async function(e) {
+    if (!e?.dataTransfer?.types?.includes?.('Files')) {
+      return false;
+    }
+    //TODO: Allow dragging multiple files at once?
+    const item = e.dataTransfer?.files?.[0];
+    if (accept.includes(item?.type)) {
+      return await doUpload(item, node, pathWidget);
+    }
+    return false;
+  };
 
-        document.body.append(fileInput);
-        const uploadWidget = that.addWidget("button", buttonLabel, "image", () => {
-            app.canvas.node_widget = null; //clear the active click event
-            fileInput.click();
-        });
-        uploadWidget.options.serialize = false;
+  document.body.append(fileInput);
+  const uploadWidget = that.addWidget("button", buttonLabel, "image", () => {
+    app.canvas.node_widget = null; //clear the active click event
+    fileInput.click();
+  });
+  uploadWidget.options.serialize = false;
 };
 
 app.registerExtension({
@@ -162,11 +164,26 @@ app.registerExtension({
     ({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          // hide store input
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+          console.log({ ComfyApp, nodeData })
 
-          addUploadWidget(this, nodeType, "images_path", "Choose images to upload");
-          addUploadWidget(this, nodeType, "masks_path", "Choose masks to upload");
+          const uploadWidget = this.addWidget("button", "mask edit first frame", "image_test", () => {
+            ComfyApp.copyToClipspace(this);
+            ComfyApp.clipspace_return_node = this;
+
+            console.log({ComfyApp});
+            ComfyApp.open_maskeditor();
+            console.log({ComfyApp});
+          });
+
+          // hide store input
+          setTimeout(() => {
+            this.removeInput(this.inputs.findIndex(({ name }) => name === "store"))
+            this.removeInput(this.inputs.findIndex(({ name }) => name === "image"))
+            this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint"))
+          });
+
+          addUploadWidget(this, nodeType, "images_path", "choose images to upload");
+          addUploadWidget(this, nodeType, "masks_path", "choose masks to upload");
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {

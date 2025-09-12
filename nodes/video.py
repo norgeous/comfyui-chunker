@@ -58,7 +58,7 @@ def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     try:
         input.output(
             full_path,
-            crf=crf, # between 0 (max quality) and 51 (low quality)
+            crf=crf, # between 0 (max quality) and 51 (lowest quality for h264)
         ).run(capture_stdout=True, capture_stderr=True)
     except ffmpeg.Error as e:
         print('stdout:', e.stdout.decode('utf8'))

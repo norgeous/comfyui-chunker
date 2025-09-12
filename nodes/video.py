@@ -52,6 +52,21 @@ def ffmpeg_info(path):
         "frame_count": int(video["nb_frames"]),
     }
 
+def ffmpeg_first_frame(path):
+    out_path = os.path.join(folder_paths.get_output_directory(), "first-frames", os.path.basename(path), ".png")
+    # TODO: check if png already created
+    # if not use ffmpeg to extract first frame
+    input = ffmpeg.input(path).filter("select", f"eq(n,0)")
+    try:
+        input.output(
+            out_path,
+        ).run(capture_stdout=True, capture_stderr=True)
+    except ffmpeg.Error as e:
+        print('stdout:', e.stdout.decode('utf8'))
+        print('stderr:', e.stderr.decode('utf8'))
+        raise e
+    return out_path
+
 def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
     input = ffmpeg.input(path).filter("select", f"between(n,{start},{end})")
@@ -67,7 +82,6 @@ def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     images = load_video_images_exclude_overlap(full_path, 0)
     # perhaps delete the temporary file
     return images
-
 
 def ffmpeg_hstack(paths, filename_prefix, crf=0):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
@@ -94,7 +108,9 @@ def ffmpeg_cat(paths, length, overlap, filename_prefix, crf=0, select_overlaps_f
         inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length-1 - overlap})") if i != len(paths) - 1 else ffmpeg.input(path) for i, path in enumerate(paths)]
 
     if select_overlaps_from == "previous_chunk":
-        inputs = [ffmpeg.input(path) if i == 0 else ffmpeg.input(path, ss=overlap/30, t=length/30) for i, path in enumerate(paths)]
+        info = ffmpeg_info(paths[0])
+        fps = info["fps"]
+        inputs = [ffmpeg.input(path) if i == 0 else ffmpeg.input(path, ss=overlap/fps, t=length/fps) for i, path in enumerate(paths)]
 
     joined = ffmpeg.concat(*inputs, v=1, a=0)
     try:

@@ -6,7 +6,7 @@ from comfy_api.latest import ComfyExtension, io
 from comfy_execution.graph_utils import GraphBuilder
 from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_load_chunk, ffmpeg_cat
+from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_first_frame, ffmpeg_load_chunk, ffmpeg_cat
 
 
 
@@ -112,9 +112,8 @@ from server import PromptServer
 async def get_hello(request):
     if "filename" in request.query:
         filename = request.query["filename"]
-        # check if png already created
-        # if not use ffmpeg to extract first frame
-        return web.json_response({"filename": filename})
+        image_path = ffmpeg_first_frame(filename)
+        return web.json_response({"filename": filename, "image_path": image_path})
     else:
         return web.HTTPBadRequest()
 

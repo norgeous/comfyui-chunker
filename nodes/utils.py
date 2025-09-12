@@ -130,11 +130,11 @@ def create_preview_video(images, masks, show_debug, d, c):
     return preview_video_chunk
 
 def get_input_filenames():
-    input_dir = folder_paths.get_input_directory()
     files = []
+    input_dir = folder_paths.get_input_directory()
     for f in os.listdir(input_dir):
         if os.path.isfile(os.path.join(input_dir, f)):
             file_parts = f.split('.')
-            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4"]):
+            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4", "png", "jpeg", "jpg"]):
                 files.append(f)
     return files

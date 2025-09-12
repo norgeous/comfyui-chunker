@@ -2,25 +2,28 @@ import os
 import folder_paths
 import torch
 import math
+from comfy_api.latest import ComfyExtension, io
 from comfy_execution.graph_utils import GraphBuilder
 from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .video import save_video, load_video_images_exclude_overlap, ffmpeg_load_chunk, ffmpeg_cat
+from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_load_chunk, ffmpeg_cat
 
 
 class Chunker:
     @classmethod
     def INPUT_TYPES(cls):
+        files = ["None", *sorted(get_input_filenames())]
         return {
             "required": {
-                "mode": (["Wan","None"], {"tooltip": "TODO"}),
+                "mode": (["None", "Wan"], {"tooltip": "TODO"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
-                "total_length": ("INT", {"default": 500, "min": 1, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output"}),
+                "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
+                "images_path2": (files, {"image_upload": True}),
+                "images_path": (files, {"default": "None", "tooltip": "Images to be chunked"}),
+                "masks_path": (files, {"default": "None", "tooltip": "Masks to be chunked"}),
             },
             "optional": {
-                "images_path": (sorted(get_input_filenames()), {"tooltip": "Images to be chunked"}),
-                "masks_path": (sorted(get_input_filenames()), {"tooltip": "Masks to be chunked"}),
                 "store": ("*",), # hidden by js
             },
             "hidden": {
@@ -28,15 +31,14 @@ class Chunker:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "chunk_length", "index", "chunk_length","chunk_overlap","total_length","chunk_count")
+    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "index", "chunk_length","chunk_overlap","total_length","chunk_count")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
         "Chunk of images",
         "Chunk of masks",
         "Width of images",
         "Height of images",
-        "Length of current chunk",
         "The current itteration index, ie; 0, 1, 2, ...",
         "Count of images in each chunk",
         "Count of images to overlap between each chunk",
@@ -53,11 +55,28 @@ class Chunker:
         chunk_length,
         chunk_overlap,
         total_length,
-        images_path=None,
-        masks_path=None,
+        images_path="None",
+        masks_path="None",
         store=None,
         unique_id=None,
     ):
+        if images_path == "None": images_path = None
+        if masks_path == "None": masks_path = None
+
+        images_path_full = os.path.join(folder_paths.get_input_directory(), images_path) if images_path is not None else None
+        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks_path) if masks_path is not None else None
+
+        fps = 30
+        #log(type(images_path), images_path, images_path_full)
+        if images_path_full is not None:
+            # get frame rate from images
+            image_info = ffmpeg_info(images_path_full)
+            fps = image_info["fps"]
+
+            # if total_length setting is 0, use the video's length
+            if total_length == 0:
+                total_length = image_info["frame_count"]
+
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         if mode == "Wan":
@@ -74,6 +93,7 @@ class Chunker:
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
             "chunk_count": chunk_count,
+            "fps": fps,
         }
 
         s = store if store is not None else {
@@ -85,11 +105,8 @@ class Chunker:
         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
         end = start + c["chunk_length"]
 
-        images_path_full = os.path.join(folder_paths.get_input_directory(), images_path)
-        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks_path)
-
-        images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk")
-        masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk"))
+        images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk") if images_path_full is not None else None
+        masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk")) if masks_path_full is not None else None
 
         if images is None and masks is None:
             raise Exception("Please provide images OR masks")
@@ -104,8 +121,6 @@ class Chunker:
 
         log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
 
-        black_panel = panelMask(w, h, 0)
-
         out_images = []
         out_masks = []
 
@@ -118,6 +133,7 @@ class Chunker:
         else:
             # add as many black masks as images in overlap
             if s["images_overlap"] is not None:
+                black_panel = panelMask(w, h, 0)
                 out_masks.extend([black_panel] * len(s["images_overlap"]))
                 masks_overlap_count += len(s["images_overlap"])
 
@@ -149,9 +165,8 @@ class Chunker:
                 "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
                 "width": w,
                 "height": h,
-                "chunk_length": this_chunk_length,
                 "index": s["index"],
-                "chunk_length": chunk_length,
+                "chunk_length": this_chunk_length,
                 "chunk_overlap": chunk_overlap,
                 "total_length": total_length,
                 "chunk_count": chunk_count,
@@ -166,9 +181,8 @@ class Chunker:
                 out_masks_torch, # just this chunk
                 w,
                 h,
-                this_chunk_length,
                 s["index"],
-                chunk_length,
+                this_chunk_length,
                 chunk_overlap,
                 total_length,
                 chunk_count,

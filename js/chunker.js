@@ -113,7 +113,6 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
   const pathWidget = that.widgets.find((w) => w.name === widgetName);
   const fileInput = document.createElement("input");
   chainCallback(that, "onRemoved", () => fileInput?.remove());
-
   Object.assign(fileInput, {
     type: "file",
     accept: ["video/mp4", "image/png", "image/jpeg"].join(','),
@@ -136,7 +135,6 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
     }
     return false;
   };
-
   document.body.append(fileInput);
   const uploadWidget = that.addWidget("button", buttonLabel, "image", () => {
     app.canvas.node_widget = null; //clear the active click event

@@ -14,7 +14,6 @@ def get_next_save_video_path(filename_prefix):
     )
     file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
     full_path = os.path.join(full_output_folder, file)
-
     return (
         full_path,
         {
@@ -44,6 +43,14 @@ def load_video_images_exclude_overlap(full_path, overlap):
     if overlap == 0: return images
     return images[:-overlap]
 
+def ffmpeg_info(path):
+    info = ffmpeg.probe(path)
+    video = list(filter(lambda stream: stream['codec_type'] == "video", info["streams"]))[0]
+    fps_parts = video["avg_frame_rate"].split("/")
+    return {
+        "fps": int(fps_parts[0]) / int(fps_parts[1]),
+        "frame_count": int(video["nb_frames"]),
+    }
 
 def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
@@ -82,10 +89,13 @@ def ffmpeg_hstack(paths, filename_prefix, crf=0):
 
 def ffmpeg_cat(paths, length, overlap, filename_prefix, crf=0, select_overlaps_from="this_chunk"):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
+
     if select_overlaps_from == "this_chunk":
-        inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length - overlap})") if i == 0 else ffmpeg.input(path) for i, path in enumerate(paths)]
-    else:
-        inputs = [ffmpeg.input(path) if i == 0 else ffmpeg.input(path).filter("select", f"between(n,{overlap},{length})") for i, path in enumerate(paths)]
+        inputs = [ffmpeg.input(path).filter("select", f"between(n,0,{length-1 - overlap})") if i != len(paths) - 1 else ffmpeg.input(path) for i, path in enumerate(paths)]
+
+    if select_overlaps_from == "previous_chunk":
+        inputs = [ffmpeg.input(path) if i == 0 else ffmpeg.input(path, ss=overlap/30, t=length/30) for i, path in enumerate(paths)]
+
     joined = ffmpeg.concat(*inputs, v=1, a=0)
     try:
         joined.output(
@@ -96,6 +106,7 @@ def ffmpeg_cat(paths, length, overlap, filename_prefix, crf=0, select_overlaps_f
         print('stdout:', e.stdout.decode('utf8'))
         print('stderr:', e.stderr.decode('utf8'))
         raise e
+
     return (
         full_path,
         frontend_data,

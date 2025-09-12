@@ -1,4 +1,5 @@
 import { app } from '../../../scripts/app.js';
+import { api } from '../../../scripts/api.js'
 
 //from melmass
 function makeUUID() {
@@ -66,53 +67,106 @@ const updateLabels = (that, ui_values) => {
   });
 };
 
+const uploadFile = async (file, progressCallback) => {
+    try {
+        // Wrap file in formdata so it includes filename
+        const body = new FormData();
+        const i = file.webkitRelativePath.lastIndexOf('/');
+        const subfolder = file.webkitRelativePath.slice(0, i+1);
+        const new_file = new File([file], file.name, {
+            type: file.type,
+            lastModified: file.lastModified,
+        });
+        body.append("image", new_file);
+        if (i > 0) body.append("subfolder", subfolder);
+        const url = api.apiURL("/upload/image");
+        const resp = await new Promise((resolve) => {
+            let req = new XMLHttpRequest();
+            req.upload.onprogress = (e) => progressCallback?.(e.loaded/e.total);
+            req.onload = () => resolve(req);
+            req.open('post', url, true);
+            req.send(body);
+        });
+
+        if (resp.status !== 200) {
+            alert(resp.status + " - " + resp.statusText);
+        }
+        return resp;
+    } catch (error) {
+        alert(error);
+    }
+};
+const doUpload = async (file, node, pathWidget) => {
+  const resp = await uploadFile(file, (p) => node.progress = p);
+  node.progress = undefined;
+  if (resp.status != 200) return false;
+  const filename = JSON.parse(resp.responseText).name;
+  pathWidget.options.values.push(filename);
+  pathWidget.value = filename;
+  pathWidget.callback?.(filename);
+  return true;
+};
+const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
+  const node = that
+  const pathWidget = that.widgets.find((w) => w.name === widgetName);
+  const fileInput = document.createElement("input");
+  chainCallback(that, "onRemoved", () => fileInput?.remove());
+
+            Object.assign(fileInput, {
+                type: "file",
+                accept: ["video/mp4", "image/png", "image/jpeg"].join(','),
+                style: "display: none",
+                onchange: async () => {
+                    if (fileInput.files.length) {
+                        return await doUpload(fileInput.files[0], node, pathWidget)
+                    }
+                },
+            });
+            that.onDragOver = (e) => !!e?.dataTransfer?.types?.includes?.('Files');
+            that.onDragDrop = async function(e) {
+                if (!e?.dataTransfer?.types?.includes?.('Files')) {
+                    return false;
+                }
+                //TODO: Allow dragging multiple files at once?
+                const item = e.dataTransfer?.files?.[0];
+                if (accept.includes(item?.type)) {
+                    return await doUpload(item, node, pathWidget);
+                }
+                return false;
+            };
+
+        document.body.append(fileInput);
+        const uploadWidget = that.addWidget("button", buttonLabel, "image", () => {
+            app.canvas.node_widget = null; //clear the active click event
+            fileInput.click();
+        });
+        uploadWidget.options.serialize = false;
+};
+
 app.registerExtension({
   name: "comfyui-chunker",
 
   async setup(app) {
     app.api.addEventListener("execution_cached", (...data) => {
-      //console.log("execution_cached", data);
+      console.log("chunker execution_cached", data);
     });
     app.api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
-    app.api.addEventListener("execution_error", (...data) => {
-      //console.log("execution_error", data);
+    app.api.addEventListener("execution_error", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
   },
 
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
-      "ChunkerConfig": () => {
-        chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          const mode = this.widgets.find(({ name }) => name === "mode");
-          const chunk_length = this.widgets.find(({ name }) => name === "chunk_length");
-          const chunk_overlap = this.widgets.find(({ name }) => name === "chunk_overlap");
-          const total_length = this.widgets.find(({ name }) => name === "total_length");
-          chainCallback(total_length, "callback", value => {
-            console.log('total_length changed', { total_length, value });
-          });
-        });
-        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          updateLabels(this, ui.values[0]);
-        });
-      },
-
-      "ChunkerResequencer": () => {
-        chainCallback(nodeType.prototype, "onConnectInput", function () {
-          //updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
-        });
-
-        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          updateLabels(this, ui.values[0]);
-        });
-      },
-
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // hide store input
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+
+          addUploadWidget(this, nodeType, "images_path", "Choose images to upload");
+          addUploadWidget(this, nodeType, "masks_path", "Choose masks to upload");
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
@@ -192,11 +246,11 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
+          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined }});
         });
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this, { input_label_values: { images: undefined }, output_label_values: { images: undefined }});
+          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined }});
           this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
 

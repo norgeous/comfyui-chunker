@@ -87,7 +87,6 @@ const uploadFile = async (file, progressCallback) => {
       req.open('post', url, true);
       req.send(body);
     });
-
     if (resp.status !== 200) {
       alert(resp.status + " - " + resp.statusText);
     }
@@ -162,22 +161,94 @@ app.registerExtension({
     ({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          console.log({ ComfyApp, nodeData })
+          console.log({ ComfyApp, nodeData, that: this })
 
-          const uploadWidget = this.addWidget("button", "mask edit first frame", "image_test", () => {
-            ComfyApp.copyToClipspace(this);
-            ComfyApp.clipspace_return_node = this;
 
-            console.log({ComfyApp});
-            ComfyApp.open_maskeditor();
-            console.log({ComfyApp});
+          // to catch mask editor layers
+          this.widgets.push({
+            name: 'image',
+            value: '',
+            computeSize: () => [0, -4],
+            //callback: value => {
+            //  console.log('image (catch) value changed', value, this);
+            //  masksPath.value = value;
+            //},
           });
+          //this.widgets.push({ name: 'image2', value: '', computeSize: () => [0, -4] });
+
+          const imagesPath = this.widgets.find(({ name }) => name === "images_path");
+          const masksPath = this.widgets.find(({ name }) => name === "masks_path");
+          //const maskEditorImg = this.widgets.find(({ name }) => name === "image");
+
+          imagesPath.callback = value => {
+            //if (value === imagesPath.value) return;
+            console.log('images_path value changed', value, this);
+            const ext = value.split(".").reverse()[0]
+            if (['mp4'].includes(ext)) {
+              fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename: value})}`)
+                .then(response => {
+                  if (!response.ok) console.error("chunker first-frame fetch failed");
+                  return response.json();
+                }).then(data => {
+                  this.images = [data];
+                  const img = new Image();
+                  img.src = `/api/view?${new URLSearchParams(data)}`;
+                  this.imgs = [img];
+                });
+            }
+            if (['jpg', 'jpeg', 'png'].includes(ext)) {
+              const data = {
+                type: 'input',
+                subfolder: '',
+                filename: value,
+              };
+              this.images = [data];
+              const img = new Image();
+              img.src = `/api/view?${new URLSearchParams(data)}`;
+              this.imgs = [img];
+            }
+            /*console.log(maskEditorImg.value);
+            if (maskEditorImg.value) {
+              //const masksPath = this.widgets.find(({ name }) => name === "masks_path");
+              masksPath.value = maskEditorImg.value;
+              const data = {
+                type: 'input',
+                subfolder: 'clipspace',
+                filename: maskEditorImg.value,
+              };
+              this.images = [data];
+              const img = new Image();
+              img.src = `/api/view?${new URLSearchParams(data)}`;
+              this.imgs = [img];
+            }*/
+          };
+
+          masksPath.callback = value => {
+            const maskEditorImg = this.widgets.find(({ name }) => name === "image");
+            console.log('masks_path value changed', value, this, maskEditorImg.value);
+            if (maskEditorImg.value) {
+              console.log('masks_path newvalue changed', maskEditorImg.value);
+              masksPath.value = maskEditorImg.value;
+              const data = {
+                type: 'input',
+                subfolder: 'clipspace',
+                filename: maskEditorImg.value,
+              };
+              this.images = [data];
+              const img = new Image();
+              img.src = `/api/view?${new URLSearchParams(data)}`;
+              this.imgs = [img];
+              setTimeout(() => {
+                this.imgs = [img];
+              }, 100);
+            }
+          }
 
           // hide store input
           setTimeout(() => {
             this.removeInput(this.inputs.findIndex(({ name }) => name === "store"))
-            this.removeInput(this.inputs.findIndex(({ name }) => name === "image"))
-            this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint"))
+            //this.removeInput(this.inputs.findIndex(({ name }) => name === "image"))
+            //this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint"))
           });
 
           addUploadWidget(this, nodeType, "images_path", "choose images to upload");

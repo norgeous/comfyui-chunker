@@ -9,115 +9,23 @@ from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_first_frame, ffmpeg_load_chunk, ffmpeg_cat
 
 
-
-
-
-
-
-
-
-class ImageLoader:
-    @classmethod
-    def INPUT_TYPES(s):
-        input_dir = folder_paths.get_input_directory()
-        files = [
-            f
-            for f in os.listdir(input_dir)
-            if os.path.isfile(os.path.join(input_dir, f))
-            and f.split(".")[-1] in ["jpg", "jpeg", "png", "bmp", "tiff", "webp"]
-        ]
-        return {
-            "required": {
-                "image": (["None",*sorted(files)], {"image_upload": True}), # must be first and called "image" for image_upload to work
-                "image3": (["None",*sorted(files)], {"image_upload": True}),
-                "image2": (["None",*sorted(files)], {"image_upload": True}),
-                "image1": (["None",*sorted(files)], {"image_upload": True}),
-            },
-        }
-
-    CATEGORY = "Chunker"
-
-    RETURN_TYPES = ("IMAGE", "MASK", "PATH")
-    FUNCTION = "load_image"
-
-    def load_image(self, image):
-        image_path = folder_paths.get_annotated_filepath(image)
-
-        img = node_helpers.pillow(Image.open, image_path)
-
-        output_images = []
-        output_masks = []
-        w, h = None, None
-
-        excluded_formats = ["MPO"]
-
-        for i in ImageSequence.Iterator(img):
-            i = node_helpers.pillow(ImageOps.exif_transpose, i)
-
-            if i.mode == "I":
-                i = i.point(lambda i: i * (1 / 255))
-            image = i.convert("RGB")
-
-            if len(output_images) == 0:
-                w = image.size[0]
-                h = image.size[1]
-
-            if image.size[0] != w or image.size[1] != h:
-                continue
-
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image)[None,]
-            if "A" in i.getbands():
-                mask = np.array(i.getchannel("A")).astype(np.float32) / 255.0
-                mask = 1.0 - torch.from_numpy(mask)
-            else:
-                mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu")
-            output_images.append(image)
-            output_masks.append(mask.unsqueeze(0))
-
-        if len(output_images) > 1 and img.format not in excluded_formats:
-            output_image = torch.cat(output_images, dim=0)
-            output_mask = torch.cat(output_masks, dim=0)
-        else:
-            output_image = output_images[0]
-            output_mask = output_masks[0]
-
-        return (output_image, output_mask, image_path)
-
-    @classmethod
-    def IS_CHANGED(s, image):
-        image_path = folder_paths.get_annotated_filepath(image)
-        m = hashlib.sha256()
-        with open(image_path, "rb") as f:
-            m.update(f.read())
-        return m.digest().hex()
-
-    @classmethod
-    def VALIDATE_INPUTS(s, image):
-        if not folder_paths.exists_annotated_filepath(image):
-            return "Invalid image file: {}".format(image)
-
-        return True
-
-
-
-
-
 # Add custom API routes, using router
 from aiohttp import web
 from server import PromptServer
+from urllib.parse import unquote
 
 # register /api/chunker/get-first-frame
 @PromptServer.instance.routes.get("/chunker/get-first-frame")
 async def get_hello(request):
     if "filename" in request.query:
-        filename = request.query["filename"]
-        image_path = ffmpeg_first_frame(filename)
-        return web.json_response({"filename": filename, "image_path": image_path})
+        input_dir = folder_paths.get_input_directory()
+        filename = os.path.join(input_dir, unquote(request.query["filename"]))
+        if not os.path.isfile(filename):
+            return web.HTTPBadRequest()
+        image_path_data = ffmpeg_first_frame(filename)
+        return web.json_response(image_path_data)
     else:
         return web.HTTPBadRequest()
-
-
 
 
 class Chunker:
@@ -130,10 +38,8 @@ class Chunker:
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
-                "image": (files, {"image_upload": True, "forceInput": False}),
-                "image_paint": (files, {"forceInput": True}), # needed to catch the "paint" layer from maskeditor
-                "images_path": (files, {"default": "None", "tooltip": "Images to be chunked"}),
-                "masks_path": (files, {"default": "None", "tooltip": "Masks to be chunked"}),
+                "images": (files, {"default": "None", "tooltip": "Images to be chunked"}),
+                "masks": (files, {"default": "None", "tooltip": "Masks to be chunked"}),
             },
             "optional": {
                 "store": ("*",), # hidden by js
@@ -142,6 +48,11 @@ class Chunker:
                 "unique_id": "UNIQUE_ID",
             }
         }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, mode, chunk_length, chunk_overlap, total_length, images_path, masks_path):
+        # YOLO, anything goes!
+        return True
 
     RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
     RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "index", "chunk_length","chunk_overlap","total_length","chunk_count")
@@ -167,19 +78,26 @@ class Chunker:
         chunk_length,
         chunk_overlap,
         total_length,
-        images_path="None",
-        masks_path="None",
+        images="None",
+        masks="None",
         store=None,
         unique_id=None,
     ):
-        if images_path == "None": images_path = None
-        if masks_path == "None": masks_path = None
+        if images == "None": images = None
+        if masks == "None": masks = None
 
-        images_path_full = os.path.join(folder_paths.get_input_directory(), images_path) if images_path is not None else None
-        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks_path) if masks_path is not None else None
+        images_path_full = os.path.join(folder_paths.get_input_directory(), images) if images is not None else None
+        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks) if masks is not None else None
+
+        imgs = ["jpeg", "jpg", "png"]
+        vids = ["mp4"]
+        images_ext = images.replace(" [input]", "").split(".")[-1]
+        masks_ext = masks.replace(" [input]", "").split(".")[-1]
+        images_type = "IMAGE" if images_ext in imgs else "VIDEO" if image_ext in vids else "UNKNOWN"
+        masks_type = "IMAGE" if masks_ext in imgs else "VIDEO" if masks_ext in vids else "UNKNOWN"
+
 
         fps = 30
-        #log(type(images_path), images_path, images_path_full)
         if images_path_full is not None:
             # get frame rate from images
             image_info = ffmpeg_info(images_path_full)
@@ -220,8 +138,8 @@ class Chunker:
         images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk") if images_path_full is not None else None
         masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk")) if masks_path_full is not None else None
 
-        if images is None and masks is None:
-            raise Exception("Please provide images OR masks")
+        #if images is None and masks is None:
+        #    raise Exception("Please provide images OR masks")
 
         w = images.shape[2] if images is not None else 512
         h = images.shape[1] if images is not None else 512

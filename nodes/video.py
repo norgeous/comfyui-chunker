@@ -36,7 +36,7 @@ def save_video(images, fps, filename_prefix):
         frontend_data,
     )
 
-
+# TODO: remove "overlap parameter"
 def load_video_images_exclude_overlap(full_path, overlap):
     if full_path is None: return None
     images = VideoFromFile(full_path).get_components().images
@@ -53,19 +53,31 @@ def ffmpeg_info(path):
     }
 
 def ffmpeg_first_frame(path):
-    out_path = os.path.join(folder_paths.get_output_directory(), "first-frames", os.path.basename(path), ".png")
-    # TODO: check if png already created
+    first_frames_dir = os.path.join(folder_paths.get_input_directory(), "first-frames") 
+    out_file = f"{os.path.basename(path)}.png"
+    out_path = os.path.join(first_frames_dir, out_file)
+    frontend_data = {
+        "type": "input",
+        "filename": out_file,
+        "subfolder": "first-frames",
+    }
+    # check if png already created
+    if os.path.isfile(out_path):
+        return frontend_data
+    if not os.path.isdir(first_frames_dir):
+        os.mkdir(first_frames_dir)
     # if not use ffmpeg to extract first frame
     input = ffmpeg.input(path).filter("select", f"eq(n,0)")
     try:
         input.output(
             out_path,
+            vframes=1
         ).run(capture_stdout=True, capture_stderr=True)
     except ffmpeg.Error as e:
         print('stdout:', e.stdout.decode('utf8'))
         print('stderr:', e.stderr.decode('utf8'))
         raise e
-    return out_path
+    return frontend_data
 
 def ffmpeg_load_chunk(path, start, end, filename_prefix, crf=0):
     full_path, frontend_data = get_next_save_video_path(filename_prefix)

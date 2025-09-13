@@ -176,13 +176,13 @@ app.registerExtension({
           });
           //this.widgets.push({ name: 'image2', value: '', computeSize: () => [0, -4] });
 
-          const imagesPath = this.widgets.find(({ name }) => name === "images_path");
-          const masksPath = this.widgets.find(({ name }) => name === "masks_path");
+          const imagesPath = this.widgets.find(({ name }) => name === "images");
+          const masksPath = this.widgets.find(({ name }) => name === "masks");
           //const maskEditorImg = this.widgets.find(({ name }) => name === "image");
 
           imagesPath.callback = value => {
             //if (value === imagesPath.value) return;
-            console.log('images_path value changed', value, this);
+            console.log('images value changed', value, this);
             const ext = value.split(".").reverse()[0]
             if (['mp4'].includes(ext)) {
               fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename: value})}`)
@@ -209,7 +209,7 @@ app.registerExtension({
             }
             /*console.log(maskEditorImg.value);
             if (maskEditorImg.value) {
-              //const masksPath = this.widgets.find(({ name }) => name === "masks_path");
+              //const masksPath = this.widgets.find(({ name }) => name === "masks");
               masksPath.value = maskEditorImg.value;
               const data = {
                 type: 'input',
@@ -225,9 +225,9 @@ app.registerExtension({
 
           masksPath.callback = value => {
             const maskEditorImg = this.widgets.find(({ name }) => name === "image");
-            console.log('masks_path value changed', value, this, maskEditorImg.value);
+            console.log('masks value changed', value, this, maskEditorImg.value);
             if (maskEditorImg.value) {
-              console.log('masks_path newvalue changed', maskEditorImg.value);
+              console.log('masks newvalue changed', maskEditorImg.value);
               masksPath.value = maskEditorImg.value;
               const data = {
                 type: 'input',
@@ -251,8 +251,8 @@ app.registerExtension({
             //this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint"))
           });
 
-          addUploadWidget(this, nodeType, "images_path", "choose images to upload");
-          addUploadWidget(this, nodeType, "masks_path", "choose masks to upload");
+          addUploadWidget(this, nodeType, "images", "choose images to upload");
+          addUploadWidget(this, nodeType, "masks", "choose masks to upload");
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {

@@ -7,7 +7,7 @@ from comfy_execution.graph_utils import GraphBuilder
 from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_first_frame, ffmpeg_load_chunk, ffmpeg_cat
-
+from .loader import awesome_loader
 
 # Add custom API routes, using router
 from aiohttp import web
@@ -50,7 +50,7 @@ class Chunker:
         }
 
     @classmethod
-    def VALIDATE_INPUTS(cls, mode, chunk_length, chunk_overlap, total_length, images_path, masks_path):
+    def VALIDATE_INPUTS(cls, mode, chunk_length, chunk_overlap, total_length, images, masks):
         # YOLO, anything goes!
         return True
 
@@ -83,19 +83,29 @@ class Chunker:
         store=None,
         unique_id=None,
     ):
+
         if images == "None": images = None
         if masks == "None": masks = None
 
         images_path_full = os.path.join(folder_paths.get_input_directory(), images) if images is not None else None
         masks_path_full = os.path.join(folder_paths.get_input_directory(), masks) if masks is not None else None
 
-        imgs = ["jpeg", "jpg", "png"]
-        vids = ["mp4"]
-        images_ext = images.replace(" [input]", "").split(".")[-1]
-        masks_ext = masks.replace(" [input]", "").split(".")[-1]
-        images_type = "IMAGE" if images_ext in imgs else "VIDEO" if image_ext in vids else "UNKNOWN"
-        masks_type = "IMAGE" if masks_ext in imgs else "VIDEO" if masks_ext in vids else "UNKNOWN"
+        images1, masks1, fps1, total_length1 = awesome_loader(images_path_full, 0, 1)
+        masks2, masks3, fps2, total_length2 = awesome_loader(masks_path_full, 0, 1)
+        log(f"images1: {len(images1)}")
+        log(f"fps: {fps1}")
+        log(f"total_length1: {total_length1}")
+        return ({}, images1)
 
+
+
+
+        #imgs = ["jpeg", "jpg", "png"]
+        #vids = ["mp4"]
+        #images_ext = images.replace(" [input]", "").split(".")[-1]
+        #masks_ext = masks.replace(" [input]", "").split(".")[-1]
+        #images_type = "IMAGE" if images_ext in imgs else "VIDEO" if images_ext in vids else "UNKNOWN"
+        #masks_type = "IMAGE" if masks_ext in imgs else "VIDEO" if masks_ext in vids else "UNKNOWN"
 
         fps = 30
         if images_path_full is not None:

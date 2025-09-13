@@ -83,16 +83,13 @@ class Chunker:
         store=None,
         unique_id=None,
     ):
-
         if images == "None": images = None
         if masks == "None": masks = None
 
         images_path_full = os.path.join(folder_paths.get_input_directory(), images) if images is not None else None
         masks_path_full = os.path.join(folder_paths.get_input_directory(), masks) if masks is not None else None
 
-
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
-
 
         c = {
             "mode": mode,

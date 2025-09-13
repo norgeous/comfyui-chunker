@@ -90,15 +90,36 @@ class Chunker:
         images_path_full = os.path.join(folder_paths.get_input_directory(), images) if images is not None else None
         masks_path_full = os.path.join(folder_paths.get_input_directory(), masks) if masks is not None else None
 
-        images1, masks1, fps1, total_length1 = awesome_loader(images_path_full, 0, 1)
-        masks2, masks3, fps2, total_length2 = awesome_loader(masks_path_full, 0, 1)
+
+        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
+
+        c = {
+            "mode": mode,
+            "chunk_length": chunk_length,
+            "chunk_overlap": chunk_overlap,
+            "total_length": total_length,
+            "chunk_count": chunk_count,
+            # "fps": fps,
+        }
+
+        s = store if store is not None else {
+            "index": 0,
+            "images_overlap": None,
+            "masks_overlap": None,
+        }
+
+        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
+        end = start + c["chunk_length"]
+
+        images1, masks1, fps1, total_length1 = awesome_loader(images_path_full, start, end)
+        masks2, masks3, fps2, total_length2 = awesome_loader(masks_path_full, start, end)
+
         log(f"images1: {len(images1)}")
         log(f"fps: {fps1}")
         log(f"total_length1: {total_length1}")
-        return ({}, images1)
 
-
-
+        return ({}, images1, masks3)
 
         #imgs = ["jpeg", "jpg", "png"]
         #vids = ["mp4"]
@@ -117,7 +138,6 @@ class Chunker:
             if total_length == 0:
                 total_length = image_info["frame_count"]
 
-        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         if mode == "Wan":
             # we want to avoid the situation where the last chunk of images is not a valid length for Wan
@@ -127,23 +147,6 @@ class Chunker:
             adjusted_final_chunk_length = (round(final_chunk_length / 4) * 4) + 1 # force 4n+1
             total_length = previous_chunks_total + adjusted_final_chunk_length
 
-        c = {
-            "mode": mode,
-            "chunk_length": chunk_length,
-            "chunk_overlap": chunk_overlap,
-            "total_length": total_length,
-            "chunk_count": chunk_count,
-            "fps": fps,
-        }
-
-        s = store if store is not None else {
-            "index": 0,
-            "images_overlap": None,
-            "masks_overlap": None,
-        }
-
-        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
-        end = start + c["chunk_length"]
 
         images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk") if images_path_full is not None else None
         masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk")) if masks_path_full is not None else None

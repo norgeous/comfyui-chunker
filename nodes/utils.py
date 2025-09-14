@@ -25,7 +25,7 @@ def mask_to_image(mask):
 
 def image_to_mask(image):
     if image is None: return None;
-    mask = image[:, :, :, 0]
+    mask = image[:, :, :, 0] # keep first 3 dimensions, choose index 0 (red) for new channel
     return mask
 
 def resize_image(image, width, height):

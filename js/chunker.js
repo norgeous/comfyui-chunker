@@ -161,19 +161,18 @@ app.registerExtension({
     ({
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          console.log({ ComfyApp, nodeData, that: this })
-
+          //console.log({ ComfyApp, nodeData, that: this })
 
           // to catch mask editor layers
-          this.widgets.push({
-            name: 'image',
-            value: '',
-            computeSize: () => [0, -4],
+          //this.widgets.push({
+            //name: 'image',
+            //value: '',
+            //computeSize: () => [0, -4],
             //callback: value => {
             //  console.log('image (catch) value changed', value, this);
             //  masksPath.value = value;
             //},
-          });
+          //});
           //this.widgets.push({ name: 'image2', value: '', computeSize: () => [0, -4] });
 
           const imagesPath = this.widgets.find(({ name }) => name === "images");
@@ -181,7 +180,8 @@ app.registerExtension({
           //const maskEditorImg = this.widgets.find(({ name }) => name === "image");
 
           imagesPath.callback = value => {
-            //if (value === imagesPath.value) return;
+            if (imagesPath.previousValue !== value) imagesPath.previousValue = value;
+            else return; // block execution if same value twice
             console.log('images value changed', value, this);
             const ext = value.split(".").reverse()[0]
             if (['mp4'].includes(ext)) {
@@ -207,6 +207,7 @@ app.registerExtension({
               img.src = `/api/view?${new URLSearchParams(data)}`;
               this.imgs = [img];
             }
+
             /*console.log(maskEditorImg.value);
             if (maskEditorImg.value) {
               //const masksPath = this.widgets.find(({ name }) => name === "masks");
@@ -222,7 +223,7 @@ app.registerExtension({
               this.imgs = [img];
             }*/
           };
-
+/*
           masksPath.callback = value => {
             const maskEditorImg = this.widgets.find(({ name }) => name === "image");
             console.log('masks value changed', value, this, maskEditorImg.value);
@@ -234,22 +235,24 @@ app.registerExtension({
                 subfolder: 'clipspace',
                 filename: maskEditorImg.value,
               };
-              this.images = [data];
+              //this.images = [data];
               const img = new Image();
               img.src = `/api/view?${new URLSearchParams(data)}`;
-              this.imgs = [img];
+              //this.imgs = [img];
               setTimeout(() => {
+                this.images = [data];
                 this.imgs = [img];
+                //maskEditorImg.value = '';
               }, 100);
             }
           }
-
-          // hide store input
-          setTimeout(() => {
-            this.removeInput(this.inputs.findIndex(({ name }) => name === "store"))
-            //this.removeInput(this.inputs.findIndex(({ name }) => name === "image"))
-            //this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint"))
-          });
+*/
+          // hide inputs
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
+          //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
+          //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
 
           addUploadWidget(this, nodeType, "images", "choose images to upload");
           addUploadWidget(this, nodeType, "masks", "choose masks to upload");

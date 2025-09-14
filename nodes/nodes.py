@@ -43,6 +43,8 @@ class Chunker:
             },
             "optional": {
                 "store": ("*",), # hidden by js
+                "image": (files,),
+                "image_paint": (files,),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -50,7 +52,7 @@ class Chunker:
         }
 
     @classmethod
-    def VALIDATE_INPUTS(cls, mode, chunk_length, chunk_overlap, total_length, images, masks):
+    def VALIDATE_INPUTS(cls, mode, chunk_length, chunk_overlap, total_length, images, masks, image, image_paint):
         # YOLO, anything goes!
         return True
 
@@ -80,15 +82,11 @@ class Chunker:
         total_length,
         images="None",
         masks="None",
+        image="None",
+        image_paint="None",
         store=None,
         unique_id=None,
     ):
-        if images == "None": images = None
-        if masks == "None": masks = None
-
-        images_path_full = os.path.join(folder_paths.get_input_directory(), images) if images is not None else None
-        masks_path_full = os.path.join(folder_paths.get_input_directory(), masks) if masks is not None else None
-
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         c = {
@@ -109,21 +107,54 @@ class Chunker:
         start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
         end = start + c["chunk_length"]
 
-        images1, masks1, fps1, total_length1 = awesome_loader(images_path_full, start, end)
-        masks2, masks3, fps2, total_length2 = awesome_loader(masks_path_full, start, end)
+        if images == "None": images = None
+        if masks == "None": masks = None
+        if image == "None": image = None
+        if image_paint == "None": image_paint = None
 
-        log(f"images1: {len(images1)}")
-        log(f"fps: {fps1}")
-        log(f"total_length1: {total_length1}")
+        w = 512
+        h = 512
+        out_images = []
+        out_masks = []
 
-        return ({}, images1, masks3)
+        # get images chunk
+        if images is not None:
+            images_path_full = os.path.join(folder_paths.get_input_directory(), images)
+            images_from_file, fps, total_length1 = awesome_loader(images_path_full, start, end)
+            out_images.extend([images_from_file])
+            w = images_from_file.shape[2]
+            h = images_from_file.shape[1]
 
-        #imgs = ["jpeg", "jpg", "png"]
-        #vids = ["mp4"]
-        #images_ext = images.replace(" [input]", "").split(".")[-1]
-        #masks_ext = masks.replace(" [input]", "").split(".")[-1]
-        #images_type = "IMAGE" if images_ext in imgs else "VIDEO" if images_ext in vids else "UNKNOWN"
-        #masks_type = "IMAGE" if masks_ext in imgs else "VIDEO" if masks_ext in vids else "UNKNOWN"
+        # get the mask editor mask
+        if image is not None:
+            mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
+            path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
+            mask, _no, _way = awesome_loader(path_full)
+            out_masks.append(resize_mask(mask, w, h))
+
+        # get masks chunk
+        if masks is not None:
+            masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
+            masks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start, end)
+            masks_converted = resize_image(masks_from_file, w, h)
+            masks_converted2 = image_to_mask(masks_converted)
+            out_masks.extend([masks_converted2])
+
+        out_images_torch = None
+        if len(out_images) > 0:
+            out_images_torch = torch.cat(out_images)
+            assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}"
+
+        out_masks_torch = None
+        if len(out_masks) > 0:
+            out_masks_torch = torch.cat(out_masks)
+            assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
+
+        return (
+            {},
+            out_images_torch,
+            out_masks_torch,
+        )
 
         fps = 30
         if images_path_full is not None:

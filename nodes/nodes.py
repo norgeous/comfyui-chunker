@@ -87,25 +87,22 @@ class Chunker:
         store=None,
         unique_id=None,
     ):
-        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
-
-        c = {
-            "mode": mode,
-            "chunk_length": chunk_length,
-            "chunk_overlap": chunk_overlap,
-            "total_length": total_length,
-            "chunk_count": chunk_count,
-            # "fps": fps,
-        }
-
         s = store if store is not None else {
             "index": 0,
-            "images_overlap": None,
-            "masks_overlap": None,
+            "images_last_chunk_path": None,
+            "masks_last_chunk_path": None,
         }
 
-        start = s["index"] * (c["chunk_length"] - c["chunk_overlap"])
-        end = start + c["chunk_length"]
+        #if mode == "Wan":
+        #    # we want to avoid the situation where the last chunk of images is not a valid length for Wan
+        #    # adjust total_length, so that the final chunk matches 4n+1
+        #    previous_chunks_total = (chunk_length * (chunk_count - 1)) - (chunk_overlap * (chunk_count - 1))
+        #    final_chunk_length = total_length - previous_chunks_total
+        #    adjusted_final_chunk_length = (round(final_chunk_length / 4) * 4) + 1 # force 4n+1
+        #    total_length = previous_chunks_total + adjusted_final_chunk_length
+
+        start = s["index"] * (chunk_length - chunk_overlap)
+        end = start + chunk_length
 
         if images == "None": images = None
         if masks == "None": masks = None
@@ -114,31 +111,50 @@ class Chunker:
 
         w = 512
         h = 512
+        fps = 30
         out_images = []
         out_masks = []
 
-        # get images chunk
+        # get images chunk from input file
         if images is not None:
             images_path_full = os.path.join(folder_paths.get_input_directory(), images)
-            images_from_file, fps, total_length1 = awesome_loader(images_path_full, start, end)
-            out_images.extend([images_from_file])
+            images_from_file, fps, total_length = awesome_loader(images_path_full, start, end)
             w = images_from_file.shape[2]
             h = images_from_file.shape[1]
+            out_images.extend([images_from_file])
 
-        # get the mask editor mask
-        if image is not None:
-            mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
-            path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
-            mask, _no, _way = awesome_loader(path_full)
-            out_masks.append(resize_mask(mask, w, h))
+        # get the mask from mask editor
+        #if image is not None:
+        #    mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
+        #    path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
+        #    mask, _no, _way = awesome_loader(path_full)
+        #    out_masks.append(resize_mask(mask, w, h))
 
-        # get masks chunk
+        # get masks chunk from input file
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
             masks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start, end)
             masks_converted = resize_image(masks_from_file, w, h)
             masks_converted2 = image_to_mask(masks_converted)
             out_masks.extend([masks_converted2])
+
+        # replace start images with end images from images_last_chunk_path
+        if s["images_last_chunk_path"] is not None:
+            images_overlap_from_file, fps_no, total_length_no = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)
+            trimmed = out_images[0][chunk_overlap:]
+            out_images = [
+                resize_image(images_overlap_from_file, w, h),
+                trimmed,
+            ]
+
+            # replace as many black masks as images in overlap
+            black_panel = panelMask(w, h, 0)
+            trimmed2 = out_masks[0][chunk_overlap:]
+            blank = [black_panel] * len(images_overlap_from_file)
+            out_masks = [
+                *blank,
+                trimmed2,
+            ]
 
         out_images_torch = None
         if len(out_images) > 0:
@@ -150,87 +166,29 @@ class Chunker:
             out_masks_torch = torch.cat(out_masks)
             assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
 
-        return (
-            {},
-            out_images_torch,
-            out_masks_torch,
-        )
-
-        fps = 30
-        if images_path_full is not None:
-            # get frame rate from images
-            image_info = ffmpeg_info(images_path_full)
-            fps = image_info["fps"]
-
-            # if total_length setting is 0, use the video's length
-            if total_length == 0:
-                total_length = image_info["frame_count"]
-
-
-        if mode == "Wan":
-            # we want to avoid the situation where the last chunk of images is not a valid length for Wan
-            # adjust total_length, so that the final chunk matches 4n+1
-            previous_chunks_total = (chunk_length * (chunk_count - 1)) - (chunk_overlap * (chunk_count - 1))
-            final_chunk_length = total_length - previous_chunks_total
-            adjusted_final_chunk_length = (round(final_chunk_length / 4) * 4) + 1 # force 4n+1
-            total_length = previous_chunks_total + adjusted_final_chunk_length
-
-
-        images = ffmpeg_load_chunk(images_path_full, start, end, "video/chunker/tmp/chunk/image-load/chunk") if images_path_full is not None else None
-        masks = image_to_mask(ffmpeg_load_chunk(masks_path_full, start, end, "video/chunker/tmp/chunk/mask-load/chunk")) if masks_path_full is not None else None
-
-        #if images is None and masks is None:
-        #    raise Exception("Please provide images OR masks")
-
-        w = images.shape[2] if images is not None else 512
-        h = images.shape[1] if images is not None else 512
-
-        masks = resize_mask(masks, w, h)
-
-        images_overlap_count = 0 if s["images_overlap"] is None else len(s["images_overlap"])
-        masks_overlap_count = 0 if s["masks_overlap"] is None else len(s["masks_overlap"])
-
-        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
-
-        out_images = []
-        out_masks = []
-
-        # add images_overlap if it exists
-        if s["images_overlap"] is not None: out_images.extend([resize_image(s["images_overlap"], w, h)])
-
-        # add masks_overlap if it exists
-        if s["masks_overlap"] is not None:
-            out_masks.extend([resize_mask(s["masks_overlap"], w, h)])
-        else:
-            # add as many black masks as images in overlap
-            if s["images_overlap"] is not None:
-                black_panel = panelMask(w, h, 0)
-                out_masks.extend([black_panel] * len(s["images_overlap"]))
-                masks_overlap_count += len(s["images_overlap"])
-
-        # cut chunk from images and masks and add them
-        if images is not None: out_images.extend([images[start + images_overlap_count:end]])
-        if masks is not None: out_masks.extend([masks[start + masks_overlap_count:end]])
-
-        out_images_torch = torch.cat(out_images) if len(out_images) > 0 else None
-        out_masks_torch = torch.cat(out_masks) if len(out_masks) > 0 else None
-
         this_chunk_length = max(
             len(out_images_torch) if out_images_torch is not None else 0,
             len(out_masks_torch) if out_masks_torch is not None else 0,
         )
 
+        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
+        c = {
+            "mode": mode,
+            "chunk_length": chunk_length, # this_chunk_length?
+            "chunk_overlap": chunk_overlap,
+            "total_length": total_length,
+            "chunk_count": chunk_count,
+        }
+
         chunker_data = {
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
+            "fps": fps,
         }
 
         ui_values = {
-            "input_label_values": {
-                "images": len(images) if images is not None else 0,
-                "masks": len(masks) if masks is not None else 0,
-            },
             "output_label_values": {
                 "images": len(out_images_torch) if out_images_torch is not None else 0,
                 "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
@@ -244,12 +202,16 @@ class Chunker:
             },
         }
 
+        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
+        log(f"with images {out_images_torch.shape}")
+        log(f"with masks {out_masks_torch.shape}")
+
         return {
             "ui": {"values": [ui_values]},
             "result": (
                 chunker_data,
-                out_images_torch, # just this chunk
-                out_masks_torch, # just this chunk
+                out_images_torch,
+                out_masks_torch,
                 w,
                 h,
                 s["index"],
@@ -259,7 +221,6 @@ class Chunker:
                 chunk_count,
             ),
         }
-
 
 class ChunkerCombine:
     @classmethod
@@ -323,14 +284,14 @@ class ChunkerCombine:
         # save new image chunk to file
         if images is not None:
             log("[debug] Combine -> saving images...", end="")
-            images_full_path, images_video_path = save_video(images, 30, "video/chunker/tmp/chunk/image/chunk")
+            images_full_path, images_video_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image/chunk")
             print("done")
             s["image_chunks"].append(images_full_path)
 
         # save new mask chunk to file
         if masks is not None:
             log("[debug] Combine -> saving masks...", end="")
-            masks_full_path, masks_video_path = save_video(mask_to_image(masks), 30, "video/chunker/tmp/chunk/masks/chunk")
+            masks_full_path, masks_video_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")
             print("done")
             s["mask_chunks"].append(masks_full_path)
 
@@ -341,7 +302,7 @@ class ChunkerCombine:
 
         # save new preview chunk to file
         log("[debug] Combine -> saving preview...", end="")
-        preview_full_path, preview_video_path = save_video(preview, preview_fps, "video/chunker/tmp/chunk/preview/chunk")
+        preview_full_path, preview_video_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview/chunk")
         print("done")
         s["preview_chunks"].append(preview_full_path)
 
@@ -432,8 +393,9 @@ class ChunkerCombine:
         new_chunker = graph.lookup_node(d["start_node_id"])
         new_chunker.set_input("store", {
             "index": d["index"] + 1,
-            "images_overlap": images[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and images is not None else None,
-            "masks_overlap": masks[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and masks is not None else None,
+            "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # last image chunk saved
+            #"images_overlap": images[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and images is not None else None,
+            #"masks_overlap": masks[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and masks is not None else None,
         })
 
         # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan)

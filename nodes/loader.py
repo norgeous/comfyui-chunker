@@ -77,11 +77,12 @@ def load_video_chunk(video_path, start_n, end_n):
     total_length = stream.frames
 
     if end_n is None: end_n = total_length # missing end fix
+    if start_n < 0: start_n = total_length + start_n # negative start fix
     if end_n < 0: end_n = total_length + end_n # negative end fix
 
     # sanity checks
     assert start_n < end_n, "Start beyond end"
-    assert end_n <= total_length, f"End {end_n} beyond total_length {total_length}"
+    #assert end_n <= total_length, f"End {end_n} beyond total_length {total_length}"
 
     start_time = start_n / fps
     end_time = end_n / fps
@@ -105,9 +106,9 @@ def load_video_chunk(video_path, start_n, end_n):
         elif frame_n < start_n:
             continue
         else:
-            img = frame.to_ndarray(format='rgb24')  # shape: (H, W, 3)
-            img = torch.from_numpy(img) / 255.0  # shape: (H, W, 3)
-            frames.append(img.unsqueeze(0))
+            img = frame.to_ndarray(format='rgb24') # shape: (H, W, 3)
+            img = torch.from_numpy(img) / 255.0 # shape: (H, W, 3)
+            frames.append(img.unsqueeze(0)) # shape: (1, H, W, 3)
 
     print(f"itterated {len(all_frames_n)} frames and collected {len(frames)} frames")
     print("shape of each frame", frames[0].shape)
@@ -123,9 +124,7 @@ def awesome_loader(path, start=0, end=None):
         image = load_image_advanced(path)
         fps = 0
         total_length = 1
-        #assert len(image.shape) == 4, f"[image] wanted a rank 4 tensor, but got rank {len(image.shape)}... {image.shape} {path}"
         return (image, fps, total_length)
     if file_ext in vid_ext:
         frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
-        #assert len(frames.shape) == 4, f"[video] wanted a rank 4 tensor, but got rank {len(frames.shape)}... {frames.shape} {path}"
         return (frames, fps, total_length)

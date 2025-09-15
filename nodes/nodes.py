@@ -283,7 +283,6 @@ class ChunkerCombine:
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
-        #end = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"])) - 1
         start = 0 if select_overlaps_from == "this_chunk" else c["chunk_overlap"]
         end = None if select_overlaps_from == "previous_chunk" else -c["chunk_overlap"]
 

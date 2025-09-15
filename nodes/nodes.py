@@ -130,11 +130,14 @@ class Chunker:
         if s["masks_last_chunk_path"] is not None:
             masks_overlap, fps_no, total_length_no = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)
 
+        count_maskeditor = 1 if mask_maskeditor is not None else 0
+        count_images_overlap = len(images_overlap) if images_overlap is not None else 0
+        count_masks_overlap = len(masks_overlap) if masks_overlap is not None else 0
+
         # get images chunk from input file and construct the output
         out_images = []
         if images is not None:
             images_path_full = os.path.join(folder_paths.get_input_directory(), images)
-            offset = len(images_overlap) if images_overlap is not None else 0
             images_from_file, fps, total_length = awesome_loader(images_path_full, start + offset, end)
             w = images_from_file.shape[2]
             h = images_from_file.shape[1]
@@ -146,10 +149,7 @@ class Chunker:
         out_masks = []
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
-            offset1 = 1 if mask_maskeditor is not None else 0
-            offset2 = len(masks_overlap) if masks_overlap is not None else 0
-            offset3 = len(images_overlap) if images_overlap is not None else 0
-            offset = offset1 + max(offset2, offset3)
+            offset = count_maskeditor + max(count_images_overlap, count_masks_overlap)
             imasks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start + offset, end)
             masks_from_file = image_to_mask(imasks_from_file)
             if mask_maskeditor is not None:
@@ -158,7 +158,7 @@ class Chunker:
                 out_masks.append(resize_mask(masks_overlap, w, h))
             else:
                 black_panel = panelMask(w, h, 0)
-                out_masks.extend([black_panel] * offset3)
+                out_masks.extend([black_panel] * count_images_overlap)
             out_masks.append(resize_mask(masks_from_file, w, h))
 
         out_images_torch = None

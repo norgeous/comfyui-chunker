@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import av
 from PIL import Image, ImageOps, ImageSequence
-import folder_paths
+# import folder_paths
 
 
 def pillow(fn, arg):

@@ -2,11 +2,11 @@ import os
 import folder_paths
 import torch
 import math
-from comfy_api.latest import ComfyExtension, io
+#from comfy_api.latest import ComfyExtension, io
 from comfy_execution.graph_utils import GraphBuilder
 from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .video import save_video, load_video_images_exclude_overlap, ffmpeg_info, ffmpeg_first_frame, ffmpeg_load_chunk, ffmpeg_cat
+from .video import save_video, ffmpeg_first_frame
 from .loader import awesome_loader
 
 # Add custom API routes, using router
@@ -118,17 +118,17 @@ class Chunker:
         if image is not None and s["index"] == 0:
             mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
             path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
-            mask_maskeditor, _no, _way = awesome_loader(path_full)
+            mask_maskeditor = awesome_loader(path_full)[0]
 
         # load the images overlap from file
         images_overlap = None
         if s["images_last_chunk_path"] is not None:
-            images_overlap, fps_no, total_length_no = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)
+            images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
 
         # load the masks overlap from file
         masks_overlap = None
         if s["masks_last_chunk_path"] is not None:
-            masks_overlap, fps_no, total_length_no = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)
+            masks_overlap = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)[0]
 
         count_maskeditor = 1 if mask_maskeditor is not None else 0
         count_images_overlap = len(images_overlap) if images_overlap is not None else 0
@@ -151,7 +151,7 @@ class Chunker:
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
             offset = count_maskeditor + max(count_images_overlap, count_masks_overlap)
-            imasks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start + offset, end)
+            imasks_from_file = awesome_loader(masks_path_full, start + offset, end)[0]
             masks_from_file = image_to_mask(imasks_from_file)
             if mask_maskeditor is not None:
                 out_masks.append(resize_mask(mask_maskeditor, w, h))
@@ -285,94 +285,67 @@ class ChunkerCombine:
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
-        end = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"])) - 1
+        #end = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"])) - 1
+        start = 0 if select_overlaps_from == "this_chunk" else c["chunk_overlap"]
+        end = None if select_overlaps_from == "previous_chunk" else -c["chunk_overlap"]
 
         # save new image chunk to file
         if images is not None:
-            log("[debug] Combine -> saving images...", end="")
+            log("[debug] Combine -> saving images chunk...", end="")
             images_full_path, images_video_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image/chunk")
             print("done")
             s["image_chunks"].append(images_full_path)
 
         # save new mask chunk to file
         if masks is not None:
-            log("[debug] Combine -> saving masks...", end="")
+            log("[debug] Combine -> saving masks chunk...", end="")
             masks_full_path, masks_video_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")
             print("done")
             s["mask_chunks"].append(masks_full_path)
 
         # create preview from inputs
-        log("[debug] Combine -> creating preview...", end="")
+        log("[debug] Combine -> creating preview chunk...", end="")
         preview = create_preview_video(images, masks, show_debug, d, c)
         print("done")
 
         # save new preview chunk to file
-        log("[debug] Combine -> saving preview...", end="")
+        log("[debug] Combine -> saving preview chunk...", end="")
         preview_full_path, preview_video_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview/chunk")
         print("done")
         s["preview_chunks"].append(preview_full_path)
 
-        # combine all preview chunks with ffmpeg
-        # filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
-        # log("[debug] Combine -> ffmpeg combine preview...", end="")
-        # preview_full_path, preview_video_path = ffmpeg_cat(
-        #     s["preview_chunks"],
-        #     c["chunk_length"],
-        #     c["chunk_overlap"],
-        #     filename_prefix,
-        #     crf=18,
-        #     select_overlaps_from=select_overlaps_from,
-        # )
-        # print("done")
-
         # combine all preview chunks, excluding the overlaps
         filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
-        start = 0 if select_overlaps_from == "this_chunk" else c["chunk_overlap"]
-        end = None if select_overlaps_from == "previous_chunk" else -c["chunk_overlap"]
-        all_preview = map(lambda filename: awesome_loader(filename, start, end)[0], s["preview_chunks"])
+        log("[debug] Combine -> load all previews...", end="")
+        all_preview = tuple(map(lambda filename: awesome_loader(filename, start, end)[0], s["preview_chunks"]))
         all_preview_torch = torch.cat(all_preview)
-        all_preview_full_path, all_preview_video_path = save_video(all_preview_torch, d["fps"], filename_prefix)
+        print("done")
+        log("[debug] Combine -> save all previews together...", end="")
+        all_preview_video_path = save_video(all_preview_torch, d["fps"], filename_prefix)[1]
+        print("done")
 
         # if no more chunks needed, return early
         if is_done:
-            # combine all image chunks with ffmpeg
-            images_full_path = None
-            if len(s["image_chunks"]) > 0:
-                log("[debug] Combine -> ffmpeg combine images...", end="")
-                images_full_path, images_video_path = ffmpeg_cat(
-                    s["image_chunks"],
-                    c["chunk_length"],
-                    c["chunk_overlap"],
-                    "video/chunker/images",
-                    crf=10,
-                    select_overlaps_from=select_overlaps_from,
-                )
-                print("done")
-
-            # combine all mask chunks with ffmpeg
-            masks_full_path = None
-            if len(s["mask_chunks"]) > 0:
-                log("[debug] Combine -> ffmpeg combine masks...", end="")
-                masks_full_path, masks_video_path = ffmpeg_cat(
-                    s["mask_chunks"],
-                    c["chunk_length"],
-                    c["chunk_overlap"],
-                    "video/chunker/masks",
-                    crf=10,
-                    select_overlaps_from=select_overlaps_from,
-                )
-                print("done")
-
+            # load all image chunks as tensor
             out_images_torch = None
-            if images_full_path is not None:
-                log("[debug] Combine -> load images as tensor...", end="")
-                out_images_torch = load_video_images_exclude_overlap(images_full_path, 0)
+            if len(s["image_chunks"]) > 0:
+                log("[debug] Combine -> load all images...", end="")
+                all_images = tuple(map(lambda filename: awesome_loader(filename, start, end)[0], s["image_chunks"]))
+                out_images_torch = torch.cat(all_images)
+                print("done")
+                log("[debug] Combine -> save all images together...", end="")
+                save_video(out_images_torch, d["fps"], "video/chunker/images")
                 print("done")
 
+            # load all mask chunks as tensor
             out_masks_torch = None
-            if masks_full_path is not None:
-                log("[debug] Combine -> load masks as tensor...", end="")
-                out_masks_torch = load_video_images_exclude_overlap(masks_full_path, 0)
+            if len(s["mask_chunks"]) > 0:
+                log("[debug] Combine -> load all masks...", end="")
+                all_masks = tuple(map(lambda filename: awesome_loader(filename, start, end)[0], s["masks_chunks"]))
+                out_masks_torch = torch.cat(all_masks)
+                print("done")
+                log("[debug] Combine -> save all masks together...", end="")
+                save_video(out_masks_torch, d["fps"], "video/chunker/images")
                 print("done")
 
             ui_values = {
@@ -421,11 +394,7 @@ class ChunkerCombine:
 
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
-        new_combine.set_input("store", {
-            "image_chunks": s["image_chunks"],
-            "mask_chunks": s["mask_chunks"],
-            "preview_chunks": s["preview_chunks"],
-        })
+        new_combine.set_input("store", s)
 
         ui_values = {
             "input_label_values": {

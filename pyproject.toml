@@ -3,7 +3,7 @@ name = "comfyui-chunker"
 description = "Itterate video chunks"
 version = "1.0.0"
 # license = {file = "LICENSE"}
-dependencies = ["ffmpeg-python"]
+dependencies = []
 
 [project.urls]
 # Repository = "https://github.com/norgeous/comfyui-chunker"

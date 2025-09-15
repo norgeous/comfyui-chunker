@@ -112,49 +112,54 @@ class Chunker:
         w = 512
         h = 512
         fps = 30
-        out_images = []
-        out_masks = []
 
-        # get images chunk from input file
+        # get the mask from the mask editor for first chunk only
+        mask_maskeditor = None
+        if image is not None and s["index"] == 0:
+            mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
+            path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
+            mask_maskeditor, _no, _way = awesome_loader(path_full)
+
+        # load the images overlap from file
+        images_overlap = None
+        if s["images_last_chunk_path"] is not None:
+            images_overlap, fps_no, total_length_no = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)
+
+        # load the masks overlap from file
+        masks_overlap = None
+        if s["masks_last_chunk_path"] is not None:
+            masks_overlap, fps_no, total_length_no = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)
+
+        # get images chunk from input file and construct the output
+        out_images = []
         if images is not None:
             images_path_full = os.path.join(folder_paths.get_input_directory(), images)
-            images_from_file, fps, total_length = awesome_loader(images_path_full, start, end)
+            offset = len(images_overlap) if images_overlap is not None else 0
+            images_from_file, fps, total_length = awesome_loader(images_path_full, start + offset, end)
             w = images_from_file.shape[2]
             h = images_from_file.shape[1]
-            out_images.extend([images_from_file])
+            if images_overlap is not None:
+                out_images.append(resize_image(images_overlap, w, h))
+            out_images.append(images_from_file)
 
-        # get the mask from mask editor
-        #if image is not None:
-        #    mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
-        #    path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
-        #    mask, _no, _way = awesome_loader(path_full)
-        #    out_masks.append(resize_mask(mask, w, h))
-
-        # get masks chunk from input file
+        # get masks chunk from input file and construct the output
+        out_masks = []
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
-            masks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start, end)
-            masks_converted = resize_image(masks_from_file, w, h)
-            masks_converted2 = image_to_mask(masks_converted)
-            out_masks.extend([masks_converted2])
-
-        # replace start images with end images from images_last_chunk_path
-        if s["images_last_chunk_path"] is not None:
-            images_overlap_from_file, fps_no, total_length_no = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)
-            trimmed = out_images[0][chunk_overlap:]
-            out_images = [
-                resize_image(images_overlap_from_file, w, h),
-                trimmed,
-            ]
-
-            # replace as many black masks as images in overlap
-            black_panel = panelMask(w, h, 0)
-            trimmed2 = out_masks[0][chunk_overlap:]
-            blank = [black_panel] * len(images_overlap_from_file)
-            out_masks = [
-                *blank,
-                trimmed2,
-            ]
+            offset1 = 1 if mask_maskeditor is not None else 0
+            offset2 = len(masks_overlap) if masks_overlap is not None else 0
+            offset3 = len(images_overlap) if images_overlap is not None else 0
+            offset = offset1 + max(offset2, offset3)
+            imasks_from_file, fps2, total_length2 = awesome_loader(masks_path_full, start + offset, end)
+            masks_from_file = image_to_mask(imasks_from_file)
+            if mask_maskeditor is not None:
+                out_masks.append(resize_mask(mask_maskeditor, w, h))
+            if masks_overlap is not None:
+                out_masks.append(resize_mask(masks_overlap, w, h))
+            else:
+                black_panel = panelMask(w, h, 0)
+                out_masks.extend([black_panel] * offset3)
+            out_masks.append(resize_mask(masks_from_file, w, h))
 
         out_images_torch = None
         if len(out_images) > 0:
@@ -393,7 +398,8 @@ class ChunkerCombine:
         new_chunker = graph.lookup_node(d["start_node_id"])
         new_chunker.set_input("store", {
             "index": d["index"] + 1,
-            "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # last image chunk saved
+            "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # filename of last image chunk saved
+            "masks_last_chunk_path": s["mask_chunks"][-1] if len(s["mask_chunks"]) > 0 else None, # filename of last mask chunk saved
             #"images_overlap": images[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and images is not None else None,
             #"masks_overlap": masks[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and masks is not None else None,
         })

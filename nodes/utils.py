@@ -39,6 +39,11 @@ def resize_mask(mask, width, height):
     resized_image = resize_image(image, width, height)
     return image_to_mask(resized_image)
 
+
+
+
+
+
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1
     is_overlap = True if chunk_index > 0 and i < overlap else False

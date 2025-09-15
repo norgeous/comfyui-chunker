@@ -48,7 +48,6 @@ def load_image_advanced(image_path):
 
         image = np.array(image).astype(np.float32) / 255.0
         image = torch.from_numpy(image)[None,]
-        #output_images.append(image)
         output_images.append(image)
 
         if "A" in i.getbands():

@@ -8,6 +8,7 @@ from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, res
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .video import save_video, ffmpeg_first_frame
 from .loader import awesome_loader
+from .loadAudio import load_audio
 
 # Add custom API routes, using router
 from aiohttp import web
@@ -191,6 +192,7 @@ class Chunker:
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
+            "audio": images,
             "fps": fps,
         }
 
@@ -248,11 +250,13 @@ class ChunkerCombine:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("images", "masks")
+    RETURN_TYPES = ("IMAGE", "MASK", "AUDIO", "INT")
+    RETURN_NAMES = ("images", "masks", "audio", "fps")
     OUTPUT_TOOLTIPS = (
         "Combined images from all chunks",
         "Combined masks from all chunks",
+        "Audio from images input of Chunker",
+        "FPS",
     )
     FUNCTION = "execute"
     CATEGORY = "Chunker"
@@ -290,15 +294,15 @@ class ChunkerCombine:
         if images is not None:
             log("[debug] Combine -> saving images chunk...", end="")
             images_full_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image/chunk")[0]
-            print("done")
             s["image_chunks"].append(images_full_path)
+            print("done")
 
         # save new mask chunk to file
         if masks is not None:
             log("[debug] Combine -> saving masks chunk...", end="")
             masks_full_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")[0]
-            print("done")
             s["mask_chunks"].append(masks_full_path)
+            print("done")
 
         # create preview from inputs
         log("[debug] Combine -> creating preview chunk...", end="")
@@ -308,8 +312,8 @@ class ChunkerCombine:
         # save new preview chunk to file
         log("[debug] Combine -> saving preview chunk...", end="")
         preview_full_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview/chunk")[0]
-        print("done")
         s["preview_chunks"].append(preview_full_path)
+        print("done")
 
         # combine all preview chunks, excluding the overlaps
         filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
@@ -323,7 +327,7 @@ class ChunkerCombine:
 
         # if no more chunks needed, return early
         if is_done:
-            # load all image chunks as tensor
+            # load all image chunks as tensor, excluding the overlaps
             out_images_torch = None
             if len(s["image_chunks"]) > 0:
                 log("[debug] Combine -> load all images...", end="")
@@ -334,7 +338,7 @@ class ChunkerCombine:
                 save_video(out_images_torch, d["fps"], "video/chunker/images")
                 print("done")
 
-            # load all mask chunks as tensor
+            # load all mask chunks as tensor, excluding the overlaps
             out_masks_torch = None
             if len(s["mask_chunks"]) > 0:
                 log("[debug] Combine -> load all masks...", end="")
@@ -353,6 +357,7 @@ class ChunkerCombine:
                 "output_label_values": {
                     "images": len(out_images_torch) if out_images_torch is not None else 0,
                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
+                    "fps": d["fps"],
                 },
                 "index": d["index"],
                 "chunk_count": c["chunk_count"],
@@ -366,6 +371,8 @@ class ChunkerCombine:
                 "result":(
                     out_images_torch,
                     image_to_mask(out_masks_torch),
+                    load_audio(d["audio"]),
+                    d["fps"],
                 )
             }
 
@@ -401,6 +408,7 @@ class ChunkerCombine:
             "output_label_values": {
                 "images": None,
                 "masks": None,
+                "fps": d["fps"],
             },
             "index": d["index"],
             "chunk_count": c["chunk_count"],

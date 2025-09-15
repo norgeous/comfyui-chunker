@@ -138,6 +138,7 @@ class Chunker:
         out_images = []
         if images is not None:
             images_path_full = os.path.join(folder_paths.get_input_directory(), images)
+            offset = count_images_overlap
             images_from_file, fps, total_length = awesome_loader(images_path_full, start + offset, end)
             w = images_from_file.shape[2]
             h = images_from_file.shape[1]
@@ -312,17 +313,25 @@ class ChunkerCombine:
         s["preview_chunks"].append(preview_full_path)
 
         # combine all preview chunks with ffmpeg
+        # filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
+        # log("[debug] Combine -> ffmpeg combine preview...", end="")
+        # preview_full_path, preview_video_path = ffmpeg_cat(
+        #     s["preview_chunks"],
+        #     c["chunk_length"],
+        #     c["chunk_overlap"],
+        #     filename_prefix,
+        #     crf=18,
+        #     select_overlaps_from=select_overlaps_from,
+        # )
+        # print("done")
+
+        # combine all preview chunks, excluding the overlaps
         filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
-        log("[debug] Combine -> ffmpeg combine preview...", end="")
-        preview_full_path, preview_video_path = ffmpeg_cat(
-            s["preview_chunks"],
-            c["chunk_length"],
-            c["chunk_overlap"],
-            filename_prefix,
-            crf=18,
-            select_overlaps_from=select_overlaps_from,
-        )
-        print("done")
+        start = 0 if select_overlaps_from == "this_chunk" else c["chunk_overlap"]
+        end = None if select_overlaps_from == "previous_chunk" else -c["chunk_overlap"]
+        all_preview = map(lambda filename: awesome_loader(filename, start, end)[0], s["preview_chunks"])
+        all_preview_torch = torch.cat(all_preview)
+        all_preview_full_path, all_preview_video_path = save_video(all_preview_torch, d["fps"], filename_prefix)
 
         # if no more chunks needed, return early
         if is_done:
@@ -377,7 +386,7 @@ class ChunkerCombine:
                 },
                 "index": d["index"],
                 "chunk_count": c["chunk_count"],
-                "video_path": preview_video_path,
+                "video_path": all_preview_video_path,
             }
 
             log(f"Finished all chunks {d["index"] + 1} of {c["chunk_count"]}!")
@@ -400,8 +409,6 @@ class ChunkerCombine:
             "index": d["index"] + 1,
             "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # filename of last image chunk saved
             "masks_last_chunk_path": s["mask_chunks"][-1] if len(s["mask_chunks"]) > 0 else None, # filename of last mask chunk saved
-            #"images_overlap": images[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and images is not None else None,
-            #"masks_overlap": masks[-c["chunk_overlap"]:] if c["chunk_overlap"] > 0 and masks is not None else None,
         })
 
         # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan)
@@ -431,7 +438,7 @@ class ChunkerCombine:
             },
             "index": d["index"],
             "chunk_count": c["chunk_count"],
-            "video_path": preview_video_path,
+            "video_path": all_preview_video_path,
         }
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}")

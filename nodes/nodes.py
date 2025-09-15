@@ -234,7 +234,6 @@ class ChunkerCombine:
         return {
             "required": {
                 "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
-                "preview_fps": ("FLOAT", {"default": 16.0, "min": 1.0, "max": 120.0, "step": 1.0, "tooltip": "The FPS of the preview video"}),
                 "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
                 "select_overlaps_from": (["this_chunk", "previous_chunk"], {"default": "this_chunk", "tooltip": "TODO"}),
             },
@@ -263,7 +262,6 @@ class ChunkerCombine:
     def execute(
         self,
         chunker_data,
-        preview_fps,
         show_debug,
         select_overlaps_from,
         images=None,
@@ -292,14 +290,14 @@ class ChunkerCombine:
         # save new image chunk to file
         if images is not None:
             log("[debug] Combine -> saving images chunk...", end="")
-            images_full_path, images_video_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image/chunk")
+            images_full_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image/chunk")[0]
             print("done")
             s["image_chunks"].append(images_full_path)
 
         # save new mask chunk to file
         if masks is not None:
             log("[debug] Combine -> saving masks chunk...", end="")
-            masks_full_path, masks_video_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")
+            masks_full_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")[0]
             print("done")
             s["mask_chunks"].append(masks_full_path)
 
@@ -310,7 +308,7 @@ class ChunkerCombine:
 
         # save new preview chunk to file
         log("[debug] Combine -> saving preview chunk...", end="")
-        preview_full_path, preview_video_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview/chunk")
+        preview_full_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview/chunk")[0]
         print("done")
         s["preview_chunks"].append(preview_full_path)
 

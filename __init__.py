@@ -1,5 +1,5 @@
-#from .nodes.image_nodes import *
-from .nodes.nodes import *
+from .nodes.endpoints import * # register endpoint?
+from .nodes.nodes import Chunker, ChunkerCombine
 
 NODE_CONFIG = {
     "Chunker": {"class": Chunker, "name": "\U0001F36B Chunker"},

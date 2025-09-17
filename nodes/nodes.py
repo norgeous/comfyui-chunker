@@ -14,31 +14,6 @@ from server import PromptServer
 from urllib.parse import unquote
 from PIL import Image
 
-# register /api/chunker/get-first-frame?filename=example.mp4
-@PromptServer.instance.routes.get("/chunker/get-first-frame")
-async def get_first_frame(request):
-    if "filename" in request.query:
-        filename = unquote(request.query["filename"])
-        filepath = os.path.join(folder_paths.get_input_directory(), filename)
-        if not os.path.isfile(filepath): return web.HTTPBadRequest() # check input file exists
-        first_frames_dir = os.path.join(folder_paths.get_input_directory(), "first-frame")
-        out_file = f"{os.path.basename(filename)}.png"
-        out_path = os.path.join(first_frames_dir, out_file)
-        frontend_data = {
-            "type": "input",
-            "filename": out_file,
-            "subfolder": "first-frame",
-        }
-        if os.path.isfile(out_path): return frontend_data # check if png already created
-        if not os.path.isdir(first_frames_dir): os.mkdir(first_frames_dir) # mkdir input/first-frame/
-        image = awesome_loader(filepath, 0, 1)[0]
-        img = tensor2pil(image)
-        img.save(out_path)
-        return web.json_response(frontend_data)
-    else:
-        return web.HTTPBadRequest()
-
-
 class Chunker:
     @classmethod
     def INPUT_TYPES(cls):
@@ -134,6 +109,8 @@ class Chunker:
         images_overlap_count = 0
         if s["images_last_chunk_path"] is not None:
             images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
+            w = images_overlap.shape[2]
+            h = images_overlap.shape[1]
             images_overlap_count = len(images_overlap)
 
         # load the masks overlap from file
@@ -175,7 +152,7 @@ class Chunker:
         # construct the masks output
         black_panel = panelMask(w, h, 0)
         out_masks = []
-        if mask_maskeditor is not None: out_masks.append(resizeMask(mask_maskeditor, w, h))
+        if mask_maskeditor is not None: out_masks.append(resize_mask(mask_maskeditor, w, h))
         if masks_overlap is not None: out_masks.append(resize_mask(masks_overlap, w, h))
         else: out_masks.extend([black_panel] * images_overlap_count)
         if masks_chunk is not None: out_masks.append(resize_mask(masks_chunk, w, h))
@@ -197,6 +174,19 @@ class Chunker:
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         if mode == "Wan":
+            grey_panel = panelImage(w, h, 128, 128, 128)
+            white_panel = panelMask(w, h, 255)
+
+            # if no images invent some blank (grey) ones (for t2v)
+            if images is None:
+                out_images.extend([grey_panel] * (chunk_length - images_count))
+                out_images_torch = torch.cat(out_images)
+
+            # if no masks invent some blank (white) ones (for t2v)
+            if masks is None:
+                out_masks.extend([white_panel] * (chunk_length - masks_count))
+                out_masks_torch = torch.cat(out_masks)
+
             # we want to avoid the situation where the last chunk of images is not a valid length for Wan (as it causes a fake OOM)
             # adjust total_length, so that the final chunk matches 4n+1
             adjusted_images_count = (math.ceil((images_count - 1) / 4) * 4) + 1 # force 4n+1 chunk length
@@ -205,25 +195,23 @@ class Chunker:
             needed_images_count = adjusted_images_count - images_count
             if needed_images_count > 0:
                 # fill in the missing images with grey panels for wan
-                grey_panel = panelImage(w, h, 128, 128, 128)
                 out_images.extend([grey_panel] * needed_images_count)
                 out_images_torch = torch.cat(out_images)
 
             needed_masks_count = adjusted_masks_count - images_count
             if needed_masks_count > 0:
                 # fill in the missing masks with white panels for wan
-                white_panel = panelMask(w, h, 255)
                 out_masks.extend([white_panel] * needed_masks_count)
                 out_masks_torch = torch.cat(out_masks)
 
             images_count = len(out_images_torch) if out_images_torch is not None else 0
             masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
             this_chunk_length = max(images_count, masks_count)
-            # TODO: predict and adjust the total_length
+            # TODO: predict and adjust the total_length?
 
         c = {
             "mode": mode,
-            "chunk_length": chunk_length, # this_chunk_length?
+            "chunk_length": chunk_length, # this_chunk_length?, TODO: is this actually used? i think only in the overlay
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
             "chunk_count": chunk_count,
@@ -233,7 +221,7 @@ class Chunker:
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
-            "audio": images,
+            "audio": images if images is not None and images.endswith(".mp4") else None,
             "fps": fps,
         }
 
@@ -402,7 +390,7 @@ class ChunkerCombine:
                 "result":(
                     out_images_torch,
                     image_to_mask(out_masks_torch),
-                    load_audio(d["audio"]),
+                    load_audio(d["audio"]) if d["audio"] is not None else None,
                     d["fps"],
                 )
             }

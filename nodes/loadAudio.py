@@ -15,7 +15,7 @@ def f32_pcm(wav: torch.Tensor) -> torch.Tensor:
     raise ValueError(f"Unsupported wav dtype: {wav.dtype}")
 
 def load_audio(filepath):
-    audio_path = folder_paths.get_annotated_filepath(audio)
+    audio_path = folder_paths.get_annotated_filepath(filepath)
     with av.open(audio_path) as af:
         if not af.streams.audio:
             raise ValueError("No audio stream found in the file.")

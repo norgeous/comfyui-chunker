@@ -335,11 +335,11 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined }});
+          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined, fps: undefined }});
         });
 
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined }});
+          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined, fps: undefined }});
           this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
 

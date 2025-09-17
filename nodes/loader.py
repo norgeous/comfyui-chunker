@@ -87,7 +87,7 @@ def load_video_chunk(video_path, start_n, end_n):
     end_time = end_n / fps
 
     # seek
-    print(f"Seeking to {start_time:.2f} seconds or earlier")
+    #print(f"Seeking to {start_time:.2f} seconds or earlier")
     container.seek(int(start_time / stream.time_base), stream=stream)
 
     # decode between frames
@@ -109,8 +109,8 @@ def load_video_chunk(video_path, start_n, end_n):
             img = torch.from_numpy(img) / 255.0 # shape: (H, W, 3)
             frames.append(img.unsqueeze(0)) # shape: (1, H, W, 3)
 
-    print(f"itterated {len(all_frames_n)} frames and collected {len(frames)} frames")
-    print("shape of each frame", frames[0].shape)
+    #print(f"itterated {len(all_frames_n)} frames and collected {len(frames)} frames")
+    #print("shape of each frame", frames[0].shape)
     return (torch.cat(frames), fps, total_length)
 
 def awesome_loader(path, start=0, end=None):
@@ -127,3 +127,19 @@ def awesome_loader(path, start=0, end=None):
     if file_ext in vid_ext:
         frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         return (frames, fps, total_length)
+
+def load_videos_exclude_overlaps(paths, overlap, select_overlaps_from):
+    all = []
+    for i, filename in enumerate(paths):
+        start = 0
+        end = None
+        if overlap > 0:
+            is_first_chunk = i == 0
+            is_final_chunk = i == len(paths) - 1
+            if select_overlaps_from == "this_chunk" and not is_final_chunk:
+                end = -overlap # skip end overlap frames
+            if select_overlaps_from == "previous_chunk" and not is_first_chunk:
+                start = overlap # skip start overlap frames
+        all.append(awesome_loader(filename, start, end)[0])
+    all_torch = torch.cat(all)
+    return all_torch

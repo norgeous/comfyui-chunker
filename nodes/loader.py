@@ -1,5 +1,3 @@
-# some from https://stackoverflow.com/a/77782755
-
 import torch
 import numpy as np
 import av
@@ -8,36 +6,8 @@ import os
 import folder_paths
 from comfy_extras.nodes_video import CreateVideo
 from comfy_api.util import VideoContainer
-#from .utils import log
 
-def get_next_save_video_path(filename_prefix):
-    format = "auto"
-    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
-        filename_prefix,
-        folder_paths.get_output_directory(),
-    )
-    file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
-    full_path = os.path.join(full_output_folder, file)
-    return (
-        full_path,
-        {
-            "filename": file,
-            "subfolder": subfolder,
-            "type": "output",
-        },
-    )
-
-def save_video(images, fps, filename_prefix):
-    format = "auto"
-    codec = "auto"
-    create_video_node = CreateVideo()
-    video, = create_video_node.execute(images, fps)
-    full_path, frontend_data = get_next_save_video_path(filename_prefix)
-    video.save_to(full_path, format=format, codec=codec, metadata=None)
-    return (
-        full_path,
-        frontend_data,
-    )
+# some from https://stackoverflow.com/a/77782755
 
 def pillow(fn, arg):
     prev_value = None
@@ -159,6 +129,35 @@ def awesome_loader(path, start=0, end=None):
     if file_ext in vid_ext:
         frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         return (frames, fps, total_length)
+
+def get_next_save_video_path(filename_prefix):
+    format = "auto"
+    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+        filename_prefix,
+        folder_paths.get_output_directory(),
+    )
+    file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
+    full_path = os.path.join(full_output_folder, file)
+    return (
+        full_path,
+        {
+            "filename": file,
+            "subfolder": subfolder,
+            "type": "output",
+        },
+    )
+
+def save_video(images, fps, filename_prefix):
+    format = "auto"
+    codec = "auto"
+    create_video_node = CreateVideo()
+    video, = create_video_node.execute(images, fps)
+    full_path, frontend_data = get_next_save_video_path(filename_prefix)
+    video.save_to(full_path, format=format, codec=codec, metadata=None)
+    return (
+        full_path,
+        frontend_data,
+    )
 
 # modified from https://stackoverflow.com/a/75429028
 def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):

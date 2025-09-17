@@ -1,11 +1,43 @@
-# https://stackoverflow.com/a/77782755
+# some from https://stackoverflow.com/a/77782755
 
 import torch
 import numpy as np
 import av
 from PIL import Image, ImageOps, ImageSequence
-# import folder_paths
+import os
+import folder_paths
+from comfy_extras.nodes_video import CreateVideo
+from comfy_api.util import VideoContainer
+#from .utils import log
 
+def get_next_save_video_path(filename_prefix):
+    format = "auto"
+    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+        filename_prefix,
+        folder_paths.get_output_directory(),
+    )
+    file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
+    full_path = os.path.join(full_output_folder, file)
+    return (
+        full_path,
+        {
+            "filename": file,
+            "subfolder": subfolder,
+            "type": "output",
+        },
+    )
+
+def save_video(images, fps, filename_prefix):
+    format = "auto"
+    codec = "auto"
+    create_video_node = CreateVideo()
+    video, = create_video_node.execute(images, fps)
+    full_path, frontend_data = get_next_save_video_path(filename_prefix)
+    video.save_to(full_path, format=format, codec=codec, metadata=None)
+    return (
+        full_path,
+        frontend_data,
+    )
 
 def pillow(fn, arg):
     prev_value = None
@@ -20,7 +52,7 @@ def pillow(fn, arg):
             ImageFile.LOAD_TRUNCATED_IMAGES = prev_value
     return x
 
-# https://github.com/IuvenisSapiens/ComfyUI_Qwen2_5-VL-Instruct/blob/main/util_nodes.py
+# from https://github.com/IuvenisSapiens/ComfyUI_Qwen2_5-VL-Instruct/blob/main/util_nodes.py
 def load_image_advanced(image_path):
     # image_path = folder_paths.get_annotated_filepath(image)
 
@@ -128,18 +160,41 @@ def awesome_loader(path, start=0, end=None):
         frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         return (frames, fps, total_length)
 
-def load_videos_exclude_overlaps(paths, overlap, select_overlaps_from):
-    all = []
-    for i, filename in enumerate(paths):
-        start = 0
-        end = None
-        if overlap > 0:
-            is_first_chunk = i == 0
-            is_final_chunk = i == len(paths) - 1
-            if select_overlaps_from == "this_chunk" and not is_final_chunk:
-                end = -overlap # skip end overlap frames
-            if select_overlaps_from == "previous_chunk" and not is_first_chunk:
-                start = overlap # skip start overlap frames
-        all.append(awesome_loader(filename, start, end)[0])
-    all_torch = torch.cat(all)
-    return all_torch
+# modified from https://stackoverflow.com/a/75429028
+def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
+    input1 = av.open(paths[0])
+    input1_stream = input1.streams.video[0]
+    input1.close()
+
+    outpath, frontend_data = get_next_save_video_path(filename_prefix)
+    with av.open(outpath, 'w') as output:
+        out_stream = output.add_stream(
+            input1_stream.codec_context.name,
+            input1_stream.codec_context.rate,
+        )
+        out_stream.width = input1_stream.codec_context.width
+        out_stream.height = input1_stream.codec_context.height
+        out_stream.pix_fmt = input1_stream.codec_context.pix_fmt
+        out_stream.options = {'crf': '10'}
+        for i, path in enumerate(paths):
+            start = 0
+            end = 0
+            if overlap > 0:
+                is_first_chunk = i == 0
+                is_final_chunk = i == len(paths) - 1
+                if select_overlaps_from == "this_chunk" and not is_final_chunk:
+                    end = -overlap # skip end overlap frames
+                if select_overlaps_from == "previous_chunk" and not is_first_chunk:
+                    start = overlap # skip start overlap frames
+
+            with av.open(path) as container:
+                total_length = container.streams.video[0].frames
+                for n, frame in enumerate(container.decode(container.streams.video[0])):
+                    if n in range(start, total_length + end):
+                        output.mux(out_stream.encode(av.VideoFrame.from_image(frame.to_image()))) # erases the pts
+
+        # Flush the encoder
+        out_packet = out_stream.encode(None)
+        output.mux(out_packet)
+
+    return outpath, frontend_data

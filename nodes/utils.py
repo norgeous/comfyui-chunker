@@ -12,6 +12,11 @@ def log(*args, **kwargs):
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
+def tensor2pil(image):
+    img_array = image.squeeze(0).cpu().numpy() * 255.0
+    img_pil = Image.fromarray(np.clip(img_array, 0, 255).astype(np.uint8))
+    return img_pil
+
 def panelImage(w, h, r=255, g=255, b=255):
     return pil2tensor(Image.new('RGB', (w, h), (r, g, b)))
 
@@ -38,7 +43,6 @@ def resize_mask(mask, width, height):
     image = mask_to_image(mask)
     resized_image = resize_image(image, width, height)
     return image_to_mask(resized_image)
-
 
 
 

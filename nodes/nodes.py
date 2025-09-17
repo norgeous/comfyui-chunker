@@ -117,7 +117,6 @@ class Chunker:
 
         # get images chunk from input file
         images_chunk = None
-        images_chunk_count = 0
         if images is not None:
             images_path_full = os.path.join(folder_paths.get_input_directory(), images)
             offset = images_overlap_count
@@ -126,21 +125,34 @@ class Chunker:
             total_length = images_total_length
             w = images_chunk.shape[2]
             h = images_chunk.shape[1]
-            images_chunk_count = len(images_chunk)
 
         # get masks chunk from input file
         masks_chunk = None
-        masks_chunk_count = 0
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
             offset = mask_maskeditor_count + max(images_overlap_count, masks_overlap_count)
             imasks_chunk = awesome_loader(masks_path_full, start + offset, end)[0]
             masks_chunk = image_to_mask(imasks_chunk)
-            masks_chunk_count = len(masks_chunk)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         # construct the images output
         out_images = []
-        if images_overlap is not None: out_images.append(resize_image(images_overlap, w, h))
+        if images_overlap is not None: out_images.append(resize_image(images_overlap, w, h)) # TODO: append in a way that makes one image per cell?
         if images_chunk is not None: out_images.append(images_chunk)
 
         # construct the masks output
@@ -151,6 +163,72 @@ class Chunker:
         else: out_masks.extend([black_panel] * images_overlap_count)
         if masks_chunk is not None: out_masks.append(resize_mask(masks_chunk, w, h))
 
+
+
+        log(">>>>>>>>>>>>>>>>>>", len(out_images))
+
+
+
+
+        # images_count = len(out_images_torch) if out_images_torch is not None else 0
+        # masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
+        # this_chunk_length = max(images_count, masks_count)
+
+        # chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+
+        # if mode == "Wan":
+        #     grey_panel = panelImage(w, h, 128, 128, 128)
+        #     white_panel = panelMask(w, h, 255)
+
+        #     # if no images invent some blank (grey) ones (for t2v)
+        #     if images is None:
+        #         out_images.extend([grey_panel] * (chunk_length - images_count))
+        #         out_images_torch = torch.cat(out_images)
+
+        #     # if no masks invent some blank (white) ones (for t2v)
+        #     if masks is None:
+        #         out_masks.extend([white_panel] * (chunk_length - masks_count))
+        #         out_masks_torch = torch.cat(out_masks)
+
+        #     # we want to avoid the situation where the last chunk of images is not a valid length for Wan (as it causes a fake OOM)
+        #     # adjust total_length, so that the final chunk matches 4n+1
+        #     adjusted_images_count = (math.ceil((images_count - 1) / 4) * 4) + 1 # force 4n+1 chunk length
+        #     adjusted_masks_count = (math.ceil((masks_count - 1) / 4) * 4) + 1 # force 4n+1 chunk length
+
+        #     needed_images_count = adjusted_images_count - images_count
+        #     if needed_images_count > 0:
+        #         # fill in the missing images with grey panels for wan
+        #         out_images.extend([grey_panel] * needed_images_count)
+        #         out_images_torch = torch.cat(out_images)
+
+        #     needed_masks_count = adjusted_masks_count - images_count
+        #     if needed_masks_count > 0:
+        #         # fill in the missing masks with white panels for wan
+        #         out_masks.extend([white_panel] * needed_masks_count)
+        #         out_masks_torch = torch.cat(out_masks)
+
+        #     images_count = len(out_images_torch) if out_images_torch is not None else 0
+        #     masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
+        #     this_chunk_length = max(images_count, masks_count)
+        #     # TODO: predict and adjust the total_length?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         out_images_torch = None
         if len(out_images) > 0:
             out_images_torch = torch.cat(out_images)
@@ -160,48 +238,6 @@ class Chunker:
         if len(out_masks) > 0:
             out_masks_torch = torch.cat(out_masks)
             assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
-
-        images_count = len(out_images_torch) if out_images_torch is not None else 0
-        masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
-        this_chunk_length = max(images_count, masks_count)
-
-        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
-
-        if mode == "Wan":
-            grey_panel = panelImage(w, h, 128, 128, 128)
-            white_panel = panelMask(w, h, 255)
-
-            # if no images invent some blank (grey) ones (for t2v)
-            if images is None:
-                out_images.extend([grey_panel] * (chunk_length - images_count))
-                out_images_torch = torch.cat(out_images)
-
-            # if no masks invent some blank (white) ones (for t2v)
-            if masks is None:
-                out_masks.extend([white_panel] * (chunk_length - masks_count))
-                out_masks_torch = torch.cat(out_masks)
-
-            # we want to avoid the situation where the last chunk of images is not a valid length for Wan (as it causes a fake OOM)
-            # adjust total_length, so that the final chunk matches 4n+1
-            adjusted_images_count = (math.ceil((images_count - 1) / 4) * 4) + 1 # force 4n+1 chunk length
-            adjusted_masks_count = (math.ceil((masks_count - 1) / 4) * 4) + 1 # force 4n+1 chunk length
-
-            needed_images_count = adjusted_images_count - images_count
-            if needed_images_count > 0:
-                # fill in the missing images with grey panels for wan
-                out_images.extend([grey_panel] * needed_images_count)
-                out_images_torch = torch.cat(out_images)
-
-            needed_masks_count = adjusted_masks_count - images_count
-            if needed_masks_count > 0:
-                # fill in the missing masks with white panels for wan
-                out_masks.extend([white_panel] * needed_masks_count)
-                out_masks_torch = torch.cat(out_masks)
-
-            images_count = len(out_images_torch) if out_images_torch is not None else 0
-            masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
-            this_chunk_length = max(images_count, masks_count)
-            # TODO: predict and adjust the total_length?
 
         c = {
             "mode": mode,

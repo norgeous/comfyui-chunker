@@ -20,7 +20,10 @@ async def get_first_frame(request):
     if "filename" in request.query:
         filename = unquote(request.query["filename"])
         filepath = os.path.join(folder_paths.get_input_directory(), filename)
-        if not os.path.isfile(filepath): return web.HTTPBadRequest() # check input file exists
+        
+        # check input file exists
+        if not os.path.isfile(filepath): return web.HTTPBadRequest()
+
         first_frames_dir = os.path.join(folder_paths.get_input_directory(), "first-frame")
         out_file = f"{os.path.basename(filename)}.png"
         out_path = os.path.join(first_frames_dir, out_file)
@@ -29,8 +32,13 @@ async def get_first_frame(request):
             "filename": out_file,
             "subfolder": "first-frame",
         }
-        if os.path.isfile(out_path): return web.json_response(frontend_data) # check if png already created
-        if not os.path.isdir(first_frames_dir): os.mkdir(first_frames_dir) # mkdir input/first-frame/
+        
+        # check if png already created
+        if os.path.isfile(out_path): return web.json_response(frontend_data)
+        
+        # mkdir input/first-frame/
+        if not os.path.isdir(first_frames_dir): os.mkdir(first_frames_dir)
+        
         image = awesome_loader(filepath, 0, 1)[0]
         img = tensor2pil(image)
         img.save(out_path)

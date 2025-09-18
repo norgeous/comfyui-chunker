@@ -3,10 +3,21 @@ import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import log, panelImage, panelMask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
+from .utils import count, log, panel_image, panel_mask, mask_to_image, image_to_mask, resize_image, resize_mask, create_preview_video, get_input_filenames
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .loader import awesome_loader, quick_combine, save_video
 from .loadAudio import load_audio
+
+def force_wan_length(value):
+    return (math.ceil((value - 1) / 4) * 4) + 1
+
+def fix_total_length(total_length, chunk_length=49, chunk_overlap=2):
+    if total_length <= chunk_length: return force_wan_length(total_length)
+    adjusted_chunk_length = chunk_length - chunk_overlap
+    full_length_chunk_count = (total_length) // adjusted_chunk_length
+    final_chunk_length = (total_length) % adjusted_chunk_length
+    corrected_final_chunk_length = force_wan_length(final_chunk_length)
+    return (full_length_chunk_count * adjusted_chunk_length) + corrected_final_chunk_length
 
 class Chunker:
     @classmethod
@@ -15,7 +26,7 @@ class Chunker:
         return {
             "required": {
                 "mode": (["None", "Wan"], {"tooltip": "TODO"}),
-                "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4, "tooltip": "Count of images in each chunk"}),
+                "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 1, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
                 "images": (files, {"default": "None", "tooltip": "Images to be chunked"}),
@@ -73,8 +84,15 @@ class Chunker:
             "masks_last_chunk_path": None,
         }
 
+        if mode == "Wan":
+            chunk_length = force_wan_length(chunk_length)
+            total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
+
+        #this_chunk_length = total_length - s["index"] * (chunk_length - chunk_overlap)
+
         start = s["index"] * (chunk_length - chunk_overlap)
         end = start + chunk_length
+        chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         if images == "None": images = None
         if masks == "None": masks = None
@@ -85,10 +103,32 @@ class Chunker:
         h = 512
         fps = 30
 
+        out_images = []
+        out_masks = []
+
+        # get the images overlap from store file
+        if s["images_last_chunk_path"] is not None:
+            images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
+            w = images_overlap.shape[2]
+            h = images_overlap.shape[1]
+            out_images.append(images_overlap)
+            if mode == "Wan":
+                black_panel = panel_mask(w, h, 0)
+                out_masks.append(torch.cat([black_panel] * len(images_overlap))) # add same amount of black masks to masks
+
+        # get images chunk from input file
+        if images is not None:
+            images_path_full = os.path.join(folder_paths.get_input_directory(), images)
+            images_chunk, images_fps, images_total_length = awesome_loader(images_path_full, start + count(out_images), end)
+            fps = images_fps
+            if total_length == 0: total_length = images_total_length
+            w = images_chunk.shape[2]
+            h = images_chunk.shape[1]
+            out_images.append(images_chunk)
+
         # get the mask from the mask editor for first chunk only
-        mask_maskeditor = None
-        mask_maskeditor_count = 0
         if image is not None and s["index"] == 0:
+            #perhaps use folder_paths.get_annotated_filepath(image)
             if " [input]" in image:
                 mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
                 path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
@@ -96,99 +136,31 @@ class Chunker:
                 mask_editor_filename = image.replace(" [temp]", "")
                 path_full = os.path.join(folder_paths.get_temp_directory(), mask_editor_filename)
             mask_maskeditor = awesome_loader(path_full)[0]
-            mask_maskeditor_count = 1
+            out_masks.append(mask_maskeditor)
 
-        # load the images overlap from file
-        images_overlap = None
-        images_overlap_count = 0
-        if s["images_last_chunk_path"] is not None:
-            images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
-            w = images_overlap.shape[2]
-            h = images_overlap.shape[1]
-            images_overlap_count = len(images_overlap)
-
-        # load the masks overlap from file
-        masks_overlap = None
-        masks_overlap_count = 0
+        # get the masks overlap from store file
         if s["masks_last_chunk_path"] is not None:
             imasks_overlap = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)[0]
             masks_overlap = image_to_mask(imasks_overlap)
-            masks_overlap_count = len(masks_overlap)
-
-        # get images chunk from input file
-        images_chunk = None
-        if images is not None:
-            images_path_full = os.path.join(folder_paths.get_input_directory(), images)
-            offset = images_overlap_count
-            images_chunk, images_fps, images_total_length = awesome_loader(images_path_full, start + offset, end)
-            fps = images_fps
-            total_length = images_total_length
-            w = images_chunk.shape[2]
-            h = images_chunk.shape[1]
+            out_masks.append(masks_overlap)
 
         # get masks chunk from input file
-        masks_chunk = None
         if masks is not None:
             masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
-            offset = mask_maskeditor_count + max(images_overlap_count, masks_overlap_count)
-            imasks_chunk = awesome_loader(masks_path_full, start + offset, end)[0]
+            imasks_chunk = awesome_loader(masks_path_full, start + count(out_masks), end)[0]
             masks_chunk = image_to_mask(imasks_chunk)
+            out_masks.append(masks_chunk)
 
+        # do some stuff for Wan
+        if mode == "Wan":
+             grey_panel = panel_image(w, h, 128, 128, 128)
+             white_panel = panel_mask(w, h, 255)
 
+             # if no images invent some blank (grey) ones (for t2v)
+             if images is None: out_images.append(torch.cat([grey_panel] * (chunk_length - count(out_images))))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # construct the images output
-        out_images = []
-        if images_overlap is not None: out_images.append(resize_image(images_overlap, w, h)) # TODO: append in a way that makes one image per cell?
-        if images_chunk is not None: out_images.append(images_chunk)
-
-        # construct the masks output
-        black_panel = panelMask(w, h, 0)
-        out_masks = []
-        if mask_maskeditor is not None: out_masks.append(resize_mask(mask_maskeditor, w, h))
-        if masks_overlap is not None: out_masks.append(resize_mask(masks_overlap, w, h))
-        else: out_masks.extend([black_panel] * images_overlap_count)
-        if masks_chunk is not None: out_masks.append(resize_mask(masks_chunk, w, h))
-
-
-
-        log(">>>>>>>>>>>>>>>>>>", len(out_images))
-
-
-
-
-        # images_count = len(out_images_torch) if out_images_torch is not None else 0
-        # masks_count = len(out_masks_torch) if out_masks_torch is not None else 0
-        # this_chunk_length = max(images_count, masks_count)
-
-        # chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
-
-        # if mode == "Wan":
-        #     grey_panel = panelImage(w, h, 128, 128, 128)
-        #     white_panel = panelMask(w, h, 255)
-
-        #     # if no images invent some blank (grey) ones (for t2v)
-        #     if images is None:
-        #         out_images.extend([grey_panel] * (chunk_length - images_count))
-        #         out_images_torch = torch.cat(out_images)
-
-        #     # if no masks invent some blank (white) ones (for t2v)
-        #     if masks is None:
-        #         out_masks.extend([white_panel] * (chunk_length - masks_count))
-        #         out_masks_torch = torch.cat(out_masks)
+             # if no masks invent some blank (white) ones (for t2v)
+             if masks is None: out_masks.append(torch.cat([white_panel] * (chunk_length - count(out_masks))))
 
         #     # we want to avoid the situation where the last chunk of images is not a valid length for Wan (as it causes a fake OOM)
         #     # adjust total_length, so that the final chunk matches 4n+1
@@ -213,35 +185,21 @@ class Chunker:
         #     # TODO: predict and adjust the total_length?
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         out_images_torch = None
         if len(out_images) > 0:
-            out_images_torch = torch.cat(out_images)
+            out_images_resized = list(map(lambda tensor: resize_image(tensor, w, h), out_images))
+            out_images_torch = torch.cat(out_images_resized)
             assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}"
 
         out_masks_torch = None
         if len(out_masks) > 0:
-            out_masks_torch = torch.cat(out_masks)
+            out_masks_resized = list(map(lambda tensor: resize_mask(tensor, w, h), out_masks))
+            out_masks_torch = torch.cat(out_masks_resized)
             assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
 
         c = {
             "mode": mode,
-            "chunk_length": chunk_length, # this_chunk_length?, TODO: is this actually used? i think only in the overlay
+            "chunk_length": chunk_length,
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,
             "chunk_count": chunk_count,
@@ -257,12 +215,12 @@ class Chunker:
 
         ui_values = {
             "output_label_values": {
-                "images": len(out_images_torch) if out_images_torch is not None else 0,
-                "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
+                "images": count(out_images),
+                "masks": count(out_masks),
                 "width": w,
                 "height": h,
                 "index": s["index"],
-                "chunk_length": this_chunk_length,
+                "chunk_length": max(count(out_images), count(out_masks)),
                 "chunk_overlap": chunk_overlap,
                 "total_length": total_length,
                 "chunk_count": chunk_count,
@@ -280,7 +238,7 @@ class Chunker:
                 w,
                 h,
                 s["index"],
-                this_chunk_length,
+                max(count(out_images), count(out_masks)),
                 chunk_overlap,
                 total_length,
                 chunk_count,
@@ -371,10 +329,10 @@ class ChunkerCombine:
         #print("done")
 
         # combine all preview chunks to a new file, excluding the overlaps
-        log("[debug] Combine -> combine all previews...", end="")
+        #log("[debug] Combine -> combine all previews...", end="")
         filename_prefix = "video/chunker/tmp/chunks/preview/chunks" if not is_done else "video/chunker/tmp/chunks/preview/complete"
         all_preview_frontend_data = quick_combine(s["preview_chunks"], c["chunk_overlap"], select_overlaps_from, filename_prefix)[1]
-        print("done")
+        #print("done")
 
         # if no more chunks needed, return early
         if is_done:

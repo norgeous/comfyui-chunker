@@ -5,6 +5,12 @@ import torch
 import numpy as np
 from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
+from functools import reduce
+
+def count(list):
+    if len(list) == 0: return 0
+    if len(list) == 1: return len(list[0])
+    return reduce(lambda acc, item: acc + len(item), [0, *list])
 
 def log(*args, **kwargs):
     print(f"\U0001F36B  Chunker:", *args, **kwargs)
@@ -17,10 +23,10 @@ def tensor2pil(image):
     img_pil = Image.fromarray(np.clip(img_array, 0, 255).astype(np.uint8))
     return img_pil
 
-def panelImage(w, h, r=255, g=255, b=255):
+def panel_image(w, h, r=255, g=255, b=255):
     return pil2tensor(Image.new('RGB', (w, h), (r, g, b)))
 
-def panelMask(w, h, v=255):
+def panel_mask(w, h, v=255):
     return pil2tensor(Image.new('RGB', (w, h), (v, v, v)).convert('L'))
 
 def mask_to_image(mask):

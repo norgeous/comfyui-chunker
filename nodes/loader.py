@@ -123,7 +123,7 @@ def awesome_loader(path, start=0, end=None):
     if file_ext in img_ext:
         # image_path = folder_paths.get_annotated_filepath(image)
         image = load_image_advanced(path)
-        fps = 0
+        fps = None
         total_length = 1
         return (image, fps, total_length)
     if file_ext in vid_ext:

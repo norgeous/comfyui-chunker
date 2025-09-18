@@ -6,6 +6,7 @@ import numpy as np
 from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 from functools import reduce
+import math
 
 def count(list):
     if len(list) == 0: return 0
@@ -50,99 +51,27 @@ def resize_mask(mask, width, height):
     resized_image = resize_image(image, width, height)
     return image_to_mask(resized_image)
 
-
-
-
-
-def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
-    chunk = chunk_index + 1
-    is_overlap = True if chunk_index > 0 and i < overlap else False
-    return (
-        f"{str(previous_count + i + 1).zfill(len(str(total)))} / {total}", # frame_label
-        f"{str(chunk).zfill(len(str(chunk_count)))} of {chunk_count}", # chunk_label
-        is_overlap,
-        f"chunks {chunk - 1} + {chunk}", # overlap_label
-    )
-
-def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, length, overlap):
-    frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap)
-    configs = []
-    configs.append(
-        {
-            "text": f"{frame_label}\n{chunk_label}",
-            "vertical_alignment": "top",
-            "horizontal_alignment": "right",
-        },
-    )
-    configs.append(
-        {
-            "text": f"size: {w} x {h}\nchunk_length: {length}\nchunk_overlap: {overlap}",
-            "font_size": 12,
-            "vertical_alignment": "bottom",
-            "horizontal_alignment": "right",
-        },
-    )
-    if is_overlap:
-        configs.append(
-            {
-                "text": "OVERLAP",
-                "font_size": 24,
-                "fill_color_hex": "#FF0000",
-                "stroke_color_hex": "#FFFFFF",
-                "vertical_alignment": "top",
-                "horizontal_alignment": "left",
-            },
-        )
-        configs.append(
-            {
-                "text": overlap_label,
-                "font_size": 14,
-                "fill_color_hex": "#FF0000",
-                "stroke_color_hex": "#FFFFFF",
-                "vertical_alignment": "top",
-                "horizontal_alignment": "left",
-                "y_shift": 24 + 4,
-            },
-        )
-    return configs
-
-def overlay_debug(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length):
-    w = images.shape[2]
-    h = images.shape[1]
-    images = batch_draw_text(
-        images,
-        [getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap) for i in range(0, len(images))],
-    )
-    return images
-
 def simple_blend(image1, image2, blend_factor=0.5):
-        blended_image = image1 * (1 - blend_factor) + image2 * blend_factor
-        blended_image = torch.clamp(blended_image, 0, 1)
-        return blended_image
+    blended_image = image1 * (1 - blend_factor) + image2 * blend_factor
+    blended_image = torch.clamp(blended_image, 0, 1)
+    return blended_image
 
-def combine_images_and_masks(images, masks):
-    masks = mask_to_image(masks) if masks is not None else None
-    out = None
-    if images is not None and masks is None: out = images
-    if images is None and masks is not None: out = masks
-    if images is not None and masks is not None: out = simple_blend(images, masks)
-    #if images is not None and masks is not None: out = torch.cat((images, masks), dim=1) # side-by-side
-    return out
+def force_wan_length(value):
+    return (math.ceil((value - 1) / 4) * 4) + 1
 
-def create_preview_video(images, masks, show_debug, d, c):
-    previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
-    preview_video_chunk = combine_images_and_masks(images, masks)
-    if show_debug:
-        preview_video_chunk = overlay_debug(
-            preview_video_chunk,
-            previous_count,
-            d["index"],
-            c["chunk_count"],
-            c["chunk_length"],
-            c["chunk_overlap"],
-            c["total_length"],
-        )
-    return preview_video_chunk
+def fix_total_length(total_length, chunk_length=49, chunk_overlap=2):
+    if total_length <= chunk_length: return force_wan_length(total_length)
+    adjusted_chunk_length = chunk_length - chunk_overlap
+    full_length_chunk_count = (total_length) // adjusted_chunk_length
+    final_chunk_length = (total_length) % adjusted_chunk_length
+    corrected_final_chunk_length = force_wan_length(final_chunk_length)
+    return (full_length_chunk_count * adjusted_chunk_length) + corrected_final_chunk_length
+
+def get_this_chunk_length(index, chunk_length, chunk_overlap, total_length):
+    adjusted_chunk_length = chunk_length - chunk_overlap
+    full_length_chunk_count = (total_length) // adjusted_chunk_length
+    if index < full_length_chunk_count: return chunk_length
+    return total_length - (adjusted_chunk_length * full_length_chunk_count)
 
 def get_input_filenames():
     files = []

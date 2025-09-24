@@ -36,6 +36,48 @@ def parse_config_paths(chunk_config):
         image_paint,
     )
 
+class ChunkerOutpaintConfig:
+    @classmethod
+    def INPUT_TYPES(cls):
+        files = ["None", *sorted(get_input_filenames())]
+        return {
+            "required": {
+                "top": ("INT", {"min": 0}),
+                "right": ("INT", {"min": 0}),
+                "bottom": ("INT", {"min": 0}),
+                "left": ("INT", {"min": 0}),
+                "feather": ("INT", {"min": 0}),
+            },
+        }
+
+    RETURN_TYPES = ("OUTPAINT_CONFIG",)
+    RETURN_NAMES = ("outpaint_config",)
+    OUTPUT_TOOLTIPS = (
+        "Chunk outpaint config",
+    )
+    FUNCTION = "execute"
+    CATEGORY = "Chunker"
+    DESCRIPTION = "ChunkerOutpaintConfig"
+
+    def execute(
+        self,
+        top,
+        right,
+        bottom,
+        left,
+        feather,
+    ):
+        chunk_outpaint_config = {
+            "top": top,
+            "right": right,
+            "bottom": bottom,
+            "left": left,
+            "feather": feather,
+        }
+        return (
+            chunk_outpaint_config,
+        )
+
 class ChunkerChunkConfig:
     @classmethod
     def INPUT_TYPES(cls):
@@ -53,6 +95,7 @@ class ChunkerChunkConfig:
                 "image": (files,),
                 "image_paint": (files,),
                 "chunk_config": ("CHUNK_CONFIG",),
+                "outpaint_config": ("OUTPAINT_CONFIG",),
             },
         }
 
@@ -81,9 +124,11 @@ class ChunkerChunkConfig:
         image="None",
         image_paint="None",
         chunk_config=None,
+        outpaint_config=None,
     ):
         if chunk_config is None: chunk_config = []
         chunk_config.append({
+            "outpaint_config": outpaint_config,
             "include_in": include_in,
             "chunk": chunk,
             "frame": frame,
@@ -203,13 +248,15 @@ class Chunker:
         obscure_end = False
         if chunk_config is not None:
             for config in chunk_config:
+                #log("DEBUG!", s["index"], config["chunk"])
                 if (
-                    (config["include_in"] == "specified_chunk_only" and config["chunk"] == (s["index"] + 1))
+                    (config["include_in"] == "specified_chunk_only" and (s["index"] + 1) == config["chunk"])
                     or
                     (config["include_in"] == "every_nth_chunk" and ((s["index"] + 1) % config["chunk"] == 0))
                     or
                     (config["include_in"] == "every_chunk")
                 ):
+                    #log("YES!")
                     images_path, masks_path, mask_maskeditor_path, paint_maskeditor_path = parse_config_paths(config)
 
                     #images_chunk = None
@@ -236,6 +283,33 @@ class Chunker:
                         if config["frame"] == "start": start_mask = mask_maskeditor
                         if config["frame"] == "end": end_mask = mask_maskeditor
 
+                    # apply outpainting config
+                    if start_image is not None and config["outpaint_config"] is not None:
+                        start_image, start_mask = expand_image(
+                            start_image,
+                            config["outpaint_config"]["left"],
+                            config["outpaint_config"]["top"],
+                            config["outpaint_config"]["right"],
+                            config["outpaint_config"]["bottom"],
+                            config["outpaint_config"]["feather"],
+                            start_mask,
+                        )
+                    if end_image is not None and config["outpaint_config"] is not None:
+                        end_image, end_mask = expand_image(
+                            end_image,
+                            config["outpaint_config"]["left"],
+                            config["outpaint_config"]["top"],
+                            config["outpaint_config"]["right"],
+                            config["outpaint_config"]["bottom"],
+                            config["outpaint_config"]["feather"],
+                            end_mask,
+                        )
+
+
+
+
+
+
             #log(chunk_config)
 
             # fill remaining frames with images from chunk_config
@@ -260,24 +334,19 @@ class Chunker:
 
 
 
-
-
         if start_image is not None:
-            # image, left, top, right, bottom, feathering, mask=None
-            start_image, start_mask = expand_image(start_image, 50, 100, 50, 300, 10, start_mask) # apply outpaint padding
             w = start_image.shape[2]
             h = start_image.shape[1]
             out_images.append(start_image)
             out_masks.append(start_mask if start_mask is not None else black_panel)
 
         fill_count = this_chunk_length - (1 if end_image is not None else 0) - count(out_images)
-        log("fill_count", fill_count)
+        #log("fill_count", fill_count)
         if fill_count > 0:
             out_images.append(torch.cat([grey_panel] * fill_count))
             out_masks.append(torch.cat([white_panel] * fill_count))
 
         if end_image is not None:
-            end_image, end_mask = expand_image(end_image, 50, 100, 50, 300, 10, end_mask) # apply outpaint padding
             out_images.append(end_image)
             out_masks.append(end_mask if end_mask is not None else black_panel)
 

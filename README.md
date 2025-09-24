@@ -1,6 +1,9 @@
 # comfyui-chunker
 
-Create longer Wan VACE videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
+Create longer Wan videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
+
+- RAM: Chunker saves previous generation in an mp4 file, this means less ram is used
+- 
 
 ![image](./workflows/chunker-wan21vace-t2v.png)
 [workflow](./workflows/chunker-wan21vace-t2v.json)

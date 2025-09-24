@@ -142,6 +142,33 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
   uploadWidget.options.serialize = false;
 };
 
+const fetchFirstFrame = (that, filename) => {
+  const ext = filename.split(".").reverse()[0];
+  if (['mp4'].includes(ext)) {
+    fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename })}`)
+      .then(response => {
+        if (!response.ok) console.error("chunker first-frame fetch failed");
+        return response.json();
+      }).then(data => {
+        that.images = [data];
+        const img = new Image();
+        img.src = `/api/view?${new URLSearchParams(data)}`;
+        that.imgs = [img];
+      });
+  }
+  if (['jpg', 'jpeg', 'png'].includes(ext)) {
+    const data = {
+      type: 'input',
+      subfolder: '',
+      filename,
+    };
+    that.images = [data];
+    const img = new Image();
+    img.src = `/api/view?${new URLSearchParams(data)}`;
+    that.imgs = [img];
+  }
+};
+
 app.registerExtension({
   name: "comfyui-chunker",
 
@@ -159,6 +186,43 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
+
+      "ChunkerChunkConfig": () => {
+        chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          const imagesPath = this.widgets.find(({ name }) => name === "images");
+          const masksPath = this.widgets.find(({ name }) => name === "masks");
+
+          setTimeout(()=>{
+            fetchFirstFrame(this, imagesPath.value);
+          });
+
+          imagesPath.callback = value => {
+            if (imagesPath.previousValue !== value) imagesPath.previousValue = value;
+            else return; // block execution if same value twice
+            fetchFirstFrame(this, value);
+          };
+
+          // hide inputs
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
+          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
+          //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
+          //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
+
+          addUploadWidget(this, nodeType, "images", "choose images to upload");
+          addUploadWidget(this, nodeType, "masks", "choose masks to upload");
+        });
+
+        chainCallback(nodeType.prototype, "onConnectInput", function () {
+          updateLabels(this, { output_label_values: { index: undefined }});
+        });
+
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+        });
+      },
+
+
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           //console.log({ ComfyApp, nodeData, that: this })
@@ -174,7 +238,7 @@ app.registerExtension({
             //},
           //});
           //this.widgets.push({ name: 'image2', value: '', computeSize: () => [0, -4] });
-
+/*
           const imagesPath = this.widgets.find(({ name }) => name === "images");
           const masksPath = this.widgets.find(({ name }) => name === "masks");
           //const maskEditorImg = this.widgets.find(({ name }) => name === "image");
@@ -208,7 +272,7 @@ app.registerExtension({
               this.imgs = [img];
             }
 
-            /*console.log(maskEditorImg.value);
+            console.log(maskEditorImg.value);
             if (maskEditorImg.value) {
               //const masksPath = this.widgets.find(({ name }) => name === "masks");
               masksPath.value = maskEditorImg.value;
@@ -221,8 +285,8 @@ app.registerExtension({
               const img = new Image();
               img.src = `/api/view?${new URLSearchParams(data)}`;
               this.imgs = [img];
-            }*/
-          };
+            }
+          };*/
 /*
           masksPath.callback = value => {
             const maskEditorImg = this.widgets.find(({ name }) => name === "image");
@@ -249,13 +313,13 @@ app.registerExtension({
 */
           // hide inputs
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
+          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
+          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
           //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
           //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
 
-          addUploadWidget(this, nodeType, "images", "choose images to upload");
-          addUploadWidget(this, nodeType, "masks", "choose masks to upload");
+          //addUploadWidget(this, nodeType, "images", "choose images to upload");
+          //addUploadWidget(this, nodeType, "masks", "choose masks to upload");
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {

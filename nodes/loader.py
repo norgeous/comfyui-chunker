@@ -56,19 +56,26 @@ def load_image_advanced(image_path):
             mask = np.array(i.getchannel("A")).astype(np.float32) / 255.0
             mask = 1.0 - torch.from_numpy(mask)
             output_masks.append(mask.unsqueeze(0))
-        #else:
-            #mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu") #.permute(1, 2, 0) #.permute(0, 3, 1, 2)
 
-    #if len(output_images) > 1 and img.format not in excluded_formats:
-        #output_image = torch.cat(output_images, dim=0)
-        #output_mask = torch.cat(output_masks, dim=0)
-    #else:
-        #output_image = output_images[0]
-        #output_mask = output_masks[0]
 
-    if len(output_masks) > 0: return torch.cat(output_masks) # .unsqueeze(0) #.toImage() # if we decoded a mask from alpha, discard the image?
+    output_image = None
+    output_mask = None
+    if len(output_images) > 1 and img.format not in excluded_formats:
+        output_image = torch.cat(output_images)
+        output_mask = torch.cat(output_masks)
+    else:
+        output_image = output_images[0]
+        if len(output_masks) > 0 and torch.sum(output_masks[0]) > 0:
+            output_mask = output_masks[0]
 
-    return torch.cat(output_images) #.reshape((1,)+torch.cat(output_images).shape)
+    #if len(output_masks) > 0 and torch.sum(output_masks[0]) > 0: return torch.cat(output_masks)
+
+    #return torch.cat(output_images)
+
+    return (
+        output_image,
+        output_mask,
+    )
 
 def load_video_chunk(video_path, start_n, end_n):
     container = av.open(video_path)
@@ -115,17 +122,18 @@ def load_video_chunk(video_path, start_n, end_n):
     #print("shape of each frame", frames[0].shape)
     return (torch.cat(frames), fps, total_length)
 
-def awesome_loader(path, start=0, end=None):
+def awesome_loader(path, start=0, end=None, return_masks=False):
     path = path.replace(" [input]", "")
     img_ext = ["jpeg", "jpg", "png"]
     vid_ext = ["mp4"]
     file_ext = path.split(".")[-1]
     if file_ext in img_ext:
         # image_path = folder_paths.get_annotated_filepath(image)
-        image = load_image_advanced(path)
+        images, masks = load_image_advanced(path)
         fps = None
         total_length = 1
-        return (image, fps, total_length)
+        if return_masks: return (masks, fps, total_length)
+        else: return (images, fps, total_length)
     if file_ext in vid_ext:
         frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         return (frames, fps, total_length)

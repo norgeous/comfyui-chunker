@@ -56,14 +56,14 @@ const jsonDivStore = (element) => {
   return { get, set };
 };
 
-const updateLabels = (that, ui_values) => {
-  Object.entries(ui_values.input_label_values || []).forEach(([k, v]) => {
-    const input = that.inputs.find(({ name }) => name === k);
-    if (input) input.label = [k, v].filter(x => ![undefined, null].includes(x)).join(' ');
+const updateLabels = (that, ui_values = {}) => {
+  that.inputs.forEach(input => {
+    const v = Object.entries(ui_values.input_label_values || {})?.find(([k]) => k === input.name)?.[1];
+    input.label = [input.name, v].filter(x => x !== undefined).join(' ');
   });
-  Object.entries(ui_values.output_label_values || []).forEach(([k, v]) => {
-    const output = that.outputs.find(({ name }) => name === k);
-    if (output) output.label = [v, k].filter(x => ![undefined, null].includes(x)).join(' ');
+  that.outputs.forEach(output => {
+    const v = Object.entries(ui_values.output_label_values || {})?.find(([k]) => k === output.name)?.[1];
+    output.label = [v, output.name].filter(x => x !== undefined).join(' ');
   });
 };
 
@@ -174,7 +174,7 @@ app.registerExtension({
 
   async setup(app) {
     app.api.addEventListener("execution_cached", (...data) => {
-      console.log("chunker execution_cached", data);
+      // console.log("chunker execution_cached", data);
     });
     app.api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
@@ -212,120 +212,39 @@ app.registerExtension({
           addUploadWidget(this, nodeType, "images", "choose images to upload");
           addUploadWidget(this, nodeType, "masks", "choose masks to upload");
         });
-
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { output_label_values: { index: undefined }});
+          updateLabels(this);
         });
-
+        chainCallback(nodeType.prototype, "onExecutionStart", function () {
+          updateLabels(this);
+        });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
         });
       },
 
-
       "Chunker": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          //console.log({ ComfyApp, nodeData, that: this })
-
-          // to catch mask editor layers
-          //this.widgets.push({
-            //name: 'image',
-            //value: '',
-            //computeSize: () => [0, -4],
-            //callback: value => {
-            //  console.log('image (catch) value changed', value, this);
-            //  masksPath.value = value;
-            //},
-          //});
-          //this.widgets.push({ name: 'image2', value: '', computeSize: () => [0, -4] });
-/*
-          const imagesPath = this.widgets.find(({ name }) => name === "images");
-          const masksPath = this.widgets.find(({ name }) => name === "masks");
-          //const maskEditorImg = this.widgets.find(({ name }) => name === "image");
-
-          imagesPath.callback = value => {
-            if (imagesPath.previousValue !== value) imagesPath.previousValue = value;
-            else return; // block execution if same value twice
-            console.log('images value changed', value, this);
-            const ext = value.split(".").reverse()[0]
-            if (['mp4'].includes(ext)) {
-              fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename: value})}`)
-                .then(response => {
-                  if (!response.ok) console.error("chunker first-frame fetch failed");
-                  return response.json();
-                }).then(data => {
-                  this.images = [data];
-                  const img = new Image();
-                  img.src = `/api/view?${new URLSearchParams(data)}`;
-                  this.imgs = [img];
-                });
-            }
-            if (['jpg', 'jpeg', 'png'].includes(ext)) {
-              const data = {
-                type: 'input',
-                subfolder: '',
-                filename: value,
-              };
-              this.images = [data];
-              const img = new Image();
-              img.src = `/api/view?${new URLSearchParams(data)}`;
-              this.imgs = [img];
-            }
-
-            console.log(maskEditorImg.value);
-            if (maskEditorImg.value) {
-              //const masksPath = this.widgets.find(({ name }) => name === "masks");
-              masksPath.value = maskEditorImg.value;
-              const data = {
-                type: 'input',
-                subfolder: 'clipspace',
-                filename: maskEditorImg.value,
-              };
-              this.images = [data];
-              const img = new Image();
-              img.src = `/api/view?${new URLSearchParams(data)}`;
-              this.imgs = [img];
-            }
-          };*/
-/*
-          masksPath.callback = value => {
-            const maskEditorImg = this.widgets.find(({ name }) => name === "image");
-            console.log('masks value changed', value, this, maskEditorImg.value);
-            if (maskEditorImg.value) {
-              console.log('masks newvalue changed', maskEditorImg.value);
-              masksPath.value = maskEditorImg.value;
-              const data = {
-                type: 'input',
-                subfolder: 'clipspace',
-                filename: maskEditorImg.value,
-              };
-              //this.images = [data];
-              const img = new Image();
-              img.src = `/api/view?${new URLSearchParams(data)}`;
-              //this.imgs = [img];
-              setTimeout(() => {
-                this.images = [data];
-                this.imgs = [img];
-                //maskEditorImg.value = '';
-              }, 100);
-            }
-          }
-*/
-          // hide inputs
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
-          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
-          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
-          //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
-          //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
-
-          //addUploadWidget(this, nodeType, "images", "choose images to upload");
-          //addUploadWidget(this, nodeType, "masks", "choose masks to upload");
         });
-
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { output_label_values: { index: undefined }});
+          updateLabels(this);
         });
+        chainCallback(nodeType.prototype, "onExecutionStart", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+        });
+      },
 
+      "ChunkerVACEToFirstLast": () => {
+        chainCallback(nodeType.prototype, "onConnectInput", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecutionStart", function () {
+          updateLabels(this);
+        });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
         });
@@ -364,7 +283,7 @@ app.registerExtension({
             const waitMillis = Date.now() - timestamp2;
 
             if (!timestamp1) {
-              element.querySelector("#status").innerHTML = `Awaiting images for ${humanMillis(waitMillis)}...`;
+              element.querySelector("#status").innerHTML = `Awaiting first chunk for ${humanMillis(waitMillis)}...`;
               return;
             }
 
@@ -399,24 +318,19 @@ app.registerExtension({
         });
 
         chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined, fps: undefined }});
+          updateLabels(this);
         });
-
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this, { input_label_values: { images: undefined, masks: undefined }, output_label_values: { images: undefined, masks: undefined, fps: undefined }});
+          updateLabels(this);
           this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
-
         chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
           //console.log("onAfterExecuteNode");
         });
-
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          //console.log("onExecuted");
           updateLabels(this, ui.values[0]);
           const { image_count, index, chunk_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
-
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           if (video_path) infoContainer.querySelector("video").src = `/api/view?${new URLSearchParams(video_path).toString()}`;
         });

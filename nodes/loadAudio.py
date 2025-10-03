@@ -1,6 +1,9 @@
 import torch
 import av
 import folder_paths
+from comfy_extras.nodes_audio import match_audio_sample_rates
+from comfy.utils import common_upscale
+from functools import reduce
 
 # from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy_extras/nodes_audio.py
 
@@ -41,3 +44,21 @@ def load_audio(filepath):
         wav = f32_pcm(wav)
         audio = {"waveform": wav.unsqueeze(0), "sample_rate": sr}
         return audio
+
+def concat_audio(audio1, audio2):
+        waveform_1 = audio1["waveform"]
+        waveform_2 = audio2["waveform"]
+        sample_rate_1 = audio1["sample_rate"]
+        sample_rate_2 = audio2["sample_rate"]
+        if waveform_1.shape[1] == 1:
+            waveform_1 = waveform_1.repeat(1, 2, 1)
+            #logging.info("AudioConcat: Converted mono audio1 to stereo by duplicating the channel.")
+        if waveform_2.shape[1] == 1:
+            waveform_2 = waveform_2.repeat(1, 2, 1)
+            #logging.info("AudioConcat: Converted mono audio2 to stereo by duplicating the channel.")
+        waveform_1, waveform_2, output_sample_rate = match_audio_sample_rates(waveform_1, sample_rate_1, waveform_2, sample_rate_2)
+        concatenated_audio = torch.cat((waveform_1, waveform_2), dim=2)
+        return {"waveform": concatenated_audio, "sample_rate": output_sample_rate}
+
+def concat_audios(audios):
+        return reduce(lambda a, b: concat_audio(a, b), audios)

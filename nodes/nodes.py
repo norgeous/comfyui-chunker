@@ -7,8 +7,8 @@ from .utils import count, log, panel_image, panel_mask, mask_to_image, image_to_
 from .debug_overlay import create_preview_video
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .loader import awesome_loader, quick_combine, save_video
-from .loadAudio import load_audio
-
+from .loadAudio import load_audio, concat_audios
+#from functools import reduce
 
 def parse_config_paths(chunk_config):
     chunk = chunk_config["chunk"]
@@ -35,6 +35,159 @@ def parse_config_paths(chunk_config):
         image,
         image_paint,
     )
+
+def get_audio_length(audio):
+    if audio is None: return "0s"
+    return f"{audio["waveform"].shape[2] / audio["sample_rate"]:.6f}s"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class ChunkerMediaLoader:
+    @classmethod
+    def INPUT_TYPES(cls):
+        files = ["None", *sorted(get_input_filenames())]
+        return {
+            "required": {
+                "images": (files, {"default": "None", "tooltip": "Images"}),
+                "masks": (files, {"default": "None", "tooltip": "Masks"}),
+            },
+            "optional": {
+                "image": (files,),
+                "image_paint": (files,),
+                "outpaint_config": ("OUTPAINT_CONFIG",),
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, include_in, chunk, frame, images, masks, obscure, image, image_paint):
+        # YOLO, anything goes!
+        return True
+
+    RETURN_TYPES = ("PATH", "IMAGE", "MASK", "AUDIO")
+    RETURN_NAMES = ("path", "images", "masks", "audio")
+    OUTPUT_TOOLTIPS = (
+        "path",
+        "images",
+        "masks",
+        "audio",
+    )
+    FUNCTION = "execute"
+    CATEGORY = "Chunker"
+    DESCRIPTION = "ChunkerChunkConfig"
+
+    def execute(
+        self,
+        include_in,
+        chunk,
+        frame,
+        images,
+        masks,
+        obscure,
+        image="None",
+        image_paint="None",
+        chunk_config=None,
+        outpaint_config=None,
+    ):
+        if chunk_config is None: chunk_config = []
+        chunk_config.append({
+            "outpaint_config": outpaint_config,
+            "include_in": include_in,
+            "chunk": chunk,
+            "frame": frame,
+            "images": images,
+            "masks": masks,
+            "obscure": obscure,
+            "image": image,
+            "image_paint": image_paint,
+        })
+        return (
+            chunk_config,
+            None,
+            None,
+            None,
+        )
+
+class ChunkerChunkPlacement:
+    @classmethod
+    def INPUT_TYPES(cls):
+        files = ["None", *sorted(get_input_filenames())]
+        return {
+            "required": {
+                "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
+                "chunk": ("INT", {"min": 1, "tooltip": "Which chunk these settings affect"}),
+                "frame": (["start", "end"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
+                "obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
+            },
+            "optional": {
+                "path": ("PATH",),
+                "images": ("IMAGE",),
+                "masks": ("MASK",),
+                "audio": ("AUDIO",),
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, include_in, chunk, frame, images, masks, obscure, image, image_paint):
+        # YOLO, anything goes!
+        return True
+
+    RETURN_TYPES = ("CHUNK_CONFIG",)
+    RETURN_NAMES = ("chunk_config",)
+    OUTPUT_TOOLTIPS = (
+        "Chunk config",
+    )
+    FUNCTION = "execute"
+    CATEGORY = "Chunker"
+    DESCRIPTION = "ChunkerChunkConfig"
+
+    def execute(
+        self,
+        include_in,
+        chunk,
+        frame,
+        images,
+        masks,
+        obscure,
+        image="None",
+        image_paint="None",
+        chunk_config=None,
+        outpaint_config=None,
+    ):
+        if chunk_config is None: chunk_config = []
+        chunk_config.append({
+            "outpaint_config": outpaint_config,
+            "include_in": include_in,
+            "chunk": chunk,
+            "frame": frame,
+            "images": images,
+            "masks": masks,
+            "obscure": obscure,
+            "image": image,
+            "image_paint": image_paint,
+        })
+        return (
+            chunk_config,
+        )
+
+
+
+
+
 
 class ChunkerOutpaintConfig:
     @classmethod
@@ -147,7 +300,7 @@ class Chunker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "mode": (["None", "Wan"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1"}),
+                "mode": (["None", "Wan21", "Wan22"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 1, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
@@ -161,12 +314,13 @@ class Chunker:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunker_data", "images", "masks", "width", "height", "chunk_length", "chunk_overlap", "total_length", "chunk_count", "index")
+    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "AUDIO", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_data", "images", "masks", "audio", "width", "height", "chunk_length", "chunk_overlap", "total_length", "chunk_count", "index")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
         "Chunk of images",
         "Chunk of masks",
+        "Chunk of audio",
         "Width of images",
         "Height of images",
         "Count of images in each chunk",
@@ -203,10 +357,11 @@ class Chunker:
         h = None
         fps = 30
 
-        if mode == "Wan":
+        if mode == "Wan21" or mode == "Wan22":
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
-            fps = 16
+            if mode == "Wan21": fps = 16
+            if mode == "Wan22": fps = 24
 
         this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
 
@@ -248,7 +403,6 @@ class Chunker:
         obscure_end = False
         if chunk_config is not None:
             for config in chunk_config:
-                #log("DEBUG!", s["index"], config["chunk"])
                 if (
                     (config["include_in"] == "specified_chunk_only" and (s["index"] + 1) == config["chunk"])
                     or
@@ -256,7 +410,6 @@ class Chunker:
                     or
                     (config["include_in"] == "every_chunk")
                 ):
-                    #log("YES!")
                     images_path, masks_path, mask_maskeditor_path, paint_maskeditor_path = parse_config_paths(config)
 
                     #images_chunk = None
@@ -304,17 +457,6 @@ class Chunker:
                             config["outpaint_config"]["feather"],
                             end_mask,
                         )
-
-
-
-
-
-
-            #log(chunk_config)
-
-            # fill remaining frames with images from chunk_config
-            #for frame_i in range(count(out_images), this_chunk_length):
-                #log("???")
 
 
         if w is None: w = 512
@@ -393,7 +535,7 @@ class Chunker:
             out_masks.append(masks_chunk)
 
         # do some stuff for Wan
-        if mode == "Wan":
+        if mode == "Wan21" or mode == "Wan22":
              #grey_panel = panel_image(w, h, 128, 128, 128)
              grey_panel = torch.full((1, w, h, 3), 0.5)
              white_panel = panel_mask(w, h, 255)
@@ -440,6 +582,7 @@ class Chunker:
             "output_label_values": {
                 "images": count(out_images),
                 "masks": count(out_masks),
+                "audio": get_audio_length(None), # TODO: chop up audio from input video or overlap
                 "width": w,
                 "height": h,
                 "chunk_length": max(count(out_images), count(out_masks)),
@@ -458,6 +601,7 @@ class Chunker:
                 chunker_data,
                 out_images_torch,
                 out_masks_torch,
+                None, # TODO: audio
                 w,
                 h,
                 max(count(out_images), count(out_masks)),
@@ -486,9 +630,9 @@ class ChunkerVACEToFirstLast:
         "End clip vision or None",
         "Start image or None",
         "End image or None",
-        "",
-        "",
-        "",
+        "width",
+        "height",
+        "length",
     )
     FUNCTION = "execute"
     CATEGORY = "Chunker"
@@ -515,15 +659,33 @@ class ChunkerVACEToFirstLast:
         else:
             clip_vision_end_image = clip_vision.encode_image(end_image, crop=False if crop == "center" else True)
 
-        return (
-            clip_vision_start_image,
-            clip_vision_end_image,
-            start_image,
-            end_image,
-            w,
-            h,
-            length,
-        )
+        ui_values = {
+            "input_label_values": {
+                "images": len(images) if images is not None else 0,
+            },
+            "output_label_values": {
+                "clip_vision_start_image": 1 if clip_vision_start_image is not None else 0,
+                "clip_vision_end_image": 1 if clip_vision_end_image is not None else 0,
+                "start_image": 1 if start_image is not None else 0,
+                "end_image": 1 if end_image is not None else 0,
+                "width": w,
+                "height": h,
+                "length": length,
+            },
+        }
+
+        return {
+            "ui": {"values": [ui_values]},
+            "result": (
+                clip_vision_start_image,
+                clip_vision_end_image,
+                start_image,
+                end_image,
+                w,
+                h,
+                length,
+            ),
+        }
 
 class ChunkerCombine:
     @classmethod
@@ -537,6 +699,7 @@ class ChunkerCombine:
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
                 "masks": ("MASK", {"tooltip": "Processed chunk of masks"}),
+                "audio": ("AUDIO", {"tooltip": "Processed chunk of audio"}),
                 "store": ("*",), # hidden by js
             },
             "hidden": {
@@ -565,6 +728,7 @@ class ChunkerCombine:
         select_overlaps_from,
         images=None,
         masks=None,
+        audio=None,
         store=None,
         dynprompt=None,
         unique_id=None,
@@ -577,6 +741,7 @@ class ChunkerCombine:
         s = store if store is not None else {
             "image_chunks": [],
             "mask_chunks": [],
+            "audio_chunks": [],
             "preview_chunks": [],
         }
 
@@ -596,6 +761,9 @@ class ChunkerCombine:
             masks_full_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/masks/chunk")[0]
             s["mask_chunks"].append(masks_full_path)
             #print("done")
+
+        if audio is not None:
+            s["audio_chunks"].append(audio)
 
         # create preview from inputs
         #log("[debug] Combine -> creating preview chunk...", end="")
@@ -636,14 +804,23 @@ class ChunkerCombine:
                 out_masks_torch = awesome_loader(all_masks_video_path)[0]
                 print("done")
 
+            out_audio_torch = None # its not a tensor, rename this variable
+            if len(s["audio_chunks"]) > 0:
+                out_audio_torch = concat_audios(s["audio_chunks"])
+                # load_audio(d["audio"]) if d["audio"] is not None else None,
+
             ui_values = {
                 "input_label_values": {
                     "images": len(images) if images is not None else 0,
                     "masks": len(masks) if masks is not None else 0,
+                    #"audio": f"{audio["waveform"].shape[2] / audio["sample_rate"]:.4f}s" if audio is not None else 0,
+                    "audio": get_audio_length(audio),
                 },
                 "output_label_values": {
                     "images": len(out_images_torch) if out_images_torch is not None else 0,
                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
+                    #"audio": f"{out_audio_torch["waveform"].shape[2] / out_audio_torch["sample_rate"]:.4f}s" if out_audio_torch is not None else 0,
+                    "audio": get_audio_length(out_audio_torch),
                     "fps": f"{d["fps"]:.2f}",
                 },
                 "index": d["index"],
@@ -658,7 +835,7 @@ class ChunkerCombine:
                 "result":(
                     out_images_torch,
                     image_to_mask(out_masks_torch),
-                    load_audio(d["audio"]) if d["audio"] is not None else None,
+                    out_audio_torch,
                     d["fps"],
                 )
             }
@@ -691,6 +868,14 @@ class ChunkerCombine:
             seed = node.get_input("noise_seed")
             node.set_input("noise_seed", seed + d["index"] + 1)
 
+        # increment seeds in cloned mmaudio, to prevent same motion in each chunk (for Wan)
+        ids = getNodeIdsByType(graph.finalize(), "MMAudioSampler")
+        for id in ids:
+            real_id = id.replace(f"{unique_id}.0.0.", "")
+            node = graph.lookup_node(real_id)
+            seed = node.get_input("seed")
+            node.set_input("seed", seed + d["index"] + 1)
+
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
         new_combine.set_input("store", s)
@@ -699,10 +884,13 @@ class ChunkerCombine:
             "input_label_values": {
                 "images": len(images) if images is not None else 0,
                 "masks": len(masks) if masks is not None else 0,
+                #"audio": f"{audio["waveform"].shape[2] / audio["sample_rate"]:.4f}s" if audio is not None else 0,
+                "audio": get_audio_length(audio),
             },
             "output_label_values": {
                 "images": None,
                 "masks": None,
+                "audio": None,
                 "fps": None,
             },
             "index": d["index"],

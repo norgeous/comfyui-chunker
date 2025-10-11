@@ -155,11 +155,11 @@ def get_next_save_video_path(filename_prefix):
         },
     )
 
-def save_video(images, fps, filename_prefix):
+def save_video(images, fps, filename_prefix, audio=None):
     format = "auto"
     codec = "auto"
     create_video_node = CreateVideo()
-    video, = create_video_node.execute(images, fps)
+    video, = create_video_node.execute(images, fps, audio)
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
     video.save_to(full_path, format=format, codec=codec, metadata=None)
     return (
@@ -171,9 +171,13 @@ def save_video(images, fps, filename_prefix):
 def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
     input1 = av.open(paths[0])
     input1_stream = input1.streams.video[0]
+    input1_astream = input1.streams.audio[0]
     input1.close()
 
+    fps = input1_stream.codec_context.rate
+
     outpath, frontend_data = get_next_save_video_path(filename_prefix)
+
     with av.open(outpath, 'w') as output:
         out_stream = output.add_stream(
             input1_stream.codec_context.name,
@@ -183,25 +187,48 @@ def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
         out_stream.height = input1_stream.codec_context.height
         out_stream.pix_fmt = input1_stream.codec_context.pix_fmt
         out_stream.options = {'crf': '10'}
-        for i, path in enumerate(paths):
-            start = 0
-            end = 0
-            if overlap > 0:
-                is_first_chunk = i == 0
-                is_final_chunk = i == len(paths) - 1
-                if select_overlaps_from == "this_chunk" and not is_final_chunk:
-                    end = -overlap # skip end overlap frames
-                if select_overlaps_from == "previous_chunk" and not is_first_chunk:
-                    start = overlap # skip start overlap frames
 
+        #print("quick_combine audio", input1_astream.codec_context.name, input1_astream.codec_context.rate)
+
+        out_astream = output.add_stream(
+            input1_astream.codec_context.name,
+            input1_astream.codec_context.rate,
+        )
+
+        for i, path in enumerate(paths):
             with av.open(path) as container:
-                total_length = container.streams.video[0].frames
-                for n, frame in enumerate(container.decode(container.streams.video[0])):
-                    if n in range(start, total_length + end):
-                        output.mux(out_stream.encode(av.VideoFrame.from_image(frame.to_image()))) # erases the pts
+                duration = container.streams.video[0].duration
+                time_base = container.streams.video[0].time_base
+                total_length = float((duration - time_base) * time_base)
+                start = 0
+                end = total_length
+                if overlap > 0:
+                    is_first_chunk = i == 0
+                    is_final_chunk = i == len(paths) - 1
+                    if select_overlaps_from == "this_chunk" and not is_final_chunk:
+                        end = float(total_length - (overlap * (1 / fps))) # skip end overlap frames
+                    if select_overlaps_from == "previous_chunk" and not is_first_chunk:
+                        start = float(overlap * (1 / fps)) # skip start overlap frames
+                v_count = 0
+                a_count = 0
+                for frame in container.decode(container.streams.video[0], container.streams.audio[0]):
+                    if frame.time >= start and frame.time < end:
+                        if isinstance(frame, av.video.frame.VideoFrame):
+                            v_count = v_count + 1 # temp debug
+                            print("V >>", v_count, start, frame.time, end)
+                            output.mux(out_stream.encode(av.VideoFrame.from_image(frame.to_image()))) # decode then encode erases the pts
+                        if isinstance(frame, av.audio.frame.AudioFrame):
+                            a_count = a_count + 1 # temp debug
+                            print("A >>", a_count, start, frame.time, end)
+                            new_frame = av.AudioFrame.from_ndarray(frame.to_ndarray(), format='fltp', layout='stereo')
+                            new_frame.sample_rate = input1_astream.codec_context.rate
+                            output.mux(out_astream.encode(new_frame))
+                    else: print("X >>", type(frame), start, frame.time, end)
 
         # Flush the encoder
         out_packet = out_stream.encode(None)
+        output.mux(out_packet)
+        out_packet = out_astream.encode(None)
         output.mux(out_packet)
 
     return outpath, frontend_data

@@ -85,7 +85,7 @@ def comfyuiRepeatNodes(dynprompt, graph, unique_id, start_node_id):
             else:
                 node.set_input(k, v)
 
-    print("contained", contained)
+    #print("contained", contained)
 
 def getNodeIdsByType(prompt, type):
     ids = []

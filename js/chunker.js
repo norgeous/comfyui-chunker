@@ -187,7 +187,7 @@ app.registerExtension({
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
 
-      "ChunkerChunkConfig": () => {
+      "ChunkerMediaLoader": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           const imagesPath = this.widgets.find(({ name }) => name === "images");
           const masksPath = this.widgets.find(({ name }) => name === "masks");
@@ -203,7 +203,7 @@ app.registerExtension({
           };
 
           // hide inputs
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
           //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
@@ -259,7 +259,7 @@ app.registerExtension({
           const element = document.createElement("div");
           const statusHeight = 32;
           element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
+          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";
           element.style.gap = "2px";
@@ -332,7 +332,11 @@ app.registerExtension({
           const { image_count, index, chunk_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
-          if (video_path) infoContainer.querySelector("video").src = `/api/view?${new URLSearchParams(video_path).toString()}`;
+          if (video_path) {
+            const videoTag  = infoContainer.querySelector("video");
+            videoTag.src = `/api/view?${new URLSearchParams(video_path).toString()}`;
+            videoTag.volume = 0.5;
+          }
         });
       },
     })[nodeData.name]?.()

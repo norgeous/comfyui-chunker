@@ -3,10 +3,25 @@ import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
-from .utils import count, log, panel_image, panel_mask, mask_to_image, image_to_mask, resize_image, resize_mask, get_input_filenames, force_wan_length, fix_total_length, get_this_chunk_length, obscure_image, expand_image
+from .utils import (
+    count,
+    log,
+    panel_image,
+    panel_mask,
+    mask_to_image,
+    image_to_mask,
+    resize_image,
+    resize_mask,
+    get_input_filenames,
+    force_wan_length,
+    fix_total_length,
+    get_this_chunk_length,
+    obscure_image,
+    expand_image,
+)
 from .debug_overlay import create_preview_video
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .loader import awesome_loader, quick_combine, save_video
+from .loader import awesome_loader, quick_combine, save_video, get_video_info
 from .loadAudio import load_audio, concat_audios
 
 def parse_config_paths(chunk_config):
@@ -112,9 +127,9 @@ class ChunkerChunkPlacement:
         return {
             "required": {
                 "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
-                "chunk": ("INT", {"min": 1, "max": 4096, "tooltip": "Which chunk these settings affect"}),
-                "frame": (["start", "end"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
-                "obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
+                "chunk": ("INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "Which chunk these settings affect"}),
+                "frame": (["start", "end", "every"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
+                #"obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
             },
             "optional": {
                 "chunk_configs": ("CHUNK_CONFIGS", {"tooltip": "Previous chunk_config for chaining"}),
@@ -139,7 +154,7 @@ class ChunkerChunkPlacement:
         include_in,
         chunk,
         frame,
-        obscure,
+        #obscure,
         chunk_configs=None,
         paths=None,
         images=None,
@@ -151,7 +166,7 @@ class ChunkerChunkPlacement:
             "include_in": include_in,
             "chunk": chunk,
             "frame": frame,
-            "obscure": obscure,
+            #"obscure": obscure,
         }
         if paths is not None:
             chunk_config["paths"] = paths
@@ -324,12 +339,14 @@ class Chunker:
         chunk_length,
         chunk_overlap,
         total_length,
-        images="None",
-        masks="None",
-        image="None",
-        image_paint="None",
-        chunk_configs=None,
+
+        #images="None",
+        #masks="None",
+        #image="None",
+        #image_paint="None",
+
         store=None,
+        chunk_configs=None,
         unique_id=None,
     ):
         s = store if store is not None else {
@@ -340,7 +357,19 @@ class Chunker:
 
         w = None
         h = None
-        fps = 30
+        fps = None
+
+	# get total_length and fps from last video in configs
+        video_length = None
+        video_fps = None
+        if chunk_configs is not None:
+            for config in chunk_configs:
+                images_path = parse_config_paths(config["paths"])[0]
+                if images_path is not None and images_path.endswith(".mp4"):
+                    video_length, video_fps = get_video_info(images_path)
+        if video_length is not None: total_length = video_length
+        if video_fps is not None: fps = video_fps
+        if fps is None: fps = 30
 
         if mode == "Wan21" or mode == "Wan22":
             chunk_length = force_wan_length(chunk_length)
@@ -354,10 +383,10 @@ class Chunker:
         end = start + chunk_length
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
-        if images == "None": images = None
-        if masks == "None": masks = None
-        if image == "None": image = None
-        if image_paint == "None": image_paint = None
+        #if images == "None": images = None
+        #if masks == "None": masks = None
+        #if image == "None": image = None
+        #if image_paint == "None": image_paint = None
 
         out_images = []
         out_masks = []
@@ -369,9 +398,6 @@ class Chunker:
             h = images_overlap.shape[1]
             out_images.append(images_overlap)
             start_frame = images_overlap[0].unsqueeze(0)
-            if mode == "Wan21" or mode == "Wan22":
-                black_panel = panel_mask(w, h, 0)
-                out_masks.append(torch.cat([black_panel] * len(images_overlap))) # add same amount of black masks to masks
 
         # get the masks overlap from store file
         if s["masks_last_chunk_path"] is not None:
@@ -379,13 +405,23 @@ class Chunker:
             masks_overlap = image_to_mask(imasks_overlap)
             out_masks.append(masks_overlap)
 
+
+        if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
+            black_panel = panel_mask(w, h, 0)
+            out_masks.append(torch.cat([black_panel] * count(out_images) - count(out_masks))) # add same amount of black masks to masks
+
+
+
         # use chunk_configs
         start_image = None
         end_image = None
         start_mask = None
         end_mask = None
-        obscure_start = False
-        obscure_end = False
+        #obscure_start = False
+        #obscure_end = False
+        #obscure_all = False
+        images = None
+        masks = None
         if chunk_configs is not None:
             for config in chunk_configs:
                 if (
@@ -400,20 +436,28 @@ class Chunker:
                     #images_chunk = None
                     if images_path is not None:
                         images_chunk, images_fps, images_total_length = awesome_loader(images_path, start + count(out_images), end)
+                        if total_length == 0: total_length = images_total_length
                         if images_fps is not None: fps = images_fps
                         if w is None: w = images_chunk.shape[2]
                         if h is None: h = images_chunk.shape[1]
                         if config["frame"] == "start":
-                            obscure_start = config["obscure"]
+                            #obscure_start = config["obscure"]
                             start_image = images_chunk[0].unsqueeze(0)
                         if config["frame"] == "end":
-                            obscure_end = config["obscure"]
+                            #obscure_end = config["obscure"]
                             end_image = images_chunk[0].unsqueeze(0)
+                        if config["frame"] == "every":
+                            #obscure_all = config["obscure"]
+                            images = images_chunk
+                            #out_images.append(images_chunk)
 
                     #masks_chunk = None
                     if masks_path is not None:
                         imasks_chunk = awesome_loader(masks_path, start + count(out_masks), end)[0]
                         masks_chunk = image_to_mask(imasks_chunk)
+                        if config["frame"] == "every":
+                            masks = masks_chunk
+                            #out_masks.append(masks_chunk)
 
                     #mask_maskeditor = None
                     if mask_maskeditor_path is not None:
@@ -452,11 +496,14 @@ class Chunker:
         black_panel = panel_mask(w, h, 0)
 
         # apply obscure_image
-        if obscure_start and start_image is not None and start_mask is not None: start_image = obscure_image(start_image, grey_panel, start_mask)
-        if obscure_end and end_image is not None and end_mask is not None: end_image = obscure_image(end_image, grey_panel, end_mask)
+        #if obscure_start and start_image is not None and start_mask is not None: start_image = obscure_image(start_image, grey_panel, start_mask)
+        #if obscure_end and end_image is not None and end_mask is not None: end_image = obscure_image(end_image, grey_panel, end_mask)
+        #if obscure_all and images is not None and masks is not None: images = obscure_image(images, grey_panel, masks)
 
 
 
+        if images is not None: out_images.append(images)
+        if masks is not None: out_masks.append(masks)
 
 
 
@@ -467,14 +514,15 @@ class Chunker:
             out_images.append(start_image)
             out_masks.append(start_mask if start_mask is not None else black_panel)
 
-        fill_count = this_chunk_length - (1 if end_image is not None else 0) - count(out_images)
+        fill_count_images = this_chunk_length - (1 if end_image is not None else 0) - count(out_images)
+        fill_count_masks = this_chunk_length - (1 if end_mask is not None else 0) - count(out_masks)
+
         log("this_chunk_length", this_chunk_length)
-        log("count(out_images)", count(out_images))
-        log("fill_count", fill_count)
-        log("fill_count", fill_count)
-        if fill_count > 0:
-            out_images.append(torch.cat([grey_panel] * fill_count))
-            out_masks.append(torch.cat([white_panel] * fill_count))
+        log("fill_count_images", fill_count_images)
+        log("fill_count_masks", fill_count_masks)
+
+        if fill_count_images > 0: out_images.append(torch.cat([grey_panel] * fill_count_images))
+        if fill_count_masks > 0: out_masks.append(torch.cat([white_panel] * fill_count_masks))
 
         if end_image is not None:
             out_images.append(end_image)
@@ -493,34 +541,34 @@ class Chunker:
 
 
         # get images chunk from "images" input file
-        if images is not None:
-            images_path_full = os.path.join(folder_paths.get_input_directory(), images)
-            images_chunk, images_fps, images_total_length = awesome_loader(images_path_full, start + count(out_images), end)
-            if images_fps is not None: fps = images_fps
-            if total_length == 0: total_length = images_total_length
-            w = images_chunk.shape[2]
-            h = images_chunk.shape[1]
-            if images_total_length > 1 or images_total_length == 1 and s["index"]==0: out_images.append(images_chunk)
-            if mode == "Wan" and images_total_length == 1 and s["index"]==0:
-                out_masks.append(black_panel) # add 1 black mask to masks (for i2v)
+        #if images is not None:
+        #    images_path_full = os.path.join(folder_paths.get_input_directory(), images)
+        #    images_chunk, images_fps, images_total_length = awesome_loader(images_path_full, start + count(out_images), end)
+        #    if images_fps is not None: fps = images_fps
+        #    if total_length == 0: total_length = images_total_length
+        #    w = images_chunk.shape[2]
+        #    h = images_chunk.shape[1]
+        #    if images_total_length > 1 or images_total_length == 1 and s["index"]==0: out_images.append(images_chunk)
+        #    if mode == "Wan" and images_total_length == 1 and s["index"]==0:
+        #        out_masks.append(black_panel) # add 1 black mask to masks (for i2v)
 
         # get the mask from the mask editor for first chunk only
-        if image is not None and s["index"] == 0:
-            if " [input]" in image:
-                mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
-                path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
-            if " [temp]" in image:
-                mask_editor_filename = image.replace(" [temp]", "")
-                path_full = os.path.join(folder_paths.get_temp_directory(), mask_editor_filename)
-            mask_maskeditor = awesome_loader(path_full, return_masks=True)[0]
-            out_masks.append(mask_maskeditor)
+        #if image is not None and s["index"] == 0:
+        #    if " [input]" in image:
+        #        mask_editor_filename = image.replace("clipspace/", "").replace(" [input]", "")
+        #        path_full = os.path.join(folder_paths.get_input_directory(), 'clipspace', mask_editor_filename)
+        #    if " [temp]" in image:
+        #        mask_editor_filename = image.replace(" [temp]", "")
+        #        path_full = os.path.join(folder_paths.get_temp_directory(), mask_editor_filename)
+        #    mask_maskeditor = awesome_loader(path_full, return_masks=True)[0]
+        #    out_masks.append(mask_maskeditor)
 
         # get masks chunk from input file
-        if masks is not None:
-            masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
-            imasks_chunk = awesome_loader(masks_path_full, start + count(out_masks), end)[0]
-            masks_chunk = image_to_mask(imasks_chunk)
-            out_masks.append(masks_chunk)
+        #if masks is not None:
+        #    masks_path_full = os.path.join(folder_paths.get_input_directory(), masks)
+        #    imasks_chunk = awesome_loader(masks_path_full, start + count(out_masks), end)[0]
+        #    masks_chunk = image_to_mask(imasks_chunk)
+        #    out_masks.append(masks_chunk)
 
         # do some stuff for Wan
         if mode == "Wan21" or mode == "Wan22":
@@ -537,10 +585,6 @@ class Chunker:
         out_images_torch = None
         if len(out_images) > 0:
             out_images_resized = list(map(lambda tensor: resize_image(tensor, w, h), out_images))
-
-            #log("count!", count(out_images)) ####
-            #for x in out_images: log(x.shape)
-
             out_images_torch = torch.cat(out_images_resized)
             assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}"
 
@@ -562,7 +606,7 @@ class Chunker:
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
-            "audio": images if images is not None and images.endswith(".mp4") else None,
+            #"audio": images if images is not None and images.endswith(".mp4") else None,
             "fps": fps,
         }
 

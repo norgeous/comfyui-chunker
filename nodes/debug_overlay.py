@@ -6,6 +6,7 @@ import numpy as np
 from comfy.utils import common_upscale
 from .textOverlay import batch_draw_text
 from functools import reduce
+from .utils import mask_to_image, simple_blend
 
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
     chunk = chunk_index + 1
@@ -29,7 +30,7 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
     )
     configs.append(
         {
-            "text": f"{w} x {h} @ {fps}FPS\nchunk_length: {length}\nchunk_overlap: {overlap}",
+            "text": f"{w} x {h} @ {fps:.2f}FPS\nchunk_length: {length}\nchunk_overlap: {overlap}",
             "font_size": 12,
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",

@@ -115,7 +115,7 @@ def aframes_to_muxable(frames, rate):
         new_frame = av.AudioFrame.from_ndarray(frame.to_ndarray(), format='fltp', layout='stereo')
         new_frame.sample_rate = rate # needed!
         out_audio.append(new_frame)
-    return out_images
+    return out_audio
 
 def load_video_chunk2(path, start_n, end_n):
     out_vframes = []
@@ -337,7 +337,7 @@ def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
 
         # load chunks
         for i, path in enumerate(paths):
-            total_length, fps = get_video_info(path)
+            total_length = get_video_info(path)[0]
             is_first_chunk = i == 0
             is_final_chunk = i == len(paths) - 1
             start = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else 0

@@ -1,5 +1,3 @@
-import os
-import folder_paths
 import torch
 import math
 from comfy_execution.graph_utils import GraphBuilder
@@ -16,107 +14,12 @@ from .utils import (
     force_wan_length,
     fix_total_length,
     get_this_chunk_length,
-    obscure_image,
-    expand_image,
+    get_audio_length,
 )
 from .debug_overlay import create_preview_video
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
 from .loader import media_loader, awesome_loader, quick_combine, save_video, get_video_info
 from .loadAudio import load_audio, concat_audios
-
-#def parse_config_paths(chunk_config):
-#    images = chunk_config["images"]
-#    masks = chunk_config["masks"]
-#    image = chunk_config["image"]
-#    image_paint = chunk_config["image_paint"]
-#    if images == "None": images = None
-#    if masks == "None": masks = None
-#    if image == "None": image = None
-#    if image_paint == "None": image_paint = None
-#    if images is not None: images = folder_paths.get_annotated_filepath(images)
-#    if masks is not None: masks = folder_paths.get_annotated_filepath(masks)
-#    if image is not None: image = folder_paths.get_annotated_filepath(image)
-#    if image_paint is not None: image_paint = folder_paths.get_annotated_filepath(image_paint)
-#    return (
-#        images,
-#        masks,
-#        image,
-#        image_paint,
-#    )
-
-def get_audio_length(audio):
-    if audio is None: return "0s"
-    return f"{audio["waveform"].shape[2] / audio["sample_rate"]:.6f}s"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class ChunkerMediaLoaderOld:
-#     @classmethod
-#     def INPUT_TYPES(cls):
-#         files = ["None", *sorted(get_input_filenames())]
-#         return {
-#             "required": {
-#                 "images": (files, {"default": "None", "tooltip": "Images"}),
-#                 "masks": (files, {"default": "None", "tooltip": "Masks"}),
-#             },
-#             "optional": {
-#                 "image": (files,),
-#                 "image_paint": (files,),
-#             },
-#         }
-
-#     @classmethod
-#     def VALIDATE_INPUTS(cls, images, masks, image, image_paint):
-#         # YOLO, anything goes!
-#         return True
-
-#     RETURN_TYPES = ("PATHS", "IMAGE", "MASK", "AUDIO")
-#     RETURN_NAMES = ("paths", "images", "masks", "audio")
-#     OUTPUT_TOOLTIPS = (
-#         "paths",
-#         "images",
-#         "masks",
-#         "audio",
-#     )
-#     FUNCTION = "execute"
-#     CATEGORY = "Chunker"
-#     DESCRIPTION = "ChunkerMediaLoader"
-
-#     def execute(
-#         self,
-#         images,
-#         masks,
-#         image="None",
-#         image_paint="None",
-#     ):
-#         paths = {
-#             "images": images,
-#             "masks": masks,
-#             "image": image,
-#             "image_paint": image_paint,
-#         }
-#         return (
-#             paths,
-#             None, # TODO: images
-#             None, # TODO: masks
-#             None, # TODO: audio
-#         )
-
 
 class ChunkerMediaLoader:
     @classmethod
@@ -178,191 +81,6 @@ class ChunkerMediaLoader:
             ),
         }
 
-# class ChunkerChunkPlacement:
-#     @classmethod
-#     def INPUT_TYPES(cls):
-#         files = ["None", *sorted(get_input_filenames())]
-#         return {
-#             "required": {
-#                 "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
-#                 "chunk": ("INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "Which chunk these settings affect"}),
-#                 "frame": (["start", "end", "every"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
-#                 #"obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
-#             },
-#             "optional": {
-#                 "chunk_configs": ("CHUNK_CONFIGS", {"tooltip": "Previous chunk_config for chaining"}),
-#                 "paths": ("PATHS",),
-#                 "images": ("IMAGE",),
-#                 "masks": ("MASK",),
-#                 "audio": ("AUDIO",),
-#             },
-#         }
-
-#     RETURN_TYPES = ("CHUNK_CONFIGS",)
-#     RETURN_NAMES = ("chunk_configs",)
-#     OUTPUT_TOOLTIPS = (
-#         "Chunk config",
-#     )
-#     FUNCTION = "execute"
-#     CATEGORY = "Chunker"
-#     DESCRIPTION = "ChunkerChunkPlacement"
-
-#     def execute(
-#         self,
-#         include_in,
-#         chunk,
-#         frame,
-#         #obscure,
-#         chunk_configs=None,
-#         paths=None,
-#         images=None,
-#         masks=None,
-#         audio=None,
-#     ):
-#         if paths == None and images == None and masks == None and audio == None: raise Exception("Please connect an input, one of; paths OR images OR masks OR audio")
-#         chunk_config = {
-#             "include_in": include_in,
-#             "chunk": chunk,
-#             "frame": frame,
-#             #"obscure": obscure,
-#         }
-#         if paths is not None:
-#             chunk_config["paths"] = paths
-#             chunk_config["images"] = None
-#             chunk_config["masks"] = None
-#             chunk_config["audio"] = None
-#         else:
-#             chunk_config["paths"] = None
-#             chunk_config["images"] = images
-#             chunk_config["masks"] = masks
-#             chunk_config["audio"] = audio
-#         if chunk_configs is None: chunk_configs = []
-#         chunk_configs.append(chunk_config)
-#         return (
-#             chunk_configs,
-#         )
-
-
-
-
-
-
-#class ChunkerOutpaintConfig:
-#    @classmethod
-#    def INPUT_TYPES(cls):
-#        files = ["None", *sorted(get_input_filenames())]
-#        return {
-#            "required": {
-#                "top": ("INT", {"min": 0}),
-#                "right": ("INT", {"min": 0}),
-#                "bottom": ("INT", {"min": 0}),
-#                "left": ("INT", {"min": 0}),
-#                "feather": ("INT", {"min": 0}),
-#            },
-#        }
-
-#    RETURN_TYPES = ("OUTPAINT_CONFIG",)
-#    RETURN_NAMES = ("outpaint_config",)
-#    OUTPUT_TOOLTIPS = (
-#        "Chunk outpaint config",
-#    )
-#    FUNCTION = "execute"
-#    CATEGORY = "Chunker"
-#    DESCRIPTION = "ChunkerOutpaintConfig"
-
-#    def execute(
-#        self,
-#        top,
-#        right,
-#        bottom,
-#        left,
-#        feather,
-#    ):
-#        chunk_outpaint_config = {
-#            "top": top,
-#            "right": right,
-#            "bottom": bottom,
-#            "left": left,
-#            "feather": feather,
-#        }
-#        return (
-#            chunk_outpaint_config,
-#        )
-
-#class ChunkerChunkConfig:
-#    @classmethod
-#    def INPUT_TYPES(cls):
-#        files = ["None", *sorted(get_input_filenames())]
-#        return {
-#            "required": {
-#                "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
-#                "chunk": ("INT", {"min": 1, "tooltip": "Which chunk these settings affect"}),
-#                "frame": (["start", "end"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
-#                "obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
-#                "images": (files, {"default": "None", "tooltip": "Images to be chunked"}),
-#                "masks": (files, {"default": "None", "tooltip": "Masks to be chunked"}),
-#            },
-#            "optional": {
-#                "image": (files,),
-#                "image_paint": (files,),
-#                "chunk_config": ("CHUNK_CONFIG",),
-#                "outpaint_config": ("OUTPAINT_CONFIG",),
-#            },
-#        }#
-
-#    @classmethod
-#    def VALIDATE_INPUTS(cls, include_in, chunk, frame, images, masks, obscure, image, image_paint):
-#        # YOLO, anything goes!
-#        return True
-
-#    RETURN_TYPES = ("CHUNK_CONFIG",)
-#    RETURN_NAMES = ("chunk_config",)
-#    OUTPUT_TOOLTIPS = (
-#        "Chunk config",
-#    )
-#    FUNCTION = "execute"
-#    CATEGORY = "Chunker"
-#    DESCRIPTION = "ChunkerChunkConfig"
-
-#    def execute(
-#        self,
-#        include_in,
-#        chunk,
-#        frame,
-#        images,
-#        masks,
-#        obscure,
-#        image="None",
-#        image_paint="None",
-#        chunk_config=None,
-#        outpaint_config=None,
-#    ):
-#        if chunk_config is None: chunk_config = []
-#        chunk_config.append({
-#            "outpaint_config": outpaint_config,
-#            "include_in": include_in,
-#            "chunk": chunk,
-#            "frame": frame,
-#            "images": images,
-#            "masks": masks,
-#            "obscure": obscure,
-#            "image": image,
-#            "image_paint": image_paint,
-#        })
-#        return (
-#            chunk_config,
-#        )
-
-
-
-
-
-
-
-
-
-
-
 class Chunker:
     @classmethod
     def INPUT_TYPES(cls):
@@ -379,7 +97,6 @@ class Chunker:
                 "audio": ("AUDIO", {"tooltip": "audio"}),
                 "fps": ("FLOAT", {"forceInput": True, "tooltip": "fps"}),
                 "store": ("*",), # hidden by js
-                #"chunk_configs": ("CHUNK_CONFIGS",),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -517,13 +234,10 @@ class Chunker:
                         if w is None: w = images_chunk.shape[2]
                         if h is None: h = images_chunk.shape[1]
                         if config["frame"] == "start":
-                            #obscure_start = config["obscure"]
                             start_image = images_chunk[0].unsqueeze(0)
                         if config["frame"] == "end":
-                            #obscure_end = config["obscure"]
                             end_image = images_chunk[0].unsqueeze(0)
                         if config["frame"] == "every":
-                            #obscure_all = config["obscure"]
                             images = images_chunk
                             #out_images.append(images_chunk)
 
@@ -541,29 +255,6 @@ class Chunker:
                         if config["frame"] == "start": start_mask = mask_maskeditor
                         if config["frame"] == "end": end_mask = mask_maskeditor
 
-                    # apply outpainting config
-                    #if start_image is not None and config["outpaint_config"] is not None:
-                    #    start_image, start_mask = expand_image(
-                    #        start_image,
-                    #        config["outpaint_config"]["left"],
-                    #        config["outpaint_config"]["top"],
-                    #        config["outpaint_config"]["right"],
-                    #        config["outpaint_config"]["bottom"],
-                    #        config["outpaint_config"]["feather"],
-                    #        start_mask,
-                    #    )
-                    #if end_image is not None and config["outpaint_config"] is not None:
-                    #    end_image, end_mask = expand_image(
-                    #        end_image,
-                    #        config["outpaint_config"]["left"],
-                    #        config["outpaint_config"]["top"],
-                    #        config["outpaint_config"]["right"],
-                    #        config["outpaint_config"]["bottom"],
-                    #        config["outpaint_config"]["feather"],
-                    #        end_mask,
-                    #    )
-
-
         if w is None: w = 512
         if h is None: h = 512
 
@@ -571,18 +262,8 @@ class Chunker:
         white_panel = panel_mask(w, h, 255)
         black_panel = panel_mask(w, h, 0)
 
-        # apply obscure_image
-        #if obscure_start and start_image is not None and start_mask is not None: start_image = obscure_image(start_image, grey_panel, start_mask)
-        #if obscure_end and end_image is not None and end_mask is not None: end_image = obscure_image(end_image, grey_panel, end_mask)
-        #if obscure_all and images is not None and masks is not None: images = obscure_image(images, grey_panel, masks)
-
-
-
         if images is not None: out_images.append(images)
         if masks is not None: out_masks.append(masks)
-
-
-
 
         if start_image is not None:
             w = start_image.shape[2]
@@ -603,18 +284,6 @@ class Chunker:
         if end_image is not None:
             out_images.append(end_image)
             out_masks.append(end_mask if end_mask is not None else black_panel)
-
-
-
-
-
-
-
-
-
-
-
-
 
         # get images chunk from "images" input file
         #if images is not None:
@@ -682,7 +351,6 @@ class Chunker:
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
-            #"audio": images if images is not None and images.endswith(".mp4") else None,
             "fps": fps,
         }
 
@@ -923,13 +591,11 @@ class ChunkerCombine:
                 "input_label_values": {
                     "images": len(images) if images is not None else 0,
                     "masks": len(masks) if masks is not None else 0,
-                    #"audio": f"{audio["waveform"].shape[2] / audio["sample_rate"]:.4f}s" if audio is not None else 0,
                     "audio": get_audio_length(audio),
                 },
                 "output_label_values": {
                     "images": len(out_images_torch) if out_images_torch is not None else 0,
                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
-                    #"audio": f"{out_audio_torch["waveform"].shape[2] / out_audio_torch["sample_rate"]:.4f}s" if out_audio_torch is not None else 0,
                     "audio": get_audio_length(out_audio_torch),
                     "fps": f"{d["fps"]:.2f}",
                 },
@@ -994,7 +660,6 @@ class ChunkerCombine:
             "input_label_values": {
                 "images": len(images) if images is not None else 0,
                 "masks": len(masks) if masks is not None else 0,
-                #"audio": f"{audio["waveform"].shape[2] / audio["sample_rate"]:.4f}s" if audio is not None else 0,
                 "audio": get_audio_length(audio),
             },
             "output_label_values": {

@@ -84,53 +84,6 @@ def get_input_filenames():
                 files.append(f)
     return files
 
-#from comfy_extras.nodes_mask import composite
-def obscure_image(destination, source, mask):
-    destination, source = node_helpers.image_alpha_fix(destination, source)
-    destination = destination.clone().movedim(-1, 1)
-    output = composite(destination, source.movedim(-1, 1), 0, 0, mask, 1, True).movedim(1, -1)
-    return output
-
-
-# from kjnodes ImagePadForOutpaintMasked
-import torch.nn.functional as F
-def expand_image(image, left, top, right, bottom, feathering, mask=None):
-    if mask is not None:
-        if torch.allclose(mask, torch.zeros_like(mask)):
-            print("Warning: The incoming mask is fully black. Handling it as None.")
-            mask = None
-    B, H, W, C = image.size()
-    new_image = torch.ones(
-        (B, H + top + bottom, W + left + right, C),
-        dtype=torch.float32,
-    ) * 0.5
-    new_image[:, top:top + H, left:left + W, :] = image
-    if mask is None:
-        new_mask = torch.ones(
-            (B, H + top + bottom, W + left + right),
-            dtype=torch.float32,
-        )
-        t = torch.zeros((B, H, W), dtype=torch.float32)
-    else:
-        # If a mask is provided, pad it to fit the new image size
-        mask = F.pad(mask, (left, right, top, bottom), mode='constant', value=0)
-        mask = 1 - mask
-        t = torch.zeros_like(mask)
-    if feathering > 0 and feathering * 2 < H and feathering * 2 < W:
-        for i in range(H):
-            for j in range(W):
-                dt = i if top != 0 else H
-                db = H - i if bottom != 0 else H
-                dl = j if left != 0 else W
-                dr = W - j if right != 0 else W
-                d = min(dt, db, dl, dr)
-                if d >= feathering: continue
-                v = (feathering - d) / feathering
-                if mask is None: t[:, i, j] = v * v
-                else: t[:, top + i, left + j] = v * v
-    if mask is None:
-        new_mask[:, top:top + H, left:left + W] = t
-        return (new_image, new_mask,)
-    else:
-        return (new_image, mask,)
-
+def get_audio_length(audio):
+    if audio is None: return "0s"
+    return f"{audio["waveform"].shape[2] / audio["sample_rate"]:.6f}s"

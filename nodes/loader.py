@@ -10,19 +10,6 @@ from .utils import count, image_to_mask, resize_image, resize_mask
 
 # some from https://stackoverflow.com/a/77782755
 
-#def pillow(fn, arg):
-#    prev_value = None
-#    try:
-#        x = fn(arg)
-#    #except (OSError, UnidentifiedImageError, ValueError): #PIL issues #4472 and #2445, also fixes ComfyUI issue #3416
-#        #prev_value = ImageFile.LOAD_TRUNCATED_IMAGES
-#        #ImageFile.LOAD_TRUNCATED_IMAGES = True
-#        #x = fn(arg)
-#    finally:
-#        if prev_value is not None:
-# InvertMask           ImageFile.LOAD_TRUNCATED_IMAGES = prev_value
-#    return x
-
 # from https://github.com/IuvenisSapiens/ComfyUI_Qwen2_5-VL-Instruct/blob/main/util_nodes.py
 def load_image_advanced(image_path):
     # image_path = folder_paths.get_annotated_filepath(image)
@@ -141,57 +128,6 @@ def load_video_chunk2(path, start_n, end_n):
         out_aframes,
     )
 
-#def load_video_chunk(video_path, start_n, end_n):
-#    container = av.open(video_path)
-#    stream = container.streams.video[0]
-#    # duration = container.duration / av.time_base
-#    fps = stream.average_rate
-#    total_length = stream.frames
-
-#    if end_n is None: end_n = total_length # missing end fix
-#    if start_n < 0: start_n = total_length + start_n # negative start fix
-#    if end_n < 0: end_n = total_length + end_n # negative end fix
-
-    # sanity checks
-#    assert start_n < end_n, "Start beyond end"
-#    #assert end_n <= total_length, f"End {end_n} beyond total_length {total_length}"
-
-#    start_time = start_n / fps
-#    end_time = end_n / fps
-
-    # seek
-    #print(f"Seeking to {start_time:.2f} seconds or earlier")
-#    container.seek(int(start_time / stream.time_base), stream=stream)
-
-    # decode between frames
-#    all_frames_n = []
-#    frames = []
-#    for frame in container.decode(stream):
-#        assert frame.time == float(frame.pts * stream.time_base)
-
-#        frame_n = round(frame.pts * stream.time_base * stream.average_rate)
-#        all_frames_n.append(frame_n)
-
-#        if frame_n >= end_n:
-#            #print("end", frame_n, " > ", end_n)
-#            break
-#        elif frame_n < start_n:
-#            continue
-#        else:
-#            img = frame.to_ndarray(format='rgb24') # shape: (H, W, 3)
-#            img = torch.from_numpy(img) / 255.0 # shape: (H, W, 3)
-#            frames.append(img.unsqueeze(0)) # shape: (1, H, W, 3)
-
-    #print(f"itterated {len(all_frames_n)} frames and collected {len(frames)} frames")
-    #print("shape of each frame", frames[0].shape)
-#    out_images = torch.cat(frames)
-
-#    assert len(out_images) == end_n - start_n, f"Length of images is {len(out_images)}, but wanted {end_n - start_n}"
-
-#    return (out_images, fps, total_length)
-
-
-
 def media_loader(images, masks, image, image_paint):
     if images == "None": images = None
     if masks == "None": masks = None
@@ -270,22 +206,13 @@ def awesome_loader(path, start=0, end=None, return_masks=False):
     vid_ext = ["mp4"]
     file_ext = path.split(".")[-1]
     if file_ext in img_ext:
-        # image_path = folder_paths.get_annotated_filepath(image)
         images, masks = load_image_advanced(path)
         return (images, masks)
-        #fps = None
-        #total_length = 1
-        #if return_masks: return (masks, fps, total_length)
-        #else: return (images, fps, total_length)
     if file_ext in vid_ext:
-        #frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         frames, audio = load_video_chunk2(path, start_n=start, end_n=end)
         frames = vframes_to_tensor(frames)
         audio = aframes_to_tensor(audio)
-        if audio is not None: print("final shape", audio.shape)
-        #fps = 30
-        #total_length = 1000
-        return (frames, audio) # , fps, total_length)
+        return (frames, audio)
 
 def get_next_save_video_path(filename_prefix):
     format = "auto"
@@ -317,73 +244,6 @@ def save_video(images, fps, filename_prefix, audio=None):
     )
 
 # modified from https://stackoverflow.com/a/75429028
-#def quick_combine_old(paths, overlap, select_overlaps_from, filename_prefix):
-#    input1 = av.open(paths[0])
-#    input1_stream = input1.streams.video[0]
-#    input1_astream = input1.streams.audio[0] if len(input1.streams.audio) > 0 else None
-#    input1.close()
-
-#    fps = input1_stream.codec_context.rate
-
-#    outpath, frontend_data = get_next_save_video_path(filename_prefix)
-
-#    with av.open(outpath, 'w') as output:
-#        out_stream = output.add_stream(
-#            input1_stream.codec_context.name,
-#            input1_stream.codec_context.rate,
-#        )
-#        out_stream.width = input1_stream.codec_context.width
-#        out_stream.height = input1_stream.codec_context.height
-#        out_stream.pix_fmt = input1_stream.codec_context.pix_fmt
-#        out_stream.options = {'crf': '10'}
-
-        #print("quick_combine audio", input1_astream.codec_context.name, input1_astream.codec_context.rate)
-#        out_astream = None
-#        if input1_astream is not None:
-#            out_astream = output.add_stream(
-#                input1_astream.codec_context.name,
-#                input1_astream.codec_context.rate,
-#            )
-
-#        for i, path in enumerate(paths):
-#            with av.open(path) as container:
-#                duration = container.streams.video[0].duration
-#                time_base = container.streams.video[0].time_base
-#                total_length = float((duration - time_base) * time_base)
-#                start = 0
-#                end = total_length
-#                if overlap > 0:
-#                    is_first_chunk = i == 0
-#                    is_final_chunk = i == len(paths) - 1
-#                    if select_overlaps_from == "this_chunk" and not is_final_chunk:
-#                        end = float(total_length - (overlap * (1 / fps))) # skip end overlap frames
-#                    if select_overlaps_from == "previous_chunk" and not is_first_chunk:
-#                        start = float(overlap * (1 / fps)) # skip start overlap frames
-#                #v_count = 0
-#                #a_count = 0
-#                for frame in container.decode(container.streams.video[0], container.streams.audio[0] if len(container.streams.audio) > 0 else None):
-#                    if frame.time >= start and frame.time < end:
-#                        if isinstance(frame, av.video.frame.VideoFrame):
-#                            #v_count = v_count + 1 # temp debug
-#                            #print("V >>", v_count, start, frame.time, end)
-#                            output.mux(out_stream.encode(av.VideoFrame.from_image(frame.to_image()))) # decode then encode erases the pts
-#                        if isinstance(frame, av.audio.frame.AudioFrame):
-#                            #a_count = a_count + 1 # temp debug
-#                            #print("A >>", a_count, start, frame.time, end)
-#                            new_frame = av.AudioFrame.from_ndarray(frame.to_ndarray(), format='fltp', layout='stereo')
-#                            new_frame.sample_rate = input1_astream.codec_context.rate
-#                            output.mux(out_astream.encode(new_frame))
-#                    #else: print("X >>", type(frame), start, frame.time, end)
-
-#        # Flush the encoder
-#        out_packet = out_stream.encode(None)
-#        output.mux(out_packet)
-#        if out_astream is not None:
-#            out_packet = out_astream.encode(None)
-#            output.mux(out_packet)
-
-#    return outpath, frontend_data
-
 def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
     input1 = av.open(paths[0])
     input1_vstream = input1.streams.video[0]

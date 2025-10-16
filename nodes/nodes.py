@@ -65,57 +65,57 @@ def get_audio_length(audio):
 
 
 
-class ChunkerMediaLoaderOld:
-    @classmethod
-    def INPUT_TYPES(cls):
-        files = ["None", *sorted(get_input_filenames())]
-        return {
-            "required": {
-                "images": (files, {"default": "None", "tooltip": "Images"}),
-                "masks": (files, {"default": "None", "tooltip": "Masks"}),
-            },
-            "optional": {
-                "image": (files,),
-                "image_paint": (files,),
-            },
-        }
+# class ChunkerMediaLoaderOld:
+#     @classmethod
+#     def INPUT_TYPES(cls):
+#         files = ["None", *sorted(get_input_filenames())]
+#         return {
+#             "required": {
+#                 "images": (files, {"default": "None", "tooltip": "Images"}),
+#                 "masks": (files, {"default": "None", "tooltip": "Masks"}),
+#             },
+#             "optional": {
+#                 "image": (files,),
+#                 "image_paint": (files,),
+#             },
+#         }
 
-    @classmethod
-    def VALIDATE_INPUTS(cls, images, masks, image, image_paint):
-        # YOLO, anything goes!
-        return True
+#     @classmethod
+#     def VALIDATE_INPUTS(cls, images, masks, image, image_paint):
+#         # YOLO, anything goes!
+#         return True
 
-    RETURN_TYPES = ("PATHS", "IMAGE", "MASK", "AUDIO")
-    RETURN_NAMES = ("paths", "images", "masks", "audio")
-    OUTPUT_TOOLTIPS = (
-        "paths",
-        "images",
-        "masks",
-        "audio",
-    )
-    FUNCTION = "execute"
-    CATEGORY = "Chunker"
-    DESCRIPTION = "ChunkerMediaLoader"
+#     RETURN_TYPES = ("PATHS", "IMAGE", "MASK", "AUDIO")
+#     RETURN_NAMES = ("paths", "images", "masks", "audio")
+#     OUTPUT_TOOLTIPS = (
+#         "paths",
+#         "images",
+#         "masks",
+#         "audio",
+#     )
+#     FUNCTION = "execute"
+#     CATEGORY = "Chunker"
+#     DESCRIPTION = "ChunkerMediaLoader"
 
-    def execute(
-        self,
-        images,
-        masks,
-        image="None",
-        image_paint="None",
-    ):
-        paths = {
-            "images": images,
-            "masks": masks,
-            "image": image,
-            "image_paint": image_paint,
-        }
-        return (
-            paths,
-            None, # TODO: images
-            None, # TODO: masks
-            None, # TODO: audio
-        )
+#     def execute(
+#         self,
+#         images,
+#         masks,
+#         image="None",
+#         image_paint="None",
+#     ):
+#         paths = {
+#             "images": images,
+#             "masks": masks,
+#             "image": image,
+#             "image_paint": image_paint,
+#         }
+#         return (
+#             paths,
+#             None, # TODO: images
+#             None, # TODO: masks
+#             None, # TODO: audio
+#         )
 
 
 class ChunkerMediaLoader:
@@ -178,69 +178,69 @@ class ChunkerMediaLoader:
             ),
         }
 
-class ChunkerChunkPlacement:
-    @classmethod
-    def INPUT_TYPES(cls):
-        files = ["None", *sorted(get_input_filenames())]
-        return {
-            "required": {
-                "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
-                "chunk": ("INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "Which chunk these settings affect"}),
-                "frame": (["start", "end", "every"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
-                #"obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
-            },
-            "optional": {
-                "chunk_configs": ("CHUNK_CONFIGS", {"tooltip": "Previous chunk_config for chaining"}),
-                "paths": ("PATHS",),
-                "images": ("IMAGE",),
-                "masks": ("MASK",),
-                "audio": ("AUDIO",),
-            },
-        }
+# class ChunkerChunkPlacement:
+#     @classmethod
+#     def INPUT_TYPES(cls):
+#         files = ["None", *sorted(get_input_filenames())]
+#         return {
+#             "required": {
+#                 "include_in": (["specified_chunk_only", "every_nth_chunk", "every_chunk"], {}),
+#                 "chunk": ("INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "Which chunk these settings affect"}),
+#                 "frame": (["start", "end", "every"], {"default": "start", "tooltip": "Frames within the chunk that the image will appear"}),
+#                 #"obscure": ("BOOLEAN", {"default": False, "tooltip": "Fill grey in the image inside the masked area"}),
+#             },
+#             "optional": {
+#                 "chunk_configs": ("CHUNK_CONFIGS", {"tooltip": "Previous chunk_config for chaining"}),
+#                 "paths": ("PATHS",),
+#                 "images": ("IMAGE",),
+#                 "masks": ("MASK",),
+#                 "audio": ("AUDIO",),
+#             },
+#         }
 
-    RETURN_TYPES = ("CHUNK_CONFIGS",)
-    RETURN_NAMES = ("chunk_configs",)
-    OUTPUT_TOOLTIPS = (
-        "Chunk config",
-    )
-    FUNCTION = "execute"
-    CATEGORY = "Chunker"
-    DESCRIPTION = "ChunkerChunkPlacement"
+#     RETURN_TYPES = ("CHUNK_CONFIGS",)
+#     RETURN_NAMES = ("chunk_configs",)
+#     OUTPUT_TOOLTIPS = (
+#         "Chunk config",
+#     )
+#     FUNCTION = "execute"
+#     CATEGORY = "Chunker"
+#     DESCRIPTION = "ChunkerChunkPlacement"
 
-    def execute(
-        self,
-        include_in,
-        chunk,
-        frame,
-        #obscure,
-        chunk_configs=None,
-        paths=None,
-        images=None,
-        masks=None,
-        audio=None,
-    ):
-        if paths == None and images == None and masks == None and audio == None: raise Exception("Please connect an input, one of; paths OR images OR masks OR audio")
-        chunk_config = {
-            "include_in": include_in,
-            "chunk": chunk,
-            "frame": frame,
-            #"obscure": obscure,
-        }
-        if paths is not None:
-            chunk_config["paths"] = paths
-            chunk_config["images"] = None
-            chunk_config["masks"] = None
-            chunk_config["audio"] = None
-        else:
-            chunk_config["paths"] = None
-            chunk_config["images"] = images
-            chunk_config["masks"] = masks
-            chunk_config["audio"] = audio
-        if chunk_configs is None: chunk_configs = []
-        chunk_configs.append(chunk_config)
-        return (
-            chunk_configs,
-        )
+#     def execute(
+#         self,
+#         include_in,
+#         chunk,
+#         frame,
+#         #obscure,
+#         chunk_configs=None,
+#         paths=None,
+#         images=None,
+#         masks=None,
+#         audio=None,
+#     ):
+#         if paths == None and images == None and masks == None and audio == None: raise Exception("Please connect an input, one of; paths OR images OR masks OR audio")
+#         chunk_config = {
+#             "include_in": include_in,
+#             "chunk": chunk,
+#             "frame": frame,
+#             #"obscure": obscure,
+#         }
+#         if paths is not None:
+#             chunk_config["paths"] = paths
+#             chunk_config["images"] = None
+#             chunk_config["masks"] = None
+#             chunk_config["audio"] = None
+#         else:
+#             chunk_config["paths"] = None
+#             chunk_config["images"] = images
+#             chunk_config["masks"] = masks
+#             chunk_config["audio"] = audio
+#         if chunk_configs is None: chunk_configs = []
+#         chunk_configs.append(chunk_config)
+#         return (
+#             chunk_configs,
+#         )
 
 
 

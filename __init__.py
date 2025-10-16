@@ -1,10 +1,17 @@
 from .nodes.endpoints import * # importing this registers endpoints
-from .nodes.nodes import ChunkerMediaLoaderOld, ChunkerMediaLoader, ChunkerChunkPlacement, Chunker, ChunkerVACEToFirstLast, ChunkerCombine
+from .nodes.nodes import (
+    #ChunkerMediaLoaderOld,
+    ChunkerMediaLoader,
+    # ChunkerChunkPlacement,
+    Chunker,
+    ChunkerVACEToFirstLast,
+    ChunkerCombine,
+)
 
 NODE_CONFIG = {
-    "ChunkerMediaLoaderOld": {"class": ChunkerMediaLoaderOld, "name": "\U0001F36B Media Loader Old"},
+    # "ChunkerMediaLoaderOld": {"class": ChunkerMediaLoaderOld, "name": "\U0001F36B Media Loader Old"},
     "ChunkerMediaLoader": {"class": ChunkerMediaLoader, "name": "\U0001F36B Media Loader"},
-    "ChunkerChunkPlacement": {"class": ChunkerChunkPlacement, "name": "\U0001F36B Chunk Placement"},
+    # "ChunkerChunkPlacement": {"class": ChunkerChunkPlacement, "name": "\U0001F36B Chunk Placement"},
     #"ChunkerOutpaintConfig": {"class": ChunkerOutpaintConfig, "name": "\U0001F36B Outpaint Config"},
     #"ChunkerChunkConfig": {"class": ChunkerChunkConfig, "name": "\U0001F36B Chunk Config"},
     "Chunker": {"class": Chunker, "name": "\U0001F36B Chunker"},
@@ -13,9 +20,9 @@ NODE_CONFIG = {
 }
 
 NODE_CLASS_MAPPINGS = {
-    "ChunkerMediaLoaderOld": ChunkerMediaLoaderOld,
+    # "ChunkerMediaLoaderOld": ChunkerMediaLoaderOld,
     "ChunkerMediaLoader": ChunkerMediaLoader,
-    "ChunkerChunkPlacement": ChunkerChunkPlacement,
+    # "ChunkerChunkPlacement": ChunkerChunkPlacement,
     #"ChunkerOutpaintConfig": ChunkerOutpaintConfig,
     #"ChunkerChunkConfig": ChunkerChunkConfig,
     "Chunker": Chunker,
@@ -24,9 +31,9 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "ChunkerMediaLoaderOld": "\U0001F36B Media Loader Old",
+    # "ChunkerMediaLoaderOld": "\U0001F36B Media Loader Old",
     "ChunkerMediaLoader": "\U0001F36B Media Loader",
-    "ChunkerChunkPlacement": "\U0001F36B Chunk Placement",
+    # "ChunkerChunkPlacement": "\U0001F36B Chunk Placement",
     #"ChunkerOutpaintConfig": "\U0001F36B Outpaint Config",
     #"ChunkerChunkConfig": "\U0001F36B Chunk Config",
     "Chunker": "\U0001F36B Chunker",

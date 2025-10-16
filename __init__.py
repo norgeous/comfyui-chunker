@@ -1,7 +1,8 @@
 from .nodes.endpoints import * # importing this registers endpoints
-from .nodes.nodes import ChunkerMediaLoader, ChunkerChunkPlacement, Chunker, ChunkerVACEToFirstLast, ChunkerCombine
+from .nodes.nodes import ChunkerMediaLoaderOld, ChunkerMediaLoader, ChunkerChunkPlacement, Chunker, ChunkerVACEToFirstLast, ChunkerCombine
 
 NODE_CONFIG = {
+    "ChunkerMediaLoaderOld": {"class": ChunkerMediaLoaderOld, "name": "\U0001F36B Media Loader Old"},
     "ChunkerMediaLoader": {"class": ChunkerMediaLoader, "name": "\U0001F36B Media Loader"},
     "ChunkerChunkPlacement": {"class": ChunkerChunkPlacement, "name": "\U0001F36B Chunk Placement"},
     #"ChunkerOutpaintConfig": {"class": ChunkerOutpaintConfig, "name": "\U0001F36B Outpaint Config"},
@@ -12,6 +13,7 @@ NODE_CONFIG = {
 }
 
 NODE_CLASS_MAPPINGS = {
+    "ChunkerMediaLoaderOld": ChunkerMediaLoaderOld,
     "ChunkerMediaLoader": ChunkerMediaLoader,
     "ChunkerChunkPlacement": ChunkerChunkPlacement,
     #"ChunkerOutpaintConfig": ChunkerOutpaintConfig,
@@ -22,6 +24,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "ChunkerMediaLoaderOld": "\U0001F36B Media Loader Old",
     "ChunkerMediaLoader": "\U0001F36B Media Loader",
     "ChunkerChunkPlacement": "\U0001F36B Chunk Placement",
     #"ChunkerOutpaintConfig": "\U0001F36B Outpaint Config",

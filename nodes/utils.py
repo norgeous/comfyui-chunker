@@ -84,7 +84,7 @@ def get_input_filenames():
                 files.append(f)
     return files
 
-from comfy_extras.nodes_mask import composite
+#from comfy_extras.nodes_mask import composite
 def obscure_image(destination, source, mask):
     destination, source = node_helpers.image_alpha_fix(destination, source)
     destination = destination.clone().movedim(-1, 1)

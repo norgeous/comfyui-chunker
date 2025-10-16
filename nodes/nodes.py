@@ -21,31 +21,28 @@ from .utils import (
 )
 from .debug_overlay import create_preview_video
 from .repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from .loader import awesome_loader, quick_combine, save_video, get_video_info
+from .loader import media_loader, awesome_loader, quick_combine, save_video, get_video_info
 from .loadAudio import load_audio, concat_audios
 
-def parse_config_paths(chunk_config):
-    images = chunk_config["images"]
-    masks = chunk_config["masks"]
-    image = chunk_config["image"]
-    image_paint = chunk_config["image_paint"]
-
-    if images == "None": images = None
-    if masks == "None": masks = None
-    if image == "None": image = None
-    if image_paint == "None": image_paint = None
-
-    if images is not None: images = folder_paths.get_annotated_filepath(images)
-    if masks is not None: masks = folder_paths.get_annotated_filepath(masks)
-    if image is not None: image = folder_paths.get_annotated_filepath(image)
-    if image_paint is not None: image_paint = folder_paths.get_annotated_filepath(image_paint)
-
-    return (
-        images,
-        masks,
-        image,
-        image_paint,
-    )
+#def parse_config_paths(chunk_config):
+#    images = chunk_config["images"]
+#    masks = chunk_config["masks"]
+#    image = chunk_config["image"]
+#    image_paint = chunk_config["image_paint"]
+#    if images == "None": images = None
+#    if masks == "None": masks = None
+#    if image == "None": image = None
+#    if image_paint == "None": image_paint = None
+#    if images is not None: images = folder_paths.get_annotated_filepath(images)
+#    if masks is not None: masks = folder_paths.get_annotated_filepath(masks)
+#    if image is not None: image = folder_paths.get_annotated_filepath(image)
+#    if image_paint is not None: image_paint = folder_paths.get_annotated_filepath(image_paint)
+#    return (
+#        images,
+#        masks,
+#        image,
+#        image_paint,
+#    )
 
 def get_audio_length(audio):
     if audio is None: return "0s"
@@ -68,7 +65,7 @@ def get_audio_length(audio):
 
 
 
-class ChunkerMediaLoader:
+class ChunkerMediaLoaderOld:
     @classmethod
     def INPUT_TYPES(cls):
         files = ["None", *sorted(get_input_filenames())]
@@ -119,6 +116,67 @@ class ChunkerMediaLoader:
             None, # TODO: masks
             None, # TODO: audio
         )
+
+
+class ChunkerMediaLoader:
+    @classmethod
+    def INPUT_TYPES(cls):
+        files = ["None", *sorted(get_input_filenames())]
+        return {
+            "required": {
+                "images": (files, {"default": "None", "tooltip": "Images"}),
+                "masks": (files, {"default": "None", "tooltip": "Masks"}),
+            },
+            "optional": {
+                "image": (files,),
+                "image_paint": (files,),
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, images, masks, image, image_paint):
+        # YOLO, anything goes!
+        return True
+
+    RETURN_TYPES = ("IMAGE", "MASK", "AUDIO", "FLOAT")
+    RETURN_NAMES = ("images", "masks", "audio", "fps")
+    OUTPUT_TOOLTIPS = (
+        "images",
+        "masks",
+        "audio",
+        "fps",
+    )
+    FUNCTION = "execute"
+    CATEGORY = "Chunker"
+    DESCRIPTION = "ChunkerMediaLoader"
+
+    def execute(
+        self,
+        images,
+        masks,
+        image="None",
+        image_paint="None",
+    ):
+        out_images, out_masks, out_audio, fps = media_loader(images, masks, image, image_paint)
+
+        ui_values = {
+            "output_label_values": {
+                "images": len(out_images),
+                "masks": len(out_masks),
+                "audio": get_audio_length(out_audio),
+                "fps": fps,
+            },
+        }
+
+        return {
+            "ui": {"values": [ui_values]},
+            "result": (
+                out_images,
+                out_masks,
+                out_audio,
+                fps,
+            ),
+        }
 
 class ChunkerChunkPlacement:
     @classmethod
@@ -295,6 +353,16 @@ class ChunkerChunkPlacement:
 #            chunk_config,
 #        )
 
+
+
+
+
+
+
+
+
+
+
 class Chunker:
     @classmethod
     def INPUT_TYPES(cls):
@@ -306,8 +374,12 @@ class Chunker:
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
             },
             "optional": {
+                "images": ("IMAGE", {"tooltip": "images"}),
+                "masks": ("MASK", {"tooltip": "masks"}),
+                "audio": ("AUDIO", {"tooltip": "audio"}),
+                "fps": ("FLOAT", {"forceInput": True, "tooltip": "fps"}),
                 "store": ("*",), # hidden by js
-                "chunk_configs": ("CHUNK_CONFIGS",),
+                #"chunk_configs": ("CHUNK_CONFIGS",),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -345,6 +417,10 @@ class Chunker:
         #image="None",
         #image_paint="None",
 
+        images=None,
+        masks=None,
+        audio=None,
+        fps=None,
         store=None,
         chunk_configs=None,
         unique_id=None,
@@ -408,7 +484,7 @@ class Chunker:
 
         if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
             black_panel = panel_mask(w, h, 0)
-            out_masks.append(torch.cat([black_panel] * count(out_images) - count(out_masks))) # add same amount of black masks to masks
+            out_masks.append(torch.cat([black_panel] * (count(out_images) - count(out_masks)))) # add same amount of black masks to masks
 
 
 
@@ -643,6 +719,16 @@ class Chunker:
                 s["index"],
             ),
         }
+
+
+
+
+
+
+
+
+
+
 
 class ChunkerVACEToFirstLast:
     @classmethod

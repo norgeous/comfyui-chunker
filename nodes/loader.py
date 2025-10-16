@@ -6,6 +6,7 @@ import os
 import folder_paths
 from comfy_extras.nodes_video import CreateVideo
 from comfy_api.util import VideoContainer
+from .utils import count, image_to_mask, resize_image, resize_mask
 
 # some from https://stackoverflow.com/a/77782755
 
@@ -35,7 +36,7 @@ def load_image_advanced(image_path):
     excluded_formats = ["MPO"]
 
     for i in ImageSequence.Iterator(img):
-        i = pillow(ImageOps.exif_transpose, i)
+        i = ImageOps.exif_transpose(i)
 
         if i.mode == "I":
             i = i.point(lambda i: i * (1 / 255))
@@ -79,10 +80,11 @@ def load_image_advanced(image_path):
 
 def get_video_info(video_path):
     with av.open(video_path) as container:
-        stream = container.streams.video[0]
-        fps = float(stream.average_rate)
-        total_length = stream.frames
-    return (total_length, fps)
+        vstream = container.streams.video[0]
+        fps = float(vstream.average_rate)
+        total_length = vstream.frames
+        sample_rate = container.streams.audio[0].rate
+    return (total_length, fps, sample_rate)
 
 def vframes_to_tensor(frames):
     out_images = []
@@ -97,10 +99,10 @@ def aframes_to_tensor(frames):
     out_audio = []
     for frame in frames:
         audio = frame.to_ndarray() # shape: (C, S)
-        audio = torch.from_numpy(audio) / 255.0 # shape: (C, S)
-        audio = audio.unsqueeze(0) # shape: (1, C, S)
+        audio = torch.from_numpy(audio) # shape: (C, S)
         out_audio.append(audio)
-    return torch.cat(out_audio) if len(out_audio) > 0 else None
+    if len(out_audio) == 0: return None
+    return torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
 
 def vframes_to_muxable(frames):
     out_images = []
@@ -123,13 +125,10 @@ def load_video_chunk2(path, start_n, end_n):
     with av.open(path) as container:
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
-
         total_length = vstream.frames
-
         if end_n is None: end_n = total_length # missing end fix
         if start_n < 0: start_n = total_length + start_n # negative start fix
         if end_n < 0: end_n = total_length + end_n # negative end fix
-
         vcount = 0
         for frame in container.decode(vstream, astream):
             if vcount >= start_n and vcount < end_n:
@@ -137,7 +136,6 @@ def load_video_chunk2(path, start_n, end_n):
                 if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
             if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
             if len(out_vframes) >= end_n - start_n: break
-
     return (
         out_vframes,
         out_aframes,
@@ -192,6 +190,80 @@ def load_video_chunk2(path, start_n, end_n):
 
 #    return (out_images, fps, total_length)
 
+
+
+def media_loader(images, masks, image, image_paint):
+    if images == "None": images = None
+    if masks == "None": masks = None
+    if image == "None": image = None
+    if image_paint == "None": image_paint = None
+
+    if images is not None: images = folder_paths.get_annotated_filepath(images)
+    if masks is not None: masks = folder_paths.get_annotated_filepath(masks)
+    if image is not None: image = folder_paths.get_annotated_filepath(image)
+    if image_paint is not None: image_paint = folder_paths.get_annotated_filepath(image_paint)
+
+    out_images = []
+    out_masks = []
+    out_audio = []
+    fps = None
+
+    w = None
+    h = None
+
+    total_length, fps, sample_rate = get_video_info(images)
+
+    if image is not None:
+        image, mask = load_image_advanced(image)
+        out_images.append(image)
+        out_masks.append(mask)
+    #if image_paint is not None: image_paint = load_image_advanced(image_paint)[0]
+    if images is not None:
+        images, audio = awesome_loader(images, start=count(out_images))
+        w = images.shape[2]
+        h = images.shape[1]
+        out_images.append(images)
+        out_audio.append(audio)
+    if masks is not None:
+        imasks = awesome_loader(masks, start=count(out_masks))[0]
+        masks = image_to_mask(imasks)
+        out_masks.append(masks)
+
+    out_images_torch = None
+    if len(out_images) > 0:
+       out_images_resized = list(map(lambda tensor: resize_image(tensor, w, h), out_images))
+       out_images_torch = torch.cat(out_images_resized)
+       assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}"
+
+    out_masks_torch = None
+    if len(out_masks) > 0:
+       out_masks_resized = list(map(lambda tensor: resize_mask(tensor, w, h), out_masks))
+       out_masks_torch = torch.cat(out_masks_resized)
+       assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
+
+    out_audio_dict = None
+    if len(out_audio) > 0:
+        out_audio_dict = {
+            "waveform": torch.cat(out_audio),
+            "sample_rate": sample_rate,
+        }
+
+    return (
+        out_images_torch,
+        out_masks_torch,
+        out_audio_dict,
+        fps,
+    )
+
+
+
+
+
+
+
+
+
+
 def awesome_loader(path, start=0, end=None, return_masks=False):
     path = path.replace(" [input]", "")
     img_ext = ["jpeg", "jpg", "png"]
@@ -200,18 +272,20 @@ def awesome_loader(path, start=0, end=None, return_masks=False):
     if file_ext in img_ext:
         # image_path = folder_paths.get_annotated_filepath(image)
         images, masks = load_image_advanced(path)
-        fps = None
-        total_length = 1
-        if return_masks: return (masks, fps, total_length)
-        else: return (images, fps, total_length)
+        return (images, masks)
+        #fps = None
+        #total_length = 1
+        #if return_masks: return (masks, fps, total_length)
+        #else: return (images, fps, total_length)
     if file_ext in vid_ext:
         #frames, fps, total_length = load_video_chunk(path, start_n=start, end_n=end)
         frames, audio = load_video_chunk2(path, start_n=start, end_n=end)
         frames = vframes_to_tensor(frames)
         audio = aframes_to_tensor(audio)
-        fps = 30
-        total_length = 1000
-        return (frames, fps, total_length)
+        if audio is not None: print("final shape", audio.shape)
+        #fps = 30
+        #total_length = 1000
+        return (frames, audio) # , fps, total_length)
 
 def get_next_save_video_path(filename_prefix):
     format = "auto"

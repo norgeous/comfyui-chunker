@@ -158,7 +158,7 @@ class Chunker:
         this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
 
         start = s["index"] * (chunk_length - chunk_overlap)
-        end = start + chunk_length
+        #end = start + chunk_length
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         w = None

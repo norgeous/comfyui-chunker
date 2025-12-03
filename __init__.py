@@ -1,4 +1,4 @@
-from .nodes.endpoints import * # importing this registers endpoints
+from .lib.endpoints import * # importing this registers endpoints
 from .nodes.nodes import (
     #ChunkerMediaLoaderOld,
     ChunkerMediaLoader,

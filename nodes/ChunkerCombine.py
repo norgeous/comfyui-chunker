@@ -19,7 +19,7 @@ class ChunkerCombine:
             "required": {
                 "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
                 "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
-                "select_overlaps_from": (["this_chunk", "previous_chunk"], {"default": "this_chunk", "tooltip": "TODO"}),
+                "select_overlaps_from": (["this_chunk", "previous_chunk"], {"default": "this_chunk", "tooltip": "When combining, select the overlaps from current or previous chunk"}),
             },
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),

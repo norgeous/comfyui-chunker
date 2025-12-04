@@ -4,10 +4,8 @@ from PIL import Image
 import torch
 import numpy as np
 from comfy.utils import common_upscale
-from .textOverlay import batch_draw_text
 from functools import reduce
 import math
-import node_helpers
 
 def log(*args, **kwargs):
     print(f"\U0001F36B  Chunker:", *args, **kwargs)
@@ -17,8 +15,8 @@ def count(list):
     if len(list) == 1: return len(list[0])
     return reduce(lambda acc, item: acc + len(item), [0, *list])
 
-def pil2tensor(image):
-    return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
+# def pil2tensor(image):
+#     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
 def tensor2pil(image):
     img_array = image.squeeze(0).cpu().numpy() * 255.0
@@ -83,7 +81,3 @@ def get_input_filenames():
             if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4", "png", "jpeg", "jpg"]):
                 files.append(f)
     return files
-
-def get_audio_length(audio):
-    if audio is None: return "0s"
-    return f"{audio["waveform"].shape[2] / audio["sample_rate"]:.6f}s"

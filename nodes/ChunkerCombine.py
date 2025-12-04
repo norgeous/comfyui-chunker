@@ -5,12 +5,12 @@ from ..lib.utils import (
     log,
     mask_to_image,
     image_to_mask,
-    get_audio_length,
 )
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type
 from ..lib.av.loader import awesome_loader, quick_combine, save_video, save_audio
 from ..lib.av.load_audio import concat_audios
+from ..lib.format_utils import format_audio, format_fps
 
 class ChunkerCombine:
     @classmethod
@@ -135,13 +135,13 @@ class ChunkerCombine:
                 "input_label_values": {
                     "images": len(images) if images is not None else 0,
                     "masks": len(masks) if masks is not None else 0,
-                    "audio": get_audio_length(audio),
+                    "audio": format_audio(audio),
                 },
                 "output_label_values": {
                     "images": len(out_images_torch) if out_images_torch is not None else 0,
                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
-                    "audio": get_audio_length(out_audio_dict),
-                    "fps": f"{d["fps"]:.2f}",
+                    "audio": format_audio(out_audio_dict),
+                    "fps": format_fps(d["fps"]),
                 },
                 "index": d["index"],
                 "chunk_count": c["chunk_count"],
@@ -205,7 +205,7 @@ class ChunkerCombine:
             "input_label_values": {
                 "images": len(images) if images is not None else 0,
                 "masks": len(masks) if masks is not None else 0,
-                "audio": get_audio_length(audio),
+                "audio": format_audio(audio),
             },
             "output_label_values": {
                 "images": None,

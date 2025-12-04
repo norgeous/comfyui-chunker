@@ -1,8 +1,6 @@
-from ..lib.utils import (
-    get_input_filenames,
-    get_audio_length,
-)
+from ..lib.utils import get_input_filenames
 from ..lib.av.loader import media_loader
+from ..lib.format_utils import format_audio, format_fps
 
 class ChunkerMediaLoader:
     @classmethod
@@ -49,8 +47,8 @@ class ChunkerMediaLoader:
             "output_label_values": {
                 "images": len(out_images),
                 "masks": len(out_masks),
-                "audio": get_audio_length(out_audio),
-                "fps": fps,
+                "audio": format_audio(out_audio),
+                "fps": format_fps(fps),
             },
         }
 

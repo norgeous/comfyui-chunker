@@ -2,7 +2,6 @@ import torch
 import av
 import folder_paths
 from comfy_extras.nodes_audio import match_audio_sample_rates
-from comfy.utils import common_upscale
 from functools import reduce
 
 # from https://github.com/comfyanonymous/ComfyUI/blob/master/comfy_extras/nodes_audio.py

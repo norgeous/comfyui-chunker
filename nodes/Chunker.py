@@ -9,10 +9,10 @@ from ..lib.utils import (
     force_wan_length,
     fix_total_length,
     get_this_chunk_length,
-    get_audio_length,
 )
 from ..lib.av.loader import awesome_loader
 from ..lib.av.load_audio import concat_audios
+from ..lib.format_utils import format_audio, format_fps
 
 class Chunker:
     @classmethod
@@ -196,13 +196,13 @@ class Chunker:
             "input_label_values": {
                 "images": len(images) if images is not None else 0,
                 "masks": len(masks) if masks is not None else 0,
-                "audio": get_audio_length(audio),
-                "fps": fps,
+                "audio": format_audio(audio),
+                "fps": format_fps(fps),
             },
             "output_label_values": {
                 "images": count(out_images),
                 "masks": count(out_masks),
-                "audio": get_audio_length(out_audio_dict), # TODO: chop up audio from input video or overlap
+                "audio": format_audio(out_audio_dict),
                 "width": w,
                 "height": h,
                 "chunk_length": max(count(out_images), count(out_masks)),

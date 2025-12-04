@@ -5,6 +5,7 @@ from PIL import Image, ImageOps, ImageSequence
 import os
 import folder_paths
 from comfy_extras.nodes_video import CreateVideo
+from comfy_extras.nodes_audio import SaveAudioMP3
 from comfy_api.util import VideoContainer
 from .utils import count, image_to_mask, resize_image, resize_mask
 
@@ -108,11 +109,31 @@ def aframes_to_muxable(frames, rate):
         out_audio.append(new_frame)
     return out_audio
 
-def load_video_chunk2(path, start_n, end_n):
+def load_video_chunk(path, start_n, end_n):
     out_vframes = []
     out_aframes = []
     with av.open(path) as container:
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
+        astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
+        total_length = vstream.frames
+        if end_n is None: end_n = total_length # missing end fix
+        if start_n < 0: start_n = total_length + start_n # negative start fix
+        if end_n < 0: end_n = total_length + end_n # negative end fix
+        vcount = 0
+        for frame in container.decode(vstream, astream):
+            if vcount >= start_n and vcount < end_n:
+                if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
+                if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
+            if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
+            if len(out_vframes) >= end_n - start_n: break
+    return (
+        out_vframes,
+        out_aframes,
+    )
+
+def load_audio_chunk(path, start_n, end_n):
+    out_aframes = []
+    with av.open(path) as container:
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
         total_length = vstream.frames
         if end_n is None: end_n = total_length # missing end fix
@@ -155,13 +176,16 @@ def media_loader(images, masks, image, image_paint):
         image, mask = load_image_advanced(image)
         out_images.append(image)
         out_masks.append(mask)
+
     #if image_paint is not None: image_paint = load_image_advanced(image_paint)[0]
+
     if images is not None:
         images, audio = awesome_loader(images, start=count(out_images))
         w = images.shape[2]
         h = images.shape[1]
         out_images.append(images)
         out_audio.append(audio)
+
     if masks is not None:
         imasks = awesome_loader(masks, start=count(out_masks))[0]
         masks = image_to_mask(imasks)
@@ -206,15 +230,19 @@ def awesome_loader(path, start=0, end=None, return_masks=False):
     path = path.replace(" [input]", "")
     img_ext = ["jpeg", "jpg", "png"]
     vid_ext = ["mp4"]
+    aud_ext = ["mp3"]
     file_ext = path.split(".")[-1]
     if file_ext in img_ext:
         images, masks = load_image_advanced(path)
         return (images, masks)
     if file_ext in vid_ext:
-        frames, audio = load_video_chunk2(path, start_n=start, end_n=end)
+        frames, audio = load_video_chunk(path, start_n=start, end_n=end)
         frames = vframes_to_tensor(frames)
         audio = aframes_to_tensor(audio)
         return (frames, audio)
+    if file_ext in aud_ext:
+        audio = load_audio_chunk(path, start_n=start, end_n=end)
+        return (audio,)
 
 def get_next_save_video_path(filename_prefix):
     format = "auto"
@@ -237,9 +265,29 @@ def save_video(images, fps, filename_prefix, audio=None):
     format = "auto"
     codec = "auto"
     create_video_node = CreateVideo()
-    video, = create_video_node.execute(images, fps, audio)
+    video = create_video_node.execute(images, fps, audio)[0]
     full_path, frontend_data = get_next_save_video_path(filename_prefix)
     video.save_to(full_path, format=format, codec=codec, metadata=None)
+    return (
+        full_path,
+        frontend_data,
+    )
+
+def save_audio(audio, filename_prefix):
+    # format = "auto"
+    # codec = "auto"
+    save_audio_node = SaveAudioMP3()
+    # full_path, frontend_data = get_next_save_video_path(filename_prefix)
+    #print(save_audio_node)
+    full_path, frontend_data = get_next_save_video_path(filename_prefix)
+    full_path = full_path.replace('mp4','mp3')
+
+    print(full_path, frontend_data)
+
+    audio_save = save_audio_node.save_mp3(audio, filename_prefix=filename_prefix, format="mp3", quality="128k")
+    # video.save_to(full_path, format=format, codec=codec, metadata=None)
+    print(audio_save)
+
     return (
         full_path,
         frontend_data,
@@ -248,7 +296,7 @@ def save_video(images, fps, filename_prefix, audio=None):
 # modified from https://stackoverflow.com/a/75429028
 def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
     input1 = av.open(paths[0])
-    input1_vstream = input1.streams.video[0]
+    input1_vstream = input1.streams.video[0] # if len(input1.streams.video) > 0 else None
     input1_astream = input1.streams.audio[0] if len(input1.streams.audio) > 0 else None
     input1.close()
 
@@ -278,7 +326,7 @@ def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):
             is_final_chunk = i == len(paths) - 1
             start = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else 0
             end = total_length - overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else total_length
-            vframes, aframes = load_video_chunk2(path, start, end)
+            vframes, aframes = load_video_chunk(path, start, end)
             vframes = vframes_to_muxable(vframes)
             for frame in vframes: output.mux(out_vstream.encode(frame))
             if len(aframes) > 0:

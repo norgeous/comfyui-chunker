@@ -4,8 +4,8 @@ from comfy_execution.graph_utils import GraphBuilder
 from ..lib.utils import (
     count,
     log,
-    panel_image,
-    panel_mask,
+    # panel_image,
+    # panel_mask,
     mask_to_image,
     image_to_mask,
     resize_image,
@@ -18,7 +18,7 @@ from ..lib.utils import (
 )
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeatNodes import comfyuiRepeatNodes, getNodeIdsByType
-from ..lib.loader import media_loader, awesome_loader, quick_combine, save_video, get_video_info
+from ..lib.loader import media_loader, awesome_loader, quick_combine, save_video, save_audio, get_video_info
 from ..lib.loadAudio import load_audio, concat_audios
 
 class ChunkerMediaLoader:
@@ -139,6 +139,7 @@ class Chunker:
             "index": 0,
             "images_last_chunk_path": None,
             "masks_last_chunk_path": None,
+            "audio_last_chunk_path": None,
         }
 
         if fps is None and mode == "Wan21": fps = 16
@@ -166,13 +167,13 @@ class Chunker:
 
         out_images = []
         out_masks = []
+        out_audio = []
 
         # get the images overlap from last chunk
         if s["images_last_chunk_path"] is not None:
             images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
             w = images_overlap.shape[2]
             h = images_overlap.shape[1]
-            # start = start + len(images_overlap)
             out_images.append(images_overlap)
 
         # get the masks overlap from last chunk
@@ -181,14 +182,31 @@ class Chunker:
             masks_overlap = image_to_mask(imasks_overlap)
             out_masks.append(masks_overlap)
 
+        samples_per_frame = math.floor(audio["sample_rate"] / fps)
+        astart = (start + count(out_images)) * samples_per_frame
+        aend = end * samples_per_frame
+
+        # get the audio overlap from last chunk
+        if s["audio_last_chunk_path"] is not None:
+            print('loading mp3', s["audio_last_chunk_path"])
+            audio_overlap = awesome_loader(s["audio_last_chunk_path"], start=-chunk_overlap)[0]
+            out_audio.append(audio_overlap)
+
         if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
-            black_panel = panel_mask(w, h, 0)
+            black_panel = torch.full((1, w, h), 0) # panel_mask(w, h, 0)
             out_masks.append(torch.cat([black_panel] * (count(out_images) - count(out_masks)))) # add same amount of black masks to masks
 
+        if audio is not None:
+            out_audio.append({
+                "waveform": audio["waveform"][:,:,astart:aend],
+                "sample_rate": audio["sample_rate"],
+            })
+
         if images is not None:
-            w = images.shape[2]
-            h = images.shape[1]
+            if w is None: w = images.shape[2]
+            if h is None: h = images.shape[1]
             out_images.append(images[start + count(out_images):end])
+
         if masks is not None:
             out_masks.append(masks[start + count(out_masks):end])
 
@@ -201,8 +219,8 @@ class Chunker:
 
         # do some stuff for Wan
         if mode == "Wan21" or mode == "Wan22":
-            grey_panel = torch.full((1, w, h, 3), 0.5) # panel_image(w, h, 128, 128, 128)
-            white_panel = torch.full((1, w, h), 1) # panel_mask(w, h, 255)
+            # grey_panel = torch.full((1, w, h, 3), 0.5) # panel_image(w, h, 128, 128, 128)
+            # white_panel = torch.full((1, w, h), 1) # panel_mask(w, h, 255)
 
             # if not enough images, invent some blank (grey) ones (for t2v)
             if count(out_images) < this_chunk_length: out_images.append(torch.cat([grey_panel] * (this_chunk_length - count(out_images))))
@@ -222,6 +240,10 @@ class Chunker:
             out_masks_torch = torch.cat(out_masks_resized)
             assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
 
+        out_audio_dict = None
+        if len(out_audio) > 0:
+            out_audio_dict = concat_audios(out_audio)
+
         c = {
             "mode": mode,
             "chunk_length": chunk_length,
@@ -238,10 +260,16 @@ class Chunker:
         }
 
         ui_values = {
+            "input_label_values": {
+                "images": len(images) if images is not None else 0,
+                "masks": len(masks) if masks is not None else 0,
+                "audio": get_audio_length(audio),
+                "fps": fps,
+            },
             "output_label_values": {
                 "images": count(out_images),
                 "masks": count(out_masks),
-                "audio": get_audio_length(None), # TODO: chop up audio from input video or overlap
+                "audio": get_audio_length(out_audio_dict), # TODO: chop up audio from input video or overlap
                 "width": w,
                 "height": h,
                 "chunk_length": max(count(out_images), count(out_masks)),
@@ -260,7 +288,7 @@ class Chunker:
                 chunker_data,
                 out_images_torch,
                 out_masks_torch,
-                None, # TODO: audio
+                out_audio_dict,
                 w,
                 h,
                 max(count(out_images), count(out_masks)),
@@ -417,8 +445,12 @@ class ChunkerCombine:
             masks_full_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/mask_chunk")[0]
             s["mask_chunks"].append(masks_full_path)
 
+        # save new audio chunk to a new file
         if audio is not None:
-            s["audio_chunks"].append(audio)
+            audio_full_path = save_audio(audio, "video/chunker/tmp/chunk/audio_chunk")[0]
+            print(audio_full_path)
+            # s["audio_chunks"].append(audio)
+            s["audio_chunks"].append(audio_full_path)
 
         # create preview from inputs
         preview = create_preview_video(images, masks, show_debug, d, c)
@@ -455,9 +487,10 @@ class ChunkerCombine:
                 out_masks_torch = awesome_loader(all_masks_video_path)[0]
                 print("done")
 
-            out_audio_torch = None # its not a tensor, rename this variable
+            # load all audio chunks as tensor
+            out_audio_dict = None
             if len(s["audio_chunks"]) > 0:
-                out_audio_torch = concat_audios(s["audio_chunks"])
+                out_audio_dict = concat_audios(s["audio_chunks"])
                 # load_audio(d["audio"]) if d["audio"] is not None else None,
 
             ui_values = {
@@ -469,7 +502,7 @@ class ChunkerCombine:
                 "output_label_values": {
                     "images": len(out_images_torch) if out_images_torch is not None else 0,
                     "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
-                    "audio": get_audio_length(out_audio_torch),
+                    "audio": get_audio_length(out_audio_dict),
                     "fps": f"{d["fps"]:.2f}",
                 },
                 "index": d["index"],
@@ -484,7 +517,7 @@ class ChunkerCombine:
                 "result":(
                     out_images_torch,
                     image_to_mask(out_masks_torch),
-                    out_audio_torch,
+                    out_audio_dict,
                     d["fps"],
                 )
             }
@@ -499,6 +532,7 @@ class ChunkerCombine:
             "index": d["index"] + 1,
             "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # filename of last image chunk saved
             "masks_last_chunk_path": s["mask_chunks"][-1] if len(s["mask_chunks"]) > 0 else None, # filename of last mask chunk saved
+            "audio_last_chunk_path": s["audio_chunks"][-1] if len(s["audio_chunks"]) > 0 else None, # filename of last audio chunk saved
         })
 
         # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan)

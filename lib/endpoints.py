@@ -5,7 +5,7 @@ from server import PromptServer
 from urllib.parse import unquote
 
 from .utils import tensor2pil
-from .loader import awesome_loader
+from .av.loader import awesome_loader
 
 # register /api/chunker/get-first-frame?filename=example.mp4
 @PromptServer.instance.routes.get("/chunker/get-first-frame")

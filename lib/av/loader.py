@@ -7,7 +7,7 @@ import folder_paths
 from comfy_extras.nodes_video import CreateVideo
 from comfy_extras.nodes_audio import SaveAudioMP3
 from comfy_api.util import VideoContainer
-from .utils import count, image_to_mask, resize_image, resize_mask
+from ..utils import count, image_to_mask, resize_image, resize_mask
 
 # some from https://stackoverflow.com/a/77782755
 

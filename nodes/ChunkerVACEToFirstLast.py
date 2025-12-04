@@ -7,8 +7,8 @@ from ..lib.utils import (
 )
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type
-from ..lib.loader import awesome_loader, quick_combine, save_video, save_audio
-from ..lib.load_audio import concat_audios
+from ..lib.av.loader import awesome_loader, quick_combine, save_video, save_audio
+from ..lib.av.load_audio import concat_audios
 
 class ChunkerVACEToFirstLast:
     @classmethod

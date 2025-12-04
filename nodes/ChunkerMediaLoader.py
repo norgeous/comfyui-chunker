@@ -2,7 +2,7 @@ from ..lib.utils import (
     get_input_filenames,
     get_audio_length,
 )
-from ..lib.loader import media_loader
+from ..lib.av.loader import media_loader
 
 class ChunkerMediaLoader:
     @classmethod

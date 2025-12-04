@@ -11,8 +11,8 @@ from ..lib.utils import (
     get_this_chunk_length,
     get_audio_length,
 )
-from ..lib.loader import awesome_loader
-from ..lib.load_audio import concat_audios
+from ..lib.av.loader import awesome_loader
+from ..lib.av.load_audio import concat_audios
 
 class Chunker:
     @classmethod

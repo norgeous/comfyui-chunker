@@ -127,7 +127,6 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
     if (!e?.dataTransfer?.types?.includes?.('Files')) {
       return false;
     }
-    //TODO: Allow dragging multiple files at once?
     const item = e.dataTransfer?.files?.[0];
     if (accept.includes(item?.type)) {
       return await doUpload(item, node, pathWidget);

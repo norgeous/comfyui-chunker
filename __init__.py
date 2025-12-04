@@ -1,41 +1,27 @@
-from .lib.endpoints import * # importing this registers endpoints
-from .nodes.nodes import (
-    #ChunkerMediaLoaderOld,
-    ChunkerMediaLoader,
-    # ChunkerChunkPlacement,
-    Chunker,
-    ChunkerVACEToFirstLast,
-    ChunkerCombine,
-)
+from .lib.endpoints import * # importing this registers endpoint(s)
+
+from .nodes.ChunkerMediaLoader import ChunkerMediaLoader
+from .nodes.Chunker import Chunker
+from .nodes.ChunkerVACEToFirstLast import ChunkerVACEToFirstLast
+from .nodes.ChunkerCombine import ChunkerCombine
+
 
 NODE_CONFIG = {
-    # "ChunkerMediaLoaderOld": {"class": ChunkerMediaLoaderOld, "name": "\U0001F36B Media Loader Old"},
     "ChunkerMediaLoader": {"class": ChunkerMediaLoader, "name": "\U0001F36B Media Loader"},
-    # "ChunkerChunkPlacement": {"class": ChunkerChunkPlacement, "name": "\U0001F36B Chunk Placement"},
-    #"ChunkerOutpaintConfig": {"class": ChunkerOutpaintConfig, "name": "\U0001F36B Outpaint Config"},
-    #"ChunkerChunkConfig": {"class": ChunkerChunkConfig, "name": "\U0001F36B Chunk Config"},
     "Chunker": {"class": Chunker, "name": "\U0001F36B Chunker"},
     "ChunkerVACEToFirstLast": {"class": ChunkerVACEToFirstLast, "name": "\U0001F36B VACE To First Last"},
     "ChunkerCombine": {"class": ChunkerCombine, "name": "\U0001F36B Combine"},
 }
 
 NODE_CLASS_MAPPINGS = {
-    # "ChunkerMediaLoaderOld": ChunkerMediaLoaderOld,
     "ChunkerMediaLoader": ChunkerMediaLoader,
-    # "ChunkerChunkPlacement": ChunkerChunkPlacement,
-    #"ChunkerOutpaintConfig": ChunkerOutpaintConfig,
-    #"ChunkerChunkConfig": ChunkerChunkConfig,
     "Chunker": Chunker,
     "ChunkerVACEToFirstLast": ChunkerVACEToFirstLast,
     "ChunkerCombine": ChunkerCombine,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    # "ChunkerMediaLoaderOld": "\U0001F36B Media Loader Old",
     "ChunkerMediaLoader": "\U0001F36B Media Loader",
-    # "ChunkerChunkPlacement": "\U0001F36B Chunk Placement",
-    #"ChunkerOutpaintConfig": "\U0001F36B Outpaint Config",
-    #"ChunkerChunkConfig": "\U0001F36B Chunk Config",
     "Chunker": "\U0001F36B Chunker",
     "ChunkerVACEToFirstLast": "\U0001F36B VACE To First Last",
     "ChunkerCombine": "\U0001F36B Combine",

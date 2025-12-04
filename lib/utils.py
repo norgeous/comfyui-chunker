@@ -25,11 +25,11 @@ def tensor2pil(image):
     img_pil = Image.fromarray(np.clip(img_array, 0, 255).astype(np.uint8))
     return img_pil
 
-def panel_image(w, h, r=255, g=255, b=255):
-    return pil2tensor(Image.new('RGB', (w, h), (r, g, b)))
+# def panel_image(w, h, r=255, g=255, b=255):
+#     return pil2tensor(Image.new('RGB', (w, h), (r, g, b)))
 
-def panel_mask(w, h, v=255):
-    return pil2tensor(Image.new('RGB', (w, h), (v, v, v)).convert('L'))
+# def panel_mask(w, h, v=255):
+#     return pil2tensor(Image.new('RGB', (w, h), (v, v, v)).convert('L'))
 
 def mask_to_image(mask):
     if mask is None: return None;

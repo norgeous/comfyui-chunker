@@ -4,7 +4,7 @@ from PIL import Image
 import torch
 import numpy as np
 from comfy.utils import common_upscale
-from .textOverlay import batch_draw_text
+from .text_overlay import batch_draw_text
 from functools import reduce
 from .utils import mask_to_image, simple_blend
 

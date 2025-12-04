@@ -42,7 +42,10 @@ def load_audio(filepath):
 
         wav = torch.cat(frames, dim=1)
         wav = f32_pcm(wav)
-        audio = {"waveform": wav.unsqueeze(0), "sample_rate": sr}
+        audio = {
+            "waveform": wav.unsqueeze(0),
+            "sample_rate": sr,
+        }
         return audio
 
 def concat_audio(audio1, audio2):

@@ -2,18 +2,17 @@ import os
 import numpy as np
 import av
 from PIL import Image
-import folder_paths
+import time
 from ..utils import tensor2pil
 
-
 def _get_next_save_path(filename_prefix, ext="mkv"):
-    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
-        filename_prefix,
-        folder_paths.get_output_directory(),
-    )
-    file = f"{filename}_{counter:05}_.{ext}"
-    full_path = os.path.join(full_output_folder, file)
-    return full_path, {"filename": file, "subfolder": subfolder, "type": "output"}
+    # Simple fallback path generator that doesn't rely on external folder utilities.
+    # Uses current working directory and a timestamp to avoid collisions.
+    safe_prefix = filename_prefix.replace("/", "_") if filename_prefix else "output"
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    file = f"{safe_prefix}_{ts}.{ext}"
+    full_path = os.path.join(os.getcwd(), file)
+    return full_path, {"filename": file, "subfolder": None, "type": "output"}
 
 
 def _mask_to_pil(mask_tensor):

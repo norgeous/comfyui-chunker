@@ -14,7 +14,7 @@ from ..lib.av.loader import awesome_loader
 from ..lib.av.load_audio import concat_audios
 from ..lib.format_utils import format_audio, format_fps
 
-class Chunker:
+class ChunkerDivide:
     @classmethod
     def INPUT_TYPES(cls):
         return {

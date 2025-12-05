@@ -3,7 +3,6 @@ from ..lib.utils import (
     log,
     mask_to_image,
     image_to_mask,
-    get_audio_length,
 )
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type

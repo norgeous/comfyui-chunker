@@ -3,7 +3,42 @@ import numpy as np
 import av
 from PIL import Image
 import time
-from ..utils import tensor2pil
+
+
+def _tensor_to_pil(image):
+    """Convert a torch tensor or numpy array to a PIL Image.
+
+    Accepts shapes: (1,H,W,3), (H,W,3), (C,H,W), (H,W) and numeric dtypes float in 0..1 or uint8.
+    """
+    try:
+        import torch
+        if hasattr(image, "cpu"):
+            arr = image.cpu().numpy()
+        else:
+            arr = np.array(image)
+    except Exception:
+        arr = np.array(image)
+
+    # remove batch dim if present
+    if arr.ndim == 4 and arr.shape[0] == 1:
+        arr = arr[0]
+
+    # CHW -> HWC
+    if arr.ndim == 3 and arr.shape[0] in (1, 3) and arr.shape[2] not in (1, 3):
+        # probably (C,H,W)
+        arr = np.transpose(arr, (1, 2, 0))
+
+    # single-channel -> RGB
+    if arr.ndim == 2:
+        arr = np.stack([arr, arr, arr], axis=-1)
+
+    # now expect H,W,3
+    if arr.dtype.kind == "f":
+        arr = np.clip(arr * 255.0, 0, 255).astype(np.uint8)
+    else:
+        arr = arr.astype(np.uint8)
+
+    return Image.fromarray(arr)
 
 def _get_next_save_path(filename_prefix, ext="mkv"):
     # Simple fallback path generator that doesn't rely on external folder utilities.
@@ -40,8 +75,8 @@ def _chunk_audio_and_encode(container, astream, audio_np, sample_rate, layout="s
     while pos < S:
         end = min(S, pos + frame_size)
         chunk = audio_np[:, pos:end]
-        # av expects ndarray shape (channels, samples)
-        frame = av.AudioFrame.from_ndarray(chunk, format='flt', layout=layout)
+        # av expects ndarray shape (channels, samples) for planar formats
+        frame = av.AudioFrame.from_ndarray(chunk, format='fltp', layout=layout)
         frame.sample_rate = sample_rate
         for packet in astream.encode(frame):
             container.mux(packet)
@@ -100,7 +135,7 @@ def save_prores_with_alpha(images=None, masks=None, audio=None, fps=30, filename
         vstream = container.add_stream('prores_ks', rate=fps)
         # guess width/height from first image or mask
         if images is not None:
-            first_img_pil = tensor2pil(images[0:1])
+            first_img_pil = _tensor_to_pil(images[0:1])
         else:
             # create a dummy RGB from mask size
             mask_pil = _mask_to_pil(masks[0:1])
@@ -141,7 +176,7 @@ def save_prores_with_alpha(images=None, masks=None, audio=None, fps=30, filename
         for i in range(N):
             # build RGBA PIL image
             if images is not None:
-                rgb_pil = tensor2pil(images[i:i+1])
+                rgb_pil = _tensor_to_pil(images[i:i+1])
             else:
                 # create black RGB image matching mask size
                 mask_pil_tmp = _mask_to_pil(masks[i:i+1])

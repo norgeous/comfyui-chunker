@@ -1,6 +1,5 @@
 import av
 import numpy as np
-from PIL import Image
 
 def combine_images_masks(images, masks, output_prefix):
     B, H, W, C = images.shape

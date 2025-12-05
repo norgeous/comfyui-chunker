@@ -4,6 +4,7 @@ from .nodes.ChunkerMediaLoader import ChunkerMediaLoader
 from .nodes.ChunkerDivide import ChunkerDivide
 from .nodes.ChunkerVACEToFirstLast import ChunkerVACEToFirstLast
 from .nodes.ChunkerCombine import ChunkerCombine
+from .nodes.ChunkerSave import ChunkerSave
 
 
 NODE_CONFIG = {
@@ -11,6 +12,7 @@ NODE_CONFIG = {
     "ChunkerDivide": {"class": ChunkerDivide, "name": "\U0001F36B Divide"},
     "ChunkerVACEToFirstLast": {"class": ChunkerVACEToFirstLast, "name": "\U0001F36B VACE To First Last"},
     "ChunkerCombine": {"class": ChunkerCombine, "name": "\U0001F36B Combine"},
+    "ChunkerSave": {"class": ChunkerSave, "name": "\U0001F36B Save"},
 }
 
 NODE_CLASS_MAPPINGS = {
@@ -18,6 +20,7 @@ NODE_CLASS_MAPPINGS = {
     "ChunkerDivide": ChunkerDivide,
     "ChunkerVACEToFirstLast": ChunkerVACEToFirstLast,
     "ChunkerCombine": ChunkerCombine,
+    "ChunkerSave": ChunkerSave,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -25,6 +28,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ChunkerDivide": "\U0001F36B Divide",
     "ChunkerVACEToFirstLast": "\U0001F36B VACE To First Last",
     "ChunkerCombine": "\U0001F36B Combine",
+    "ChunkerSave": "\U0001F36B Save",
 }
 
 WEB_DIRECTORY = "./js"

@@ -70,7 +70,7 @@ def get_video_info(video_path):
     sample_rate = None
     with av.open(video_path) as container:
         vstream = container.streams.video[0]
-        fps = float(vstream.average_rate)
+        fps = vstream.average_rate # might always be a Fraction
         total_length = vstream.frames
         if len(container.streams.audio) > 0:
             sample_rate = container.streams.audio[0].rate

@@ -5,11 +5,13 @@ class ChunkerSave:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "fps": ("FLOAT", {"default": 30}),
+                "filename_prefix": ("STRING", {"default": "chunker_save"}),
+            },
+            "optional": {
                 "images": ("IMAGE", {"default": None}),
                 "masks": ("MASK", {"default": None}),
                 "audio": ("AUDIO", {"default": None}),
-                "fps": ("FLOAT", {"default": 30}),
-                "filename_prefix": ("STRING", {"default": "chunker_save"}),
             }
         }
 

@@ -1,20 +1,30 @@
 import av
+import torch
 import numpy as np
 from fractions import Fraction
 
 def save(images=None, masks=None, audio=None, fps=30, filename_prefix="chunker_save"):
+    if images is None and masks is None and audio is None:
+        raise ValueError("At least one of images, masks, or audio must be provided.")
+
     path = f"{filename_prefix}.mov"
 
     with av.open(path, mode='w') as container:
-        # Video Stream Setup
+        # Video stream setup
         if images is not None or masks is not None:
-            B, H, W, C = images.shape
+            count = max(
+                images.shape[0] if images is not None else 0,
+                masks.shape[0] if masks is not None else 0,
+            )
+            W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
+            H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
+
             video_stream = container.add_stream('prores_ks', rate=Fraction(fps))
             video_stream.pix_fmt = 'yuva444p10le'
             video_stream.width = W
             video_stream.height = H
 
-        # Audio Stream Setup
+        # Audio stream setup
         if audio is not None:
             waveform = audio["waveform"]
             sample_rate = audio["sample_rate"]
@@ -25,14 +35,12 @@ def save(images=None, masks=None, audio=None, fps=30, filename_prefix="chunker_s
 
         # Combine images and masks into RGBA format and write to video stream
         if images is not None or masks is not None:
-            for i in range(B):
-                img = images[i]
-                mask = masks[i] if masks is not None and masks[i] is not None else np.ones((H, W, 1), dtype=img.dtype)
+            for i in range(count):
+                img = images[i] if images is not None and images[i] is not None else torch.full((H, W, 3), 0.5)
+                mask = masks[i] if masks is not None and masks[i] is not None else torch.full((H, W, 1), 1)
                 img = (img * 255).cpu().numpy().astype(np.uint8)
                 mask = (mask * 255).cpu().numpy().astype(np.uint8)
-                # if mask.ndim == 2: 
-                #     mask = mask.reshape((H, W, 1))
-                
+                if mask.ndim == 2: mask = mask.reshape((H, W, 1))
                 rgba = np.concatenate([img, mask], axis=2)
                 frame = av.VideoFrame.from_ndarray(rgba, format='rgba')
                 for packet in video_stream.encode(frame):

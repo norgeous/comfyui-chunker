@@ -126,7 +126,7 @@ class ChunkerDivide:
             out_audio.append(audio_overlap)
 
         if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
-            black_panel = torch.full((1, w, h), 0) # panel_mask(w, h, 0)
+            black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)
             out_masks.append(torch.cat([black_panel] * (count(out_images) - count(out_masks)))) # add same amount of black masks to masks
 
         if audio is not None:
@@ -146,9 +146,9 @@ class ChunkerDivide:
         if w is None: w = 512
         if h is None: h = 512
 
-        grey_panel = torch.full((1, w, h, 3), 0.5) # panel_image(w, h, 127, 127, 127)
-        white_panel = torch.full((1, w, h), 1) # panel_mask(w, h, 255)
-        black_panel = torch.full((1, w, h), 0) # panel_mask(w, h, 0)
+        grey_panel = torch.full((1, h, w, 3), 0.5) # panel_image(w, h, 127, 127, 127)
+        white_panel = torch.full((1, h, w), 1) # panel_mask(w, h, 255)
+        black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)
 
         # do some stuff for Wan
         if mode == "Wan21" or mode == "Wan22":

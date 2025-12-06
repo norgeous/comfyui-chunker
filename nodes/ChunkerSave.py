@@ -1,5 +1,4 @@
-from ..lib.av.prores_flac_saver import save_prores_with_alpha
-from ..lib.av.save import save_prores_mkv_with_alpha_and_audio
+from ..lib.av.save import save
 
 class ChunkerSave:
     @classmethod
@@ -20,5 +19,5 @@ class ChunkerSave:
     CATEGORY = "Chunker"
 
     def execute(self, images=None, masks=None, audio=None, fps=30.0, filename_prefix="chunker_save"):
-        save_prores_mkv_with_alpha_and_audio(path="test.mkv", images=images, masks=masks, audio=audio, fps=fps)
-        return ("test.mkv",)
+        path = save(images=images, masks=masks, audio=audio, fps=fps, filename_prefix=filename_prefix)
+        return (path,)

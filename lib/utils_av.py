@@ -66,15 +66,23 @@ def aframes_to_muxable(frames, target_format):
         out_audio.append(new_frame)
     return out_audio
 
-def load_frames(path=None):
+def load_frames(path=None, start_n=None, end_n=None):
     out_vframes = []
     out_aframes = []
     with av.open(path) as container:
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
+        total_length = vstream.frames
+        if end_n is None: end_n = total_length # missing end fix
+        if start_n < 0: start_n = total_length + start_n # negative start fix
+        if end_n < 0: end_n = total_length + end_n # negative end fix
+        vcount = 0
         for frame in container.decode(vstream, astream):
-            if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
-            if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
+            if vcount >= start_n and vcount < end_n:
+                if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
+                if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
+            if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
+            if len(out_vframes) >= end_n - start_n: break
     return out_vframes, out_aframes
 
 def load(path=None):
@@ -149,7 +157,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
 
     return out_path, frontend_data
 
-def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, select_overlaps_from="this"):
+def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, select_overlaps_from="this_chunk"):
     # probe first file
     input1 = av.open(paths[0])
     input1_vstream = input1.streams.video[0] if len(input1.streams.video) > 0 else None
@@ -169,8 +177,13 @@ def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, sel
 
         out_astream = output.add_stream(profiles[profile]["audio_codec"], sample_rate)
 
-        for path in paths:
-            vframes, aframes = load_frames(path=path)
+        # for path in paths:
+        for i, path in enumerate(paths):
+            is_first_chunk = i == 0
+            is_final_chunk = i == len(paths) - 1
+            start_n = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else None
+            end_n = -overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else None
+            vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
             if len(vframes) > 0:
                 video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt"])
                 for frame in video: output.mux(out_vstream.encode(frame))

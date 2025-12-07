@@ -106,10 +106,11 @@ class ChunkerCombine:
         # combine all preview chunks to a new file, excluding the overlaps
         log('raw chunks',s["chunks"])
         all_preview_frontend_data = mux(
-            # paths=s["preview_chunks"],
-            paths=s["chunks"],
+            paths=s["preview_chunks"],
             profile="web-rgba",
             filename_prefix="video/chunker/tmp/preview/web" if not is_done else "video/chunker/tmp/preview_complete",
+            overlap=c["chunk_overlap"],
+            select_overlaps_from=select_overlaps_from,
         )[1]
 
         # if no more chunks needed, return early

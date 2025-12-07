@@ -71,10 +71,6 @@ class ChunkerDivide:
         s = store if store is not None else {
             "index": 0,
             "last_chunk_path": None,
-
-            # "images_last_chunk_path": None,
-            # "masks_last_chunk_path": None,
-            # "audio_last_chunk_path": None,
         }
 
         if fps is None and mode == "Wan21": fps = 16
@@ -103,26 +99,6 @@ class ChunkerDivide:
         out_images = []
         out_masks = []
         out_audio = []
-
-        # # get the images overlap from last chunk
-        # if s["images_last_chunk_path"] is not None:
-        #     images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
-        #     w = images_overlap.shape[2]
-        #     h = images_overlap.shape[1]
-        #     out_images.append(images_overlap)
-
-        # # get the masks overlap from last chunk
-        # if s["masks_last_chunk_path"] is not None:
-        #     imasks_overlap = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)[0]
-        #     masks_overlap = image_to_mask(imasks_overlap)
-        #     out_masks.append(masks_overlap)
-
-        # # get the audio overlap from last chunk
-        # if s["audio_last_chunk_path"] is not None:
-        #     print('loading mp3', s["audio_last_chunk_path"])
-        #     audio_overlap = awesome_loader(s["audio_last_chunk_path"], start=-chunk_overlap)[0]
-        #     out_audio.append(audio_overlap)
-
 
         # get the overlap from the last chunk that Combine saved
         if s["last_chunk_path"] is not None:

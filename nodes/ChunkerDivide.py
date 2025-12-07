@@ -138,9 +138,6 @@ class ChunkerDivide:
 
         # do some stuff for Wan
         if mode == "Wan21" or mode == "Wan22":
-            # grey_panel = torch.full((1, w, h, 3), 0.5) # panel_image(w, h, 128, 128, 128)
-            # white_panel = torch.full((1, w, h), 1) # panel_mask(w, h, 255)
-
             # if not enough images, invent some blank (grey) ones (for t2v)
             if count(out_images) < this_chunk_length: out_images.append(torch.cat([grey_panel] * (this_chunk_length - count(out_images))))
 

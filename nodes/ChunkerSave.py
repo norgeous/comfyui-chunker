@@ -1,3 +1,4 @@
+from ..lib.utils_comfy import get_next_save_video_path
 from ..lib.av.save import save
 
 class ChunkerSave:
@@ -6,7 +7,6 @@ class ChunkerSave:
         return {
             "required": {
                 "fps": ("FLOAT", {"default": 30}),
-                "filename_prefix": ("STRING", {"default": "chunker_save"}),
             },
             "optional": {
                 "images": ("IMAGE", {"default": None}),
@@ -14,12 +14,13 @@ class ChunkerSave:
                 "audio": ("AUDIO", {"default": None}),
             }
         }
-
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("output_path",)
     FUNCTION = "execute"
     CATEGORY = "Chunker"
 
-    def execute(self, images=None, masks=None, audio=None, fps=30.0, filename_prefix="chunker_save"):
-        path = save(images=images, masks=masks, audio=audio, fps=fps, filename_prefix=filename_prefix)
+    def execute(self, images=None, masks=None, audio=None, fps=30.0):
+        filename_prefix = "video/chunker/tmp/chunk/lossless"
+        full_path = get_next_save_video_path(filename_prefix)[0]
+        path = save(images=images, masks=masks, audio=audio, fps=fps, path=full_path)
         return (path,)

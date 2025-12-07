@@ -1,16 +1,19 @@
-import torch
-import math
+# import torch
+# import math
 from comfy_execution.graph_utils import GraphBuilder
 from ..lib.utils import (
     log,
-    mask_to_image,
+    # mask_to_image,
     image_to_mask,
 )
+from ..lib.utils_comfy import get_next_save_path
+from ..lib.utils_av import save, mux
+
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type
 from ..lib.av.loader import awesome_loader, quick_combine, save_video, save_audio
 from ..lib.av.load_audio import concat_audios
-from ..lib.format_utils import format_audio, format_fps
+from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerCombine:
     @classmethod
@@ -58,50 +61,49 @@ class ChunkerCombine:
         dynprompt=None,
         unique_id=None,
     ):
-        if images is None and masks is None:
-            raise Exception("Please provide images OR masks")
+        # if images is None and masks is None:
+        #     raise Exception("Please provide images OR masks")
 
         d = chunker_data
         c = d["chunker_config"]
         s = store if store is not None else {
+            "chunks": [],
             "image_chunks": [],
             "mask_chunks": [],
             "audio_chunks": [],
             "preview_chunks": [],
         }
 
-        # figure out if we have completed all chunks
-        is_done = d["index"] + 1 >= c["chunk_count"]
-
-        # save new image chunk to a new file
-        if images is not None:
-            images_full_path = save_video(images, d["fps"], "video/chunker/tmp/chunk/image_chunk", audio)[0]
-            s["image_chunks"].append(images_full_path)
-
-        # save new mask chunk to a new file
-        if masks is not None:
-            masks_full_path = save_video(mask_to_image(masks), d["fps"], "video/chunker/tmp/chunk/mask_chunk")[0]
-            s["mask_chunks"].append(masks_full_path)
-
-        # save new audio chunk to a new file
-        if audio is not None:
-            audio_full_path = save_audio(audio, "video/chunker/tmp/chunk/audio_chunk")[0]
-            print(audio_full_path)
-            # s["audio_chunks"].append(audio)
-            s["audio_chunks"].append(audio_full_path)
+        # save input images, masks and / or audio to file
+        chunk_path = save(
+            images=images,
+            masks=masks,
+            audio=audio,
+            fps=d["fps"],
+            path=get_next_save_path("video/chunker/tmp/chunk/lossless")[0],
+        )
+        s["chunks"].append(chunk_path)
 
         # create preview from inputs
         preview = create_preview_video(images, masks, show_debug, d, c)
 
         # save new preview chunk to a new file
-        preview_full_path = save_video(preview, d["fps"], "video/chunker/tmp/chunk/preview_chunk", audio)[0]
-        s["preview_chunks"].append(preview_full_path)
+        preview_path = save(
+            images=preview,
+            masks=None,
+            audio=audio,
+            fps=d["fps"],
+            path=get_next_save_path("video/chunker/tmp/preview/lossless")[0],
+        )
+        s["preview_chunks"].append(preview_path)
 
-        #print("these should have audio", s["image_chunks"], s["preview_chunks"])
+        # figure out if we have completed all chunks
+        is_done = d["index"] + 1 >= c["chunk_count"]
 
         # combine all preview chunks to a new file, excluding the overlaps
         filename_prefix = "video/chunker/tmp/chunks/preview_chunks" if not is_done else "video/chunker/tmp/chunks/preview_complete"
         all_preview_frontend_data = quick_combine(s["preview_chunks"], c["chunk_overlap"], select_overlaps_from, filename_prefix)[1]
+        mux(s["preview_chunks"], path=filename_prefix + "_muxed")
 
         # if no more chunks needed, return early
         if is_done:

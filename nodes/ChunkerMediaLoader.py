@@ -1,6 +1,6 @@
 from ..lib.utils import get_input_filenames
 from ..lib.av.loader import media_loader
-from ..lib.format_utils import format_audio, format_fps
+from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerMediaLoader:
     @classmethod

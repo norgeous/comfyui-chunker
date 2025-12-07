@@ -92,7 +92,7 @@ def load(path=None, start_n=None, end_n=None):
     images = video[:, :, :, :3]
     masks = video[:, :, :, 3:4]
     if audio is not None:
-        sample_rate = aframes[0].sample_rate # if len(aframes) > 0 else 44100
+        sample_rate = aframes[0].sample_rate
         audio_dict = {
             "waveform": audio,
             "sample_rate": sample_rate,

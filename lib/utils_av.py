@@ -85,8 +85,8 @@ def load_frames(path=None, start_n=None, end_n=None):
             if len(out_vframes) >= end_n - start_n: break
     return out_vframes, out_aframes
 
-def load(path=None):
-    vframes, aframes = load_frames(path=path)
+def load(path=None, start_n=None, end_n=None):
+    vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
     video = vframes_to_tensor(vframes)
     audio = aframes_to_tensor(aframes)
     images = video[:, :, :, :3]

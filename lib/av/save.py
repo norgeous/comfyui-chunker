@@ -3,11 +3,11 @@ import torch
 import numpy as np
 from fractions import Fraction
 
-def save(images=None, masks=None, audio=None, fps=30, filename_prefix="chunker_save"):
+def save(images=None, masks=None, audio=None, fps=30, path="chunker_save"):
     if images is None and masks is None and audio is None:
         raise ValueError("At least one of images, masks, or audio must be provided.")
 
-    path = f"{filename_prefix}.mov"
+    path = f"{path}.mov"
 
     with av.open(path, mode='w') as container:
         # Video stream setup

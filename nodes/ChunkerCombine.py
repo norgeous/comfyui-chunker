@@ -75,7 +75,7 @@ class ChunkerCombine:
             "audio_chunks": [],
         }
 
-        # save input images, masks and / or audio to file
+        # save input images, masks and / or audio to lossless file
         chunk_path = save(
             images=images,
             masks=masks,
@@ -86,10 +86,8 @@ class ChunkerCombine:
         )[0]
         s["chunks"].append(chunk_path)
 
-        # create preview from inputs
+        # create and save preview from inputs
         preview = create_preview_video(images, masks, show_debug, d, c)
-
-        # save new preview chunk to a new file
         preview_path = save(
             images=preview,
             masks=None,
@@ -188,7 +186,7 @@ class ChunkerCombine:
         new_chunker.set_input("store", {
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None, # filename of last chunk saved
-            
+
             # "images_last_chunk_path": s["image_chunks"][-1] if len(s["image_chunks"]) > 0 else None, # filename of last image chunk saved
             # "masks_last_chunk_path": s["mask_chunks"][-1] if len(s["mask_chunks"]) > 0 else None, # filename of last mask chunk saved
             # "audio_last_chunk_path": s["audio_chunks"][-1] if len(s["audio_chunks"]) > 0 else None, # filename of last audio chunk saved

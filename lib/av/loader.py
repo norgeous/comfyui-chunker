@@ -229,7 +229,7 @@ def media_loader(images, masks, image, image_paint):
 def awesome_loader(path, start=0, end=None, return_masks=False):
     path = path.replace(" [input]", "")
     img_ext = ["jpeg", "jpg", "png"]
-    vid_ext = ["mp4"]
+    vid_ext = ["mp4", "mov"]
     aud_ext = ["mp3"]
     file_ext = path.split(".")[-1]
     if file_ext in img_ext:

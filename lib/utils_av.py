@@ -2,6 +2,7 @@ import av
 import torch
 import numpy as np
 from fractions import Fraction
+from .utils_comfy import get_next_save_path
 
 profiles = {
     "lossless": {
@@ -9,19 +10,15 @@ profiles = {
         "video_codec": "prores_ks",
         "video_pix_fmt": "yuva444p10le",
         "audio_codec": "alac",
+        "audio_format": "fltp",
     },
     "web-rgba": {
         "extension": "webm",
         "video_codec": "vp9",
-        "video_pix_fmt": "rgba", # has to be rgba because pyav does not currenly support conversion from yuva444p10le to yuva420p
+        "video_pix_fmt": "yuva420p",
         "audio_codec": "vorbis",
+        "audio_format": "s16p",
     },
-    # "web-rgb": {
-    #     "extension": "mp4",
-    #     "video_codec": "libx264",
-    #     "video_pix_fmt": "yuv420p",
-    #     "audio_codec": "aac",
-    # },
 }
 
 def vframes_to_tensor(frames):
@@ -47,20 +44,25 @@ def aframes_to_tensor(frames):
     if len(out_audio) == 0: return None
     return torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
 
-def vframes_to_muxable(frames):
-    reformatter = av.video.reformatter.VideoReformatter() 
+def vframes_to_muxable(frames, target_pix_fmt):
+    reformatter = av.video.reformatter.VideoReformatter()
     out_images = []
     for frame in frames:
-        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format='rgba'), format='rgba')
-        # new_frame = reformatter.reformat(new_frame, format='yuva420p')
+        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format="rgba"), format="rgba") # convert to yuva420p is not supported currently
+        new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
         out_images.append(new_frame)
     return out_images
 
-def aframes_to_muxable(frames):
+def aframes_to_muxable(frames, target_format):
+    resampler = av.AudioResampler(
+        format=target_format,
+        layout=frames[0].layout,
+        rate=frames[0].sample_rate,
+    )
     out_audio = []
     for frame in frames:
-        new_frame = av.AudioFrame.from_ndarray(frame.to_ndarray(), format=frame.format, layout=frame.layout)
-        new_frame.sample_rate = frame.sample_rate # needed!
+        new_frame = resampler.resample(frame)[0]
+        new_frame.pts = None
         out_audio.append(new_frame)
     return out_audio
 
@@ -87,15 +89,14 @@ def load(path=None):
             "waveform": audio,
             "sample_rate": sample_rate,
         }
-        return (images, masks, audio_dict)
+    return (images, masks, audio_dict)
 
-def save(images=None, masks=None, audio=None, fps=30, profile="lossless", path="chunker_save"):
+def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filename_prefix="chunker_save"):
     if images is None and masks is None and audio is None:
         raise ValueError("At least one of images, masks, or audio must be provided.")
 
-    out_path = f"{path}.{profiles[profile]["extension"]}"
-
-    with av.open(path, mode='w') as container:
+    out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
+    with av.open(out_path, mode='w') as container:
         # Video stream setup
         if images is not None or masks is not None:
             count = max(
@@ -112,11 +113,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", path="
 
         # Audio stream setup
         if audio is not None:
-            waveform = audio["waveform"]
             sample_rate = audio["sample_rate"]
-            audio_ndarray = waveform.squeeze(0).cpu().numpy().astype(np.float32)
-            num_channels = audio_ndarray.shape[0]
-            layout = 'mono' if num_channels == 1 else 'stereo'
             audio_stream = container.add_stream('alac', rate=int(sample_rate))
 
         # Combine images and masks into RGBA format and write to video stream
@@ -138,7 +135,10 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", path="
 
         # Write Audio to audio stream
         if audio is not None:
-            frame = av.AudioFrame.from_ndarray(audio_ndarray, format='fltp', layout=layout)
+            waveform = audio["waveform"]
+            layout = 'mono' if waveform.shape[1] == 1 else 'stereo'
+            audio_ndarray = waveform.squeeze(0).cpu().numpy().astype(np.int32)
+            frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
             frame.sample_rate = sample_rate
             for packet in audio_stream.encode(frame):
                 container.mux(packet)
@@ -147,9 +147,9 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", path="
             for packet in audio_stream.encode():
                 container.mux(packet)
 
-    return out_path
+    return out_path, frontend_data
 
-def mux(paths, profile="web-rgba", path="chunker_mux3", overlap=0, select_overlaps_from="this"):
+def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, select_overlaps_from="this"):
     # probe first file
     input1 = av.open(paths[0])
     input1_vstream = input1.streams.video[0] if len(input1.streams.video) > 0 else None
@@ -160,40 +160,30 @@ def mux(paths, profile="web-rgba", path="chunker_mux3", overlap=0, select_overla
     h = input1_vstream.codec_context.height if input1_vstream else None
     input1.close()
 
-    out_path = f"{path}.{profiles[profile]["extension"]}"
-    frontend_data = 'todo'
-
+    out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
     with av.open(out_path, 'w') as output:
         out_vstream = output.add_stream(profiles[profile]["video_codec"], fps)
-        out_astream = output.add_stream(profiles[profile]["audio_codec"], sample_rate)
         out_vstream.pix_fmt = profiles[profile]["video_pix_fmt"]
         out_vstream.width = w
         out_vstream.height = h
 
+        out_astream = output.add_stream(profiles[profile]["audio_codec"], sample_rate)
+
         for path in paths:
             vframes, aframes = load_frames(path=path)
             if len(vframes) > 0:
-                video = vframes_to_muxable(vframes)
-                for frame in video:
-                    print(frame)
-                    output.mux(out_vstream.encode(frame))
+                video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt"])
+                for frame in video: output.mux(out_vstream.encode(frame))
             if len(aframes) > 0:
-                audio = aframes_to_muxable(aframes)
+                audio = aframes_to_muxable(aframes, target_format=profiles[profile]["audio_format"])
                 for frame in audio: output.mux(out_astream.encode(frame))
 
-        # Flush the encoder
-        out_packet = out_vstream.encode(None)
-        output.mux(out_packet)
+        # Flush the encoders
+        if out_vstream is not None:
+            out_packet = out_vstream.encode(None)
+            output.mux(out_packet)
         if out_astream is not None:
             out_packet = out_astream.encode(None)
             output.mux(out_packet)
 
     return out_path, frontend_data
-
-# path, fedata = mux(
-#     [
-#         '/home/user/ComfyUI/input/freeze.mov',
-#         '/home/user/ComfyUI/input/freeze.mov',
-#     ]
-# )
-# print(path)

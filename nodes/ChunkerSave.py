@@ -1,4 +1,4 @@
-from ..lib.utils_comfy import get_next_save_video_path
+from ..lib.utils_comfy import get_next_save_path
 from ..lib.av.save import save
 
 class ChunkerSave:
@@ -20,7 +20,7 @@ class ChunkerSave:
     CATEGORY = "Chunker"
 
     def execute(self, images=None, masks=None, audio=None, fps=30.0):
-        filename_prefix = "video/chunker/tmp/chunk/lossless"
-        full_path = get_next_save_video_path(filename_prefix)[0]
+        filename_prefix = "video/chunker/lossless_save"
+        full_path = get_next_save_path(filename_prefix)[0]
         path = save(images=images, masks=masks, audio=audio, fps=fps, path=full_path)
         return (path,)

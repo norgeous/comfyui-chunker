@@ -68,10 +68,11 @@ class ChunkerCombine:
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
+            "preview_chunks": [],
+
             "image_chunks": [],
             "mask_chunks": [],
             "audio_chunks": [],
-            "preview_chunks": [],
         }
 
         # save input images, masks and / or audio to file
@@ -80,8 +81,9 @@ class ChunkerCombine:
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            path=get_next_save_path("video/chunker/tmp/chunk/lossless")[0],
-        )
+            profile="lossless",
+            filename_prefix="video/chunker/tmp/chunk/lossless",
+        )[0]
         s["chunks"].append(chunk_path)
 
         # create preview from inputs
@@ -93,17 +95,22 @@ class ChunkerCombine:
             masks=None,
             audio=audio,
             fps=d["fps"],
-            path=get_next_save_path("video/chunker/tmp/preview/lossless")[0],
-        )
+            profile="lossless",
+            filename_prefix="video/chunker/tmp/preview/lossless",
+        )[0]
         s["preview_chunks"].append(preview_path)
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
 
         # combine all preview chunks to a new file, excluding the overlaps
-        filename_prefix = "video/chunker/tmp/chunks/preview_chunks" if not is_done else "video/chunker/tmp/chunks/preview_complete"
-        all_preview_frontend_data = quick_combine(s["preview_chunks"], c["chunk_overlap"], select_overlaps_from, filename_prefix)[1]
-        mux(s["preview_chunks"], path=filename_prefix + "_muxed")
+        log('raw chunks',s["chunks"])
+        all_preview_frontend_data = mux(
+            # paths=s["preview_chunks"],
+            paths=s["chunks"],
+            profile="web-rgba",
+            filename_prefix="video/chunker/tmp/preview/web" if not is_done else "video/chunker/tmp/preview_complete",
+        )[1]
 
         # if no more chunks needed, return early
         if is_done:

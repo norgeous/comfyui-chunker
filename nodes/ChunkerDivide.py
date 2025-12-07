@@ -13,6 +13,7 @@ from ..lib.utils import (
 from ..lib.av.loader import awesome_loader
 from ..lib.av.load_audio import concat_audios
 from ..lib.utils_format import format_audio, format_fps
+from ..lib.utils_av import load
 
 class ChunkerDivide:
     @classmethod
@@ -70,9 +71,11 @@ class ChunkerDivide:
     ):
         s = store if store is not None else {
             "index": 0,
-            "images_last_chunk_path": None,
-            "masks_last_chunk_path": None,
-            "audio_last_chunk_path": None,
+            "last_chunk_path": None,
+
+            # "images_last_chunk_path": None,
+            # "masks_last_chunk_path": None,
+            # "audio_last_chunk_path": None,
         }
 
         if fps is None and mode == "Wan21": fps = 16
@@ -102,34 +105,43 @@ class ChunkerDivide:
         out_masks = []
         out_audio = []
 
-        # get the images overlap from last chunk
-        if s["images_last_chunk_path"] is not None:
-            images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
-            w = images_overlap.shape[2]
-            h = images_overlap.shape[1]
-            out_images.append(images_overlap)
+        # # get the images overlap from last chunk
+        # if s["images_last_chunk_path"] is not None:
+        #     images_overlap = awesome_loader(s["images_last_chunk_path"], start=-chunk_overlap)[0]
+        #     w = images_overlap.shape[2]
+        #     h = images_overlap.shape[1]
+        #     out_images.append(images_overlap)
 
-        # get the masks overlap from last chunk
-        if s["masks_last_chunk_path"] is not None:
-            imasks_overlap = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)[0]
-            masks_overlap = image_to_mask(imasks_overlap)
-            out_masks.append(masks_overlap)
+        # # get the masks overlap from last chunk
+        # if s["masks_last_chunk_path"] is not None:
+        #     imasks_overlap = awesome_loader(s["masks_last_chunk_path"], start=-chunk_overlap)[0]
+        #     masks_overlap = image_to_mask(imasks_overlap)
+        #     out_masks.append(masks_overlap)
 
-        samples_per_frame = math.floor(audio["sample_rate"] / fps)
-        astart = (start + count(out_images)) * samples_per_frame
-        aend = end * samples_per_frame
+        # # get the audio overlap from last chunk
+        # if s["audio_last_chunk_path"] is not None:
+        #     print('loading mp3', s["audio_last_chunk_path"])
+        #     audio_overlap = awesome_loader(s["audio_last_chunk_path"], start=-chunk_overlap)[0]
+        #     out_audio.append(audio_overlap)
 
-        # get the audio overlap from last chunk
-        if s["audio_last_chunk_path"] is not None:
-            print('loading mp3', s["audio_last_chunk_path"])
-            audio_overlap = awesome_loader(s["audio_last_chunk_path"], start=-chunk_overlap)[0]
-            out_audio.append(audio_overlap)
+
+        # get the overlap from the last chunk that Combine saved
+        if s["last_chunk_path"] is not None:
+            overlap_images, overlap_masks, overlap_audio_dict = load(path=s["last_chunk_path"], start_n=-chunk_overlap)
+            w = overlap_images.shape[2]
+            h = overlap_images.shape[1]
+            out_images.append(overlap_images)
+            out_masks.append(overlap_masks)
+            out_audio.append(overlap_audio_dict)
 
         if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
             black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)
             out_masks.append(torch.cat([black_panel] * (count(out_images) - count(out_masks)))) # add same amount of black masks to masks
 
         if audio is not None:
+            samples_per_frame = math.floor(audio["sample_rate"] / fps)
+            astart = (start + count(out_images)) * samples_per_frame
+            aend = end * samples_per_frame
             out_audio.append({
                 "waveform": audio["waveform"][:,:,astart:aend],
                 "sample_rate": audio["sample_rate"],

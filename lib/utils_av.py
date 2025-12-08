@@ -39,7 +39,9 @@ def aframes_to_tensor(frames):
     out_audio = []
     for frame in frames:
         audio = frame.to_ndarray() # shape: (C, S)
+        print('type', audio.dtype)
         audio = torch.from_numpy(audio) # shape: (C, S)
+        print('minimax', audio.dtype, audio.shape)
         out_audio.append(audio)
     if len(out_audio) == 0: return None
     return torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
@@ -73,6 +75,7 @@ def load_frames(path=None, start_n=None, end_n=None):
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
         total_length = vstream.frames
+        if start_n is None: start_n = 0 # missing start fix
         if end_n is None: end_n = total_length # missing end fix
         if start_n < 0: start_n = total_length + start_n # negative start fix
         if end_n < 0: end_n = total_length + end_n # negative end fix
@@ -89,15 +92,16 @@ def load(path=None, start_n=None, end_n=None):
     vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
     video = vframes_to_tensor(vframes)
     audio = aframes_to_tensor(aframes)
-    images = video[:, :, :, :3]
-    masks = video[:, :, :, 3:4]
+    images = video[:, :, :, :3] # keep first 3 channels
+    masks  = video[:, :, :, 3] # keep 4th channel as mask
     if audio is not None:
         sample_rate = aframes[0].sample_rate
         audio_dict = {
             "waveform": audio,
             "sample_rate": sample_rate,
-        }
-    return (images, masks, audio_dict)
+        }        
+        return (images, masks, audio_dict)
+    return (images, masks, None)
 
 def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filename_prefix="chunker_save"):
     if images is None and masks is None and audio is None:

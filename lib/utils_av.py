@@ -21,30 +21,50 @@ profiles = {
     },
 }
 
+vf2f = {
+    "yuv420p": "rgb24",     # shape: (H, W, 3)
+    "yuva444p10le": "rgba", # shape: (H, W, 4)
+    "yuva444p12le": "rgba", # shape: (H, W, 4)
+}
+
 def vframes_to_tensor(frames):
     out_images = []
+    out_masks = []
     for frame in frames:
-        # img = frame.to_ndarray(format='rgb24') # shape: (H, W, 3)
-        # img = torch.from_numpy(img) / 255.0 # shape: (H, W, 3)
-        # img = img.unsqueeze(0) # shape: (1, H, W, 3)
-
-        img = frame.to_ndarray(format='rgba') # shape: (H, W, 4)
-        img = torch.from_numpy(img) / 255.0 # shape: (H, W, 4)
-        img = img.unsqueeze(0) # shape: (1, H, W, 4)
-
-        out_images.append(img)
-    return torch.cat(out_images)
+        img = frame.to_ndarray(format=vf2f[frame.format.name]) # decode frame
+        img = torch.from_numpy(img) / 255.0 # convert uint8 to float32
+        img = img.unsqueeze(0) # shape: (1, H, W, C)
+        image = img[:, :, :, :3] # keep first 3 channels
+        out_images.append(image)
+        if img.shape[3] == 4:
+            mask = img[:, :, :, 3] # keep 4th channel as mask
+            out_masks.append(mask)
+    return (
+        torch.cat(out_images),
+        torch.cat(out_masks) if len(out_masks) > 0 else None,
+    )
 
 def aframes_to_tensor(frames):
     out_audio = []
     for frame in frames:
         audio = frame.to_ndarray() # shape: (C, S)
-        print('type', audio.dtype)
+        # print('type', audio.dtype)
         audio = torch.from_numpy(audio) # shape: (C, S)
-        print('minimax', audio.dtype, audio.shape)
+        # print('minimax', audio.dtype, audio.shape)
         out_audio.append(audio)
     if len(out_audio) == 0: return None
     return torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
+
+
+
+
+
+
+
+
+
+
+
 
 def vframes_to_muxable(frames, target_pix_fmt):
     reformatter = av.video.reformatter.VideoReformatter()
@@ -89,11 +109,14 @@ def load_frames(path=None, start_n=None, end_n=None):
     return out_vframes, out_aframes
 
 def load(path=None, start_n=None, end_n=None):
+    # print('a')
     vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
-    video = vframes_to_tensor(vframes)
+    # print('b')
+    images, masks = vframes_to_tensor(vframes)
+    # print('c')
     audio = aframes_to_tensor(aframes)
-    images = video[:, :, :, :3] # keep first 3 channels
-    masks  = video[:, :, :, 3] # keep 4th channel as mask
+    # print('d')
+    # print(video.shape)
     if audio is not None:
         sample_rate = aframes[0].sample_rate
         audio_dict = {

@@ -186,6 +186,18 @@ app.registerExtension({
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
 
+      "ChunkerLoad": () => {
+        chainCallback(nodeType.prototype, "onConnectInput", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecutionStart", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+        });
+      },
+
       "ChunkerMediaLoader": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           const imagesPath = this.widgets.find(({ name }) => name === "images");
@@ -222,7 +234,7 @@ app.registerExtension({
         });
       },
 
-      "Chunker": () => {
+      "ChunkerDivide": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
         });
@@ -336,6 +348,24 @@ app.registerExtension({
             videoTag.src = `/api/view?${new URLSearchParams(video_path).toString()}`;
             videoTag.volume = 0.5;
           }
+        });
+      },
+
+      "TensorDebug": () => {
+        chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          const element = document.createElement("pre");
+          this.uuid = makeUUID();
+          element.id = `tensor-info-${this.uuid}`;
+          this.addDOMWidget(nodeData.name, "TensorInfo", element, {
+            serialize: false,
+            hideOnZoom: false,
+            getHeight: () => 220,
+          });
+        });
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          const data = ui.values[0];
+          const infoContainer = this.widgets.find(({ type }) => type === "TensorInfo").element;
+          infoContainer.innerText = JSON.stringify(data, null, 2);
         });
       },
     })[nodeData.name]?.()

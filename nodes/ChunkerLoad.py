@@ -30,16 +30,9 @@ class ChunkerLoad:
     CATEGORY = "Chunker"
     DESCRIPTION = "ChunkerLoad"
 
-    def execute(
-        self,
-        path="None",
-    ):
-        # print('1', path)
+    def execute(self, path="None"):
         full_path = folder_paths.get_annotated_filepath(path)
-        # print('2', full_path)
-        out_images, out_masks, out_audio = load(path=full_path)
-        # print('3')
-        fps = 30
+        out_images, out_masks, out_audio, fps = load(path=full_path)
 
         ui_values = {
             "output_label_values": {

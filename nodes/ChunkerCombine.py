@@ -119,7 +119,7 @@ class ChunkerCombine:
                 overlap=c["chunk_overlap"],
                 select_overlaps_from=select_overlaps_from,
             )[0]
-            out_images_torch, out_masks_torch, out_audio_dict = load(path=out_path)
+            out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path)
 
             ui_values = {
                 "input_label_values": {
@@ -144,7 +144,7 @@ class ChunkerCombine:
                 "ui": {"values": [ui_values]},
                 "result":(
                     out_images_torch,
-                    image_to_mask(out_masks_torch),
+                    out_masks_torch,
                     out_audio_dict,
                     d["fps"],
                 )

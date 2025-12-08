@@ -21,8 +21,13 @@ profiles = {
     },
 }
 
-vf2f = {
+f2f = {
+    "rgb24": "rgb24",       # shape: (H, W, 3)
     "yuv420p": "rgb24",     # shape: (H, W, 3)
+    "yuvj444p": "rgb24",     # shape: (H, W, 3)
+    "yuvj420p": "rgb24",     # shape: (H, W, 3)
+
+    "rgba": "rgba", # shape: (H, W, 4)
     "yuva444p10le": "rgba", # shape: (H, W, 4)
     "yuva444p12le": "rgba", # shape: (H, W, 4)
 }
@@ -31,7 +36,7 @@ def vframes_to_tensor(frames):
     out_images = []
     out_masks = []
     for frame in frames:
-        img = frame.to_ndarray(format=vf2f[frame.format.name]) # decode frame
+        img = frame.to_ndarray(format=f2f[frame.format.name]) # decode frame
         img = torch.from_numpy(img) / 255.0 # convert uint8 to float32
         img = img.unsqueeze(0) # shape: (1, H, W, C)
         image = img[:, :, :, :3] # keep first 3 channels
@@ -40,7 +45,7 @@ def vframes_to_tensor(frames):
             mask = img[:, :, :, 3] # keep 4th channel as mask
             out_masks.append(mask)
     return (
-        torch.cat(out_images),
+        torch.cat(out_images) if len(out_images) > 0 else None,
         torch.cat(out_masks) if len(out_masks) > 0 else None,
     )
 
@@ -48,13 +53,20 @@ def aframes_to_tensor(frames):
     out_audio = []
     for frame in frames:
         audio = frame.to_ndarray() # shape: (C, S)
-        # print('type', audio.dtype)
+        scaling_factor = 1.0
+        if np.issubdtype(audio.dtype, np.integer):
+            info = np.iinfo(audio.dtype)
+            scaling_factor = float(max(abs(info.min), abs(info.max)))
+        audio = audio.astype(np.float32) / scaling_factor # shape: (C, S)
         audio = torch.from_numpy(audio) # shape: (C, S)
-        # print('minimax', audio.dtype, audio.shape)
         out_audio.append(audio)
     if len(out_audio) == 0: return None
-    return torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
-
+    out_audio_torch = torch.cat(out_audio, dim=1).unsqueeze(0) # shape: (1, C, S) - one batch with all samples
+    audio_dict = {
+        "waveform": out_audio_torch,
+        "sample_rate": frames[0].sample_rate
+    }        
+    return audio_dict
 
 
 
@@ -91,40 +103,34 @@ def aframes_to_muxable(frames, target_format):
 def load_frames(path=None, start_n=None, end_n=None):
     out_vframes = []
     out_aframes = []
+    fps = None
     with av.open(path) as container:
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
         total_length = vstream.frames
+        if vstream is not None: fps = vstream.average_rate
+
+        if total_length == 0: total_length = 1
+        
         if start_n is None: start_n = 0 # missing start fix
         if end_n is None: end_n = total_length # missing end fix
         if start_n < 0: start_n = total_length + start_n # negative start fix
         if end_n < 0: end_n = total_length + end_n # negative end fix
         vcount = 0
         for frame in container.decode(vstream, astream):
+            # print(frame, total_length, vcount, start_n, end_n)
             if vcount >= start_n and vcount < end_n:
                 if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
                 if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
             if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
             if len(out_vframes) >= end_n - start_n: break
-    return out_vframes, out_aframes
+    return out_vframes, out_aframes, fps
 
 def load(path=None, start_n=None, end_n=None):
-    # print('a')
-    vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
-    # print('b')
+    vframes, aframes, fps = load_frames(path=path, start_n=start_n, end_n=end_n)
     images, masks = vframes_to_tensor(vframes)
-    # print('c')
     audio = aframes_to_tensor(aframes)
-    # print('d')
-    # print(video.shape)
-    if audio is not None:
-        sample_rate = aframes[0].sample_rate
-        audio_dict = {
-            "waveform": audio,
-            "sample_rate": sample_rate,
-        }        
-        return (images, masks, audio_dict)
-    return (images, masks, None)
+    return (images, masks, audio, fps)
 
 def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filename_prefix="chunker_save"):
     if images is None and masks is None and audio is None:
@@ -172,7 +178,10 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
         if audio is not None:
             waveform = audio["waveform"]
             layout = 'mono' if waveform.shape[1] == 1 else 'stereo'
-            audio_ndarray = waveform.squeeze(0).cpu().numpy().astype(np.int32)
+            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int32).max).astype(np.int32)
+
+            # print(audio_ndarray.shape, audio_ndarray.dtype, torch.min(audio_ndarray).item(), torch.min(waveform).item())
+
             frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
             frame.sample_rate = sample_rate
             for packet in audio_stream.encode(frame):
@@ -210,7 +219,7 @@ def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, sel
             is_final_chunk = i == len(paths) - 1
             start_n = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else None
             end_n = -overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else None
-            vframes, aframes = load_frames(path=path, start_n=start_n, end_n=end_n)
+            vframes, aframes, fps = load_frames(path=path, start_n=start_n, end_n=end_n)
             if len(vframes) > 0:
                 video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt"])
                 for frame in video: output.mux(out_vstream.encode(frame))

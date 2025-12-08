@@ -101,7 +101,7 @@ class ChunkerDivide:
 
         # get the overlap from the last chunk that Combine saved
         if s["last_chunk_path"] is not None:
-            overlap_images, overlap_masks, overlap_audio_dict = load(path=s["last_chunk_path"], start_n=-chunk_overlap)
+            overlap_images, overlap_masks, overlap_audio_dict, fps = load(path=s["last_chunk_path"], start_n=-chunk_overlap)
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]
             out_images.append(overlap_images)

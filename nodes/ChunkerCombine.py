@@ -66,17 +66,20 @@ class ChunkerCombine:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
 
         # save input images, masks and / or audio to lossless file
+        log("Save chunk...", end="")
         chunk_path = save(
             images=images,
             masks=masks,
             audio=audio,
             fps=d["fps"],
             profile="lossless",
-            filename_prefix="video/chunker/tmp/chunk/lossless",
+            filename_prefix="video/chunker/tmp/chunk",
         )[0]
         s["chunks"].append(chunk_path)
+        print("done")
 
         # create and save preview from inputs
+        log("Create preview...", end="")
         preview = create_preview_video(images, masks, show_debug, d, c)
         preview_path = save(
             images=preview,
@@ -84,24 +87,28 @@ class ChunkerCombine:
             audio=audio,
             fps=d["fps"],
             profile="lossless",
-            filename_prefix="video/chunker/tmp/preview/lossless",
+            filename_prefix="video/chunker/tmp/preview",
         )[0]
         s["preview_chunks"].append(preview_path)
+        print("done")
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
 
         # combine all preview chunks to a new file, excluding the overlaps
+        log("Mux preview...", end="")
         all_preview_frontend_data = mux(
             paths=s["preview_chunks"],
             profile="web-rgba",
-            filename_prefix="video/chunker/tmp/preview/web",
+            filename_prefix="video/chunker/tmp/preview-web",
             overlap=c["chunk_overlap"],
             select_overlaps_from=select_overlaps_from,
         )[1]
+        print("done")
 
         # if no more chunks needed, return early
         if is_done:
+            log("Mux chunks...", end="")
             out_path = mux(
                 paths=s["chunks"],
                 profile="lossless",
@@ -109,7 +116,11 @@ class ChunkerCombine:
                 overlap=c["chunk_overlap"],
                 select_overlaps_from=select_overlaps_from,
             )[0]
+            print("done")
+ 
+            log("Load final tensors...", end="")
             out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path)
+            print("done")
 
             ui_values = {
                 "input_label_values": {

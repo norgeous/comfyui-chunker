@@ -1,18 +1,8 @@
-# import torch
-# import math
 from comfy_execution.graph_utils import GraphBuilder
-from ..lib.utils import (
-    log,
-    # mask_to_image,
-    image_to_mask,
-)
-# from ..lib.utils_comfy import get_next_save_path
+from ..lib.utils import log, resize_mask
 from ..lib.utils_av import save, mux, load
-
 from ..lib.debug_overlay import create_preview_video
 from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type
-# from ..lib.av.loader import awesome_loader, quick_combine, save_video, save_audio
-# from ..lib.av.load_audio import concat_audios
 from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerCombine:
@@ -61,19 +51,19 @@ class ChunkerCombine:
         dynprompt=None,
         unique_id=None,
     ):
-        # if images is None and masks is None:
-        #     raise Exception("Please provide images OR masks")
+        if images is None and masks is None and audio is None:
+            raise ValueError("At least one of images, masks, or audio must be provided.")
 
         d = chunker_data
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
             "preview_chunks": [],
-
-            "image_chunks": [],
-            "mask_chunks": [],
-            "audio_chunks": [],
         }
+
+        # resize masks to match images size
+        if images is not None and masks is not None:
+            masks = resize_mask(masks, images.shape[2], images.shape[1])
 
         # save input images, masks and / or audio to lossless file
         chunk_path = save(

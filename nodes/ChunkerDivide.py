@@ -79,7 +79,7 @@ class ChunkerDivide:
         if total_length == 0:
             total_length = max(
                 len(images) if images is not None else 0,
-                len(masks) if images is not None else 0,
+                len(masks) if masks is not None else 0,
             )
 
         if mode == "Wan21" or mode == "Wan22":
@@ -100,13 +100,13 @@ class ChunkerDivide:
         out_audio = []
 
         # get the overlap from the last chunk that Combine saved
-        if s["last_chunk_path"] is not None:
+        if s["last_chunk_path"] is not None and chunk_overlap > 0:
             overlap_images, overlap_masks, overlap_audio_dict, fps = load(path=s["last_chunk_path"], start_n=-chunk_overlap)
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]
-            out_images.append(overlap_images)
-            out_masks.append(overlap_masks)
-            out_audio.append(overlap_audio_dict)
+            if overlap_images is not None: out_images.append(overlap_images)
+            if overlap_masks is not None: out_masks.append(overlap_masks)
+            if overlap_audio_dict is not None: out_audio.append(overlap_audio_dict)
 
         if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
             black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)

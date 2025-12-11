@@ -244,54 +244,44 @@ def awesome_loader(path, start=0, end=None, return_masks=False):
         audio = load_audio_chunk(path, start_n=start, end_n=end)
         return (audio,)
 
-def get_next_save_video_path(filename_prefix):
-    format = "auto"
-    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
-        filename_prefix,
-        folder_paths.get_output_directory(),
-    )
-    file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
-    full_path = os.path.join(full_output_folder, file)
-    return (
-        full_path,
-        {
-            "filename": file,
-            "subfolder": subfolder,
-            "type": "output",
-        },
-    )
+# def get_next_save_video_path(filename_prefix):
+#     format = "auto"
+#     full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+#         filename_prefix,
+#         folder_paths.get_output_directory(),
+#     )
+#     file = f"{filename}_{counter:05}_.{VideoContainer.get_extension(format)}"
+#     full_path = os.path.join(full_output_folder, file)
+#     return (
+#         full_path,
+#         {
+#             "filename": file,
+#             "subfolder": subfolder,
+#             "type": "output",
+#         },
+#     )
 
-def save_video(images, fps, filename_prefix, audio=None):
-    format = "auto"
-    codec = "auto"
-    create_video_node = CreateVideo()
-    video = create_video_node.execute(images, fps, audio)[0]
-    full_path, frontend_data = get_next_save_video_path(filename_prefix)
-    video.save_to(full_path, format=format, codec=codec, metadata=None)
-    return (
-        full_path,
-        frontend_data,
-    )
+# def save_video(images, fps, filename_prefix, audio=None):
+#     format = "auto"
+#     codec = "auto"
+#     create_video_node = CreateVideo()
+#     video = create_video_node.execute(images, fps, audio)[0]
+#     full_path, frontend_data = get_next_save_video_path(filename_prefix)
+#     video.save_to(full_path, format=format, codec=codec, metadata=None)
+#     return (
+#         full_path,
+#         frontend_data,
+#     )
 
-def save_audio(audio, filename_prefix):
-    # format = "auto"
-    # codec = "auto"
-    save_audio_node = SaveAudioMP3()
-    # full_path, frontend_data = get_next_save_video_path(filename_prefix)
-    #print(save_audio_node)
-    full_path, frontend_data = get_next_save_video_path(filename_prefix)
-    full_path = full_path.replace('mp4','mp3')
-
-    print(full_path, frontend_data)
-
-    audio_save = save_audio_node.save_mp3(audio, filename_prefix=filename_prefix, format="mp3", quality="128k")
-    # video.save_to(full_path, format=format, codec=codec, metadata=None)
-    print(audio_save)
-
-    return (
-        full_path,
-        frontend_data,
-    )
+# def save_audio(audio, filename_prefix):
+#     save_audio_node = SaveAudioMP3()
+#     full_path, frontend_data = get_next_save_video_path(filename_prefix)
+#     full_path = full_path.replace('mp4','mp3')
+#     audio_save = save_audio_node.save_mp3(audio, filename_prefix=filename_prefix, format="mp3", quality="128k")
+#     return (
+#         full_path,
+#         frontend_data,
+#     )
 
 # modified from https://stackoverflow.com/a/75429028
 def quick_combine(paths, overlap, select_overlaps_from, filename_prefix):

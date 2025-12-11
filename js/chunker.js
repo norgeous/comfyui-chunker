@@ -114,7 +114,7 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
   chainCallback(that, "onRemoved", () => fileInput?.remove());
   Object.assign(fileInput, {
     type: "file",
-    accept: ["video/mp4", "image/png", "image/jpeg"].join(','),
+    accept: ["video/mp4", "video/mov", "video/webm", "image/png", "image/jpeg", "audio/mp3"].join(','),
     style: "display: none",
     onchange: async () => {
       if (fileInput.files.length) {
@@ -187,41 +187,8 @@ app.registerExtension({
     ({
 
       "ChunkerLoad": () => {
-        chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this);
-        });
-        chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this);
-        });
-        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          updateLabels(this, ui.values[0]);
-        });
-      },
-
-      "ChunkerMediaLoader": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
-          const imagesPath = this.widgets.find(({ name }) => name === "images");
-          const masksPath = this.widgets.find(({ name }) => name === "masks");
-
-          setTimeout(()=>{
-            fetchFirstFrame(this, imagesPath.value);
-          });
-
-          imagesPath.callback = value => {
-            if (imagesPath.previousValue !== value) imagesPath.previousValue = value;
-            else return; // block execution if same value twice
-            fetchFirstFrame(this, value);
-          };
-
-          // hide inputs
-          //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
-          setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
-          //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
-          //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
-
-          addUploadWidget(this, nodeType, "images", "choose images to upload");
-          addUploadWidget(this, nodeType, "masks", "choose masks to upload");
+          addUploadWidget(this, nodeType, "images", "choose file to upload");
         });
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this);
@@ -233,6 +200,42 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
         });
       },
+
+      // "ChunkerMediaLoader": () => {
+      //   chainCallback(nodeType.prototype, "onNodeCreated", function () {
+      //     const imagesPath = this.widgets.find(({ name }) => name === "images");
+      //     const masksPath = this.widgets.find(({ name }) => name === "masks");
+
+      //     setTimeout(()=>{
+      //       fetchFirstFrame(this, imagesPath.value);
+      //     });
+
+      //     imagesPath.callback = value => {
+      //       if (imagesPath.previousValue !== value) imagesPath.previousValue = value;
+      //       else return; // block execution if same value twice
+      //       fetchFirstFrame(this, value);
+      //     };
+
+      //     // hide inputs
+      //     //setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
+      //     setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image")));
+      //     setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "image_paint")));
+      //     //this.widgets.find(({ name }) => name === "image").computeSize = () => [0, -4];
+      //     //this.widgets.find(({ name }) => name === "image_paint").computeSize = () => [0, -4];
+
+      //     addUploadWidget(this, nodeType, "images", "choose images to upload");
+      //     addUploadWidget(this, nodeType, "masks", "choose masks to upload");
+      //   });
+      //   chainCallback(nodeType.prototype, "onConnectInput", function () {
+      //     updateLabels(this);
+      //   });
+      //   chainCallback(nodeType.prototype, "onExecutionStart", function () {
+      //     updateLabels(this);
+      //   });
+      //   chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+      //     updateLabels(this, ui.values[0]);
+      //   });
+      // },
 
       "ChunkerDivide": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
@@ -342,6 +345,47 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
           const { image_count, index, chunk_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
+          const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
+          if (video_path) {
+            const videoTag  = infoContainer.querySelector("video");
+            videoTag.src = `/api/view?${new URLSearchParams(video_path).toString()}`;
+            videoTag.volume = 0.5;
+          }
+        });
+      },
+
+
+      "ChunkerSave": () => {
+        chainCallback(nodeType.prototype, "onNodeCreated", function () {
+          // create chunk info widget
+          const element = document.createElement("div");
+          element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`);
+          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100%); background:var(--hdr-gradient);" />`);
+          element.style.display = "flex";
+          element.style.flexDirection = "column";
+          element.style.gap = "2px";
+          element.style.fontSize = "10px";
+          element.style.textAlign = "center";
+          element.style.color = "var(--descrip-text)";
+
+          this.uuid = makeUUID();
+          element.id = `chunk-info-${this.uuid}`;
+          this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
+            serialize: false,
+            hideOnZoom: false,
+            getHeight: () => 220,
+          });
+        });
+
+        chainCallback(nodeType.prototype, "onConnectInput", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecutionStart", function () {
+          updateLabels(this);
+        });
+        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+          updateLabels(this, ui.values[0]);
+          const { video_path } = ui.values[0];
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           if (video_path) {
             const videoTag  = infoContainer.querySelector("video");

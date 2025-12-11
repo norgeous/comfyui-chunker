@@ -1,4 +1,4 @@
-from ..lib.utils_av import save
+from ..lib.utils_av import profile_names, save
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps
 
 class ChunkerSave:
@@ -7,6 +7,7 @@ class ChunkerSave:
         return {
             "required": {
                 "fps": ("FLOAT", {"default": 30}),
+                "profile": (profile_names, {"default": profile_names[0]}),
                 "path": ("STRING", {"default": "video/chunker/save"}),
             },
             "optional": {
@@ -16,12 +17,12 @@ class ChunkerSave:
             }
         }
     RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("path")
+    RETURN_NAMES = ("path",)
     FUNCTION = "execute"
     CATEGORY = "Chunker"
     OUTPUT_NODE = True
 
-    def execute(self, fps, path, images=None, masks=None, audio=None):
+    def execute(self, fps, profile, path, images=None, masks=None, audio=None):
         if images is None and masks is None and audio is None:
             raise ValueError("At least one of images, masks, or audio must be provided.")
 
@@ -30,6 +31,7 @@ class ChunkerSave:
             masks=masks,
             audio=audio,
             fps=fps,
+            profile=profile,
             filename_prefix=path,
         )
 

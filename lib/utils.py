@@ -78,6 +78,6 @@ def get_input_filenames():
     for f in os.listdir(input_dir):
         if os.path.isfile(os.path.join(input_dir, f)):
             file_parts = f.split('.')
-            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4", "mov", "png", "jpeg", "jpg", "mp3"]):
+            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4", "mov", "webm", "png", "jpeg", "jpg", "mp3"]):
                 files.append(f)
     return files

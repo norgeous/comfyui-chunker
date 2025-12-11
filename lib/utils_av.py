@@ -158,7 +158,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
         # Audio stream setup
         if audio is not None:
             sample_rate = audio["sample_rate"]
-            audio_stream = container.add_stream('alac', rate=int(sample_rate))
+            audio_stream = container.add_stream(profiles[profile]["audio_codec"], rate=int(sample_rate))
 
         # Combine images and masks into RGBA format and write to video stream
         if images is not None or masks is not None:
@@ -169,8 +169,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
                     frame = av.VideoFrame.from_ndarray(img, format='rgb24')
                 else:
                     mask = masks[i] 
-                    if mask is not None: # else torch.full((H, W, 1), 1)
-                        # mask = resize_mask(mask, W, H)
+                    if mask is not None:
                         mask = (mask * 255).cpu().numpy().astype(np.uint8)
                         mask = mask.reshape((H, W, 1))
                         rgba = np.concatenate([img, mask], axis=2)

@@ -87,7 +87,7 @@ def vframes_to_muxable(frames, target_pix_fmt):
     reformatter = av.video.reformatter.VideoReformatter()
     out_images = []
     for frame in frames:
-        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=f2f[frame.format.name]), format=f2f[frame.format.name]) # direct  convert to yuva420p is not supported currently
+        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=f2f[frame.format.name]), format=f2f[frame.format.name]) # direct convert to yuva420p is not supported currently
         new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
         out_images.append(new_frame)
     return out_images

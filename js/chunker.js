@@ -190,12 +190,12 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           addUploadWidget(this, nodeType, "images", "choose file to upload");
         });
-        chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this);
-        });
-        chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this);
-        });
+        // chainCallback(nodeType.prototype, "onConnectInput", function () {
+        //   updateLabels(this);
+        // });
+        // chainCallback(nodeType.prototype, "onExecutionStart", function () {
+        //   updateLabels(this);
+        // });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
         });
@@ -249,6 +249,8 @@ app.registerExtension({
         });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
+          // const { timestamp2 } = this.store.get();
+          // if (!timestamp2) this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
       },
 
@@ -273,7 +275,7 @@ app.registerExtension({
           const element = document.createElement("div");
           const statusHeight = 32;
           element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:black;" />`);
+          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:var(--hdr-gradient);" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";
           element.style.gap = "2px";
@@ -290,7 +292,7 @@ app.registerExtension({
             const { timestamp1, timestamp2, index = 0, chunk_count = 0 } = this.store.get();
 
             if (!timestamp2) {
-              element.querySelector("#status").innerHTML = "";
+              element.querySelector("#status").innerHTML = "Awaiting ChunkerDivide...";
               return;
             }
 
@@ -336,14 +338,13 @@ app.registerExtension({
         });
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this);
-          this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
         });
-        chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
-          //console.log("onAfterExecuteNode");
-        });
+        // chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
+        //   //console.log("onAfterExecuteNode");
+        // });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
-          const { image_count, index, chunk_count, video_path } = ui.values[0];
+          const { index, chunk_count, video_path } = ui.values[0];
           this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           if (video_path) {
@@ -359,7 +360,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // create chunk info widget
           const element = document.createElement("div");
-          element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`);
+          element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`); // todo
           element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100%); background:var(--hdr-gradient);" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";

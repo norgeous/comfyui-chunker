@@ -61,7 +61,7 @@ class ChunkerCombine:
             "preview_chunks": [],
         }
 
-        # resize masks to match images size
+        # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
 
@@ -72,7 +72,7 @@ class ChunkerCombine:
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            profile="lossless",
+            profile="web",
             filename_prefix="video/chunker/tmp/chunk",
         )[0]
         s["chunks"].append(chunk_path)
@@ -86,7 +86,7 @@ class ChunkerCombine:
             masks=None,
             audio=audio,
             fps=d["fps"],
-            profile="lossless",
+            profile="web",
             filename_prefix="video/chunker/tmp/preview",
         )[0]
         s["preview_chunks"].append(preview_path)
@@ -99,7 +99,7 @@ class ChunkerCombine:
         log("Mux preview...", end="")
         all_preview_frontend_data = mux(
             paths=s["preview_chunks"],
-            profile="web-rgba",
+            profile="web",
             filename_prefix="video/chunker/tmp/preview-web",
             overlap=c["chunk_overlap"],
             select_overlaps_from=select_overlaps_from,
@@ -108,10 +108,10 @@ class ChunkerCombine:
 
         # if no more chunks needed, return early
         if is_done:
-            log("Mux chunks...", end="")
+            log("Mux all chunks...", end="")
             out_path = mux(
                 paths=s["chunks"],
-                profile="lossless",
+                profile="web",
                 filename_prefix="video/chunker/final",
                 overlap=c["chunk_overlap"],
                 select_overlaps_from=select_overlaps_from,
@@ -155,14 +155,14 @@ class ChunkerCombine:
         graph = GraphBuilder()
         comfyui_repeat_nodes(dynprompt, graph, unique_id, d["start_node_id"])
 
-        # update the store in the new_chunker
-        new_chunker = graph.lookup_node(d["start_node_id"])
-        new_chunker.set_input("store", {
+        # update the store in the new_divide
+        new_divide = graph.lookup_node(d["start_node_id"])
+        new_divide.set_input("store", {
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None, # filename of last chunk saved
         })
 
-        # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan)
+        # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan21)
         ids = get_node_ids_by_type(graph.finalize(), "KSampler")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")
@@ -170,7 +170,7 @@ class ChunkerCombine:
             seed = node.get_input("seed")
             node.set_input("seed", seed + d["index"] + 1)
 
-        # increment seeds in cloned KSamplersAdvanced, to prevent same motion in each chunk (for Wan)
+        # increment seeds in cloned KSamplersAdvanced, to prevent same motion in each chunk (for Wan22)
         ids = get_node_ids_by_type(graph.finalize(), "KSamplerAdvanced")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")
@@ -204,10 +204,10 @@ class ChunkerCombine:
         return {
             "ui": {"values": [ui_values]},
             "result": (
-                new_combine.out(0),
-                new_combine.out(1),
-                new_combine.out(2),
-                new_combine.out(3),
+                new_combine.out(0), # images
+                new_combine.out(1), # masks
+                new_combine.out(2), # audio
+                new_combine.out(3), # fps
             ),
             "expand": graph.finalize(),
         }

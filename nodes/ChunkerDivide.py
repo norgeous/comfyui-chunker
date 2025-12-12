@@ -95,6 +95,16 @@ class ChunkerDivide:
         end = start + chunk_length
         chunk_count = math.ceil((total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
+        c = {
+            "mode": mode,
+            "chunk_length": chunk_length,
+            "chunk_overlap": chunk_overlap,
+            "total_length": total_length,
+            "chunk_count": chunk_count,
+        }
+
+        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
+
         out_images = []
         out_masks = []
         out_audio = []
@@ -160,14 +170,6 @@ class ChunkerDivide:
         if len(out_audio) > 0:
             out_audio_dict = concat_audios(out_audio)
 
-        c = {
-            "mode": mode,
-            "chunk_length": chunk_length,
-            "chunk_overlap": chunk_overlap,
-            "total_length": total_length,
-            "chunk_count": chunk_count,
-        }
-
         chunker_data = {
             "start_node_id": unique_id,
             "index": s["index"],
@@ -195,8 +197,6 @@ class ChunkerDivide:
                 "index": s["index"],
             },
         }
-
-        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
 
         return {
             "ui": {"values": [ui_values]},

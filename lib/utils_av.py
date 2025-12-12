@@ -5,6 +5,14 @@ from fractions import Fraction
 from .utils_comfy import get_next_save_path
 
 profiles = {
+    "web": {
+        "extension": "webm",
+        "video_codec": "libvpx-vp9",
+        "video_pix_fmt_rgb": "yuv420p",
+        "video_pix_fmt_rgba": "yuva420p",
+        "audio_codec": "vorbis",
+        "audio_format": "s16", # previously "s16p",
+    },
     "lossless": {
         "extension": "mov",
         "video_codec": "prores_ks",
@@ -13,14 +21,8 @@ profiles = {
         "audio_codec": "alac",
         "audio_format": "fltp",
     },
-    "web-rgba": {
-        "extension": "webm",
-        "video_codec": "vp9",
-        "video_pix_fmt_rgba": "yuva420p",
-        "audio_codec": "vorbis",
-        "audio_format": "s16p",
-    },
 }
+profile_names = list(profiles.keys())
 
 f2f = {
     "rgb24": "rgb24",       # shape: (H, W, 3)
@@ -85,14 +87,14 @@ def vframes_to_muxable(frames, target_pix_fmt):
     reformatter = av.video.reformatter.VideoReformatter()
     out_images = []
     for frame in frames:
-        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format="rgba"), format="rgba") # convert to yuva420p is not supported currently
+        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=f2f[frame.format.name]), format=f2f[frame.format.name]) # direct  convert to yuva420p is not supported currently
         new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
         out_images.append(new_frame)
     return out_images
 
-def aframes_to_muxable(frames, target_format):
+def aframes_to_muxable(frames, target_audio_format):
     resampler = av.AudioResampler(
-        format=target_format,
+        format=target_audio_format,
         layout=frames[0].layout,
         rate=frames[0].sample_rate,
     )
@@ -110,22 +112,29 @@ def load_frames(path=None, start_n=None, end_n=None):
     with av.open(path) as container:
         vstream = container.streams.video[0] if len(container.streams.video) > 0 else None
         astream = container.streams.audio[0] if len(container.streams.audio) > 0 else None
-        total_length = vstream.frames
         if vstream is not None: fps = vstream.average_rate
-
-        if total_length == 0: total_length = 1
-        
-        if start_n is None: start_n = 0 # missing start fix
-        if end_n is None: end_n = total_length # missing end fix
-        if end_n == 0: end_n = total_length # zero end fix
-        if start_n < 0: start_n = total_length + start_n # negative start fix
-        if end_n < 0: end_n = total_length + end_n # negative end fix
+        # sadly, vstream.frames is not reliable, so we have to decode all frames to count them
         vcount = 0
+        acount = 0
+        frames = []
         for frame in container.decode(vstream, astream):
-            if vcount >= start_n and vcount < end_n:
+            if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
+            if isinstance(frame, av.audio.frame.AudioFrame): acount += 1
+            frames.append(frame)
+        print("vcount", vcount)
+        print("acount", acount)
+        if start_n is None: start_n = 0 # missing start fix
+        if end_n is None: end_n = vcount # missing end fix
+        if end_n == 0: end_n = vcount # zero end fix
+        if start_n < 0: start_n = vcount + start_n # negative start fix
+        if end_n < 0: end_n = vcount + end_n # negative end fix
+        vcount2 = 0
+        for frame in frames:
+            # print('v' if isinstance(frame, av.video.frame.VideoFrame) else 'a', end="")
+            if vcount2 >= start_n and vcount2 < end_n:
                 if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
                 if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
-            if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
+            if isinstance(frame, av.video.frame.VideoFrame): vcount2 += 1
             if len(out_vframes) >= end_n - start_n: break
     return out_vframes, out_aframes, fps
 
@@ -135,7 +144,7 @@ def load(path=None, start_n=None, end_n=None):
     audio = aframes_to_tensor(aframes)
     return (images, masks, audio, fps)
 
-def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filename_prefix="video/chunker/save"):
+def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], filename_prefix="video/chunker/save"):
     if images is None and masks is None and audio is None:
         raise ValueError("At least one of images, masks, or audio must be provided.")
 
@@ -149,8 +158,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
             )
             W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
             H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
-            ffps = Fraction(fps)
-            video_stream = container.add_stream(profiles[profile]["video_codec"], rate=ffps)
+            video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(fps))
             video_stream.pix_fmt = profiles[profile]["video_pix_fmt_rgb"] if masks is None else profiles[profile]["video_pix_fmt_rgba"]
             video_stream.width = W
             video_stream.height = H
@@ -198,7 +206,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile="lossless", filena
 
     return out_path, frontend_data
 
-def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, select_overlaps_from="this_chunk"):
+def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
     # probe first file
     input1 = av.open(paths[0])
     input1_vstream = input1.streams.video[0] if len(input1.streams.video) > 0 else None
@@ -207,13 +215,13 @@ def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, sel
     sample_rate = input1_astream.codec_context.rate if input1_astream else None
     w = input1_vstream.codec_context.width if input1_vstream else None
     h = input1_vstream.codec_context.height if input1_vstream else None
-    # pix_fmt = input1_vstream.pix_fmt if input1_vstream else None
+    pix_fmt = input1_vstream.pix_fmt if input1_vstream else None
     input1.close()
 
     out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
     with av.open(out_path, 'w') as output:
         out_vstream = output.add_stream(profiles[profile]["video_codec"], fps)
-        out_vstream.pix_fmt = profiles[profile]["video_pix_fmt_rgba"] # todo
+        out_vstream.pix_fmt = pix_fmt # profiles[profile]["video_pix_fmt_rgba"] # todo
         out_vstream.width = w
         out_vstream.height = h
 
@@ -230,7 +238,7 @@ def mux(paths, profile="lossless", filename_prefix="chunker_mux", overlap=0, sel
                 video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt_rgba"])
                 for frame in video: output.mux(out_vstream.encode(frame))
             if len(aframes) > 0:
-                audio = aframes_to_muxable(aframes, target_format=profiles[profile]["audio_format"])
+                audio = aframes_to_muxable(aframes, target_audio_format=profiles[profile]["audio_format"])
                 for frame in audio: output.mux(out_astream.encode(frame))
 
         # Flush the encoders

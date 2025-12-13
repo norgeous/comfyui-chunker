@@ -28,14 +28,15 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
   - 1 mp4 with alpha sbs
   - webm (problem:cant decode alpha)
   - mov - (problem:huge file)
+- KSampler with seed connected to values causes Combine to error
 - remove extra nodes
 - Tidy unused code
 - revise readme and samples
 - finalise a few workflows with animated preview
   - chunker-t2v
   - chunker-sam3
-  - chunker-vace
-  - chunker-fl
+  - chunker-wan21vace
+  - chunker-wan22fl
 - test everything
 - trash this repo make a new one with one commit
 - publish to comfyui-manager via PR
@@ -71,5 +72,4 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - VACE sometimes rejects the size (esp. some smaller sizes)
 - When using Load Image with mask connected, but no mask drawn, then Chunker throws error
-- KSampler with seed connected to values causes Combine to error
-- Can't have 2x divide+combine in same workflow because execution order means out of vram error is likely
+- Can't have 2x sequencial divide+combine in same workflow because random ComfyUI execution order means out of vram error is likely

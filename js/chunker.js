@@ -249,8 +249,10 @@ app.registerExtension({
         });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
-          // const { timestamp2 } = this.store.get();
-          // if (!timestamp2) this.store.set({ timestamp1: undefined, timestamp2: Date.now(), index: undefined, chunk_count: undefined });
+
+          if (ui.values[0].output_label_values.index === 0) {
+            document.querySelectorAll('#data_store').forEach(store => store.innerHTML = JSON.stringify({ timestamp2: Date.now() }));
+          }
         });
       },
 
@@ -274,6 +276,7 @@ app.registerExtension({
           // create chunk info widget
           const element = document.createElement("div");
           const statusHeight = 32;
+          element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`);
           element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
           element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:var(--hdr-gradient);" />`);
           element.style.display = "flex";

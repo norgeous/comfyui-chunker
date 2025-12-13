@@ -22,6 +22,12 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 
 ## prep for release
+- decide on intermediate format:
+  - 2 mp4s
+  - 1 mp4 with 2 streams
+  - 1 mp4 with alpha sbs
+  - webm (problem:cant decode alpha)
+  - mov - (problem:huge file)
 - remove extra nodes
 - Tidy unused code
 - revise readme and samples

@@ -14,24 +14,22 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 ## Nodes
 
-### 🍫 Chunker
+### 🍫 Divide
 
 ### 🍫 Combine
 
+### 🍫 VACE To First Last
 
-## Donations
-
-- ??
-
-## Known bugs
-
-- VACE sometimes rejects the size (esp. some smaller sizes)
-- When using Load Image with mask connected, but no mask drawn, then Chunker throws error
-- KSampler with seed connected to values causes Combine to error
 
 ## prep for release
+- remove extra nodes
+- Tidy unused code
 - revise readme and samples
-- finalise a few workflows
+- finalise a few workflows with animated preview
+  - chunker-t2v
+  - chunker-sam3
+  - chunker-vace
+  - chunker-fl
 - test everything
 - trash this repo make a new one with one commit
 - publish to comfyui-manager via PR
@@ -57,3 +55,15 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
     - for swapping the width and height
     - for setting up a mega pixel value?
       - maybe just a megapixel value instead of width/height, etc?
+
+
+## Donations
+
+- ??
+
+## Known bugs
+
+- VACE sometimes rejects the size (esp. some smaller sizes)
+- When using Load Image with mask connected, but no mask drawn, then Chunker throws error
+- KSampler with seed connected to values causes Combine to error
+- Can't have 2x divide+combine in same workflow because execution order means out of vram error is likely

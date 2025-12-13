@@ -30,12 +30,12 @@ def tensor2pil(image):
 #     return pil2tensor(Image.new('RGB', (w, h), (v, v, v)).convert('L'))
 
 def mask_to_image(mask):
-    if mask is None: return None;
+    if mask is None: return None
     image = mask.reshape((-1, 1, mask.shape[-2], mask.shape[-1])).movedim(1, -1).expand(-1, -1, -1, 3)
     return image
 
 def image_to_mask(image):
-    if image is None: return None;
+    if image is None: return None
     mask = image[:, :, :, 0] # keep first 3 dimensions, choose index 0 (red) for new channel
     return mask
 

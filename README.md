@@ -16,10 +16,17 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 ### 🍫 Divide
 
+- Chop large av tensor (images, masks or audio) into smaller chunks and process the chunks sequentially.
+- Optionally use the end of last chunk as start of this chunk (overlap).
+
 ### 🍫 Combine
+
+- Combine sequential chunks back into single tensors
 
 ### 🍫 VACE To First Last
 
+- Convert an i2v VACE control_video into First Last frames
+- A fully grey first or last image in the input control_video will result in `None` output for the corresponding `clip_vision_` and `_image`
 
 ## prep for release
 - decide on intermediate format:
@@ -44,7 +51,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 ## Future / Ideas
 
-- Make compaitable with non wan, eg sam2
 - Chunker Composer idea
   - for i2v
   - takes a set of images and masks and generates a control_video and masks for Chunker to consume
@@ -54,15 +60,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
     - fill middle of chunk with blank panels 
     - put 2nd image as last image
   - it needs to discover or be told the chunk length and overlap settings and use them in the calculations
-- size selector ui idea
-  - Remove (or hide) "width" and "height" and "aspect" inputs?
-  - Remove "Swap Width / Height" button
-  - add a new button with called "Size selector" or "Resize options..."
-  - clicking the button shows a new dialog box
-    - for selecting the width and height to some known values
-    - for swapping the width and height
-    - for setting up a mega pixel value?
-      - maybe just a megapixel value instead of width/height, etc?
 
 
 ## Donations

@@ -5,19 +5,26 @@ from fractions import Fraction
 from .utils_comfy import get_next_save_path
 
 profiles = {
-    "web": {
+    "webm": {
         "extension": "webm",
         "video_codec": "libvpx-vp9",
-        "video_pix_fmt_rgb": "yuv420p",
-        "video_pix_fmt_rgba": "yuva420p",
+        "video_pix_fmt": "yuva420p",
         "audio_codec": "vorbis",
         "audio_format": "s16", # previously "s16p",
     },
-    "lossless": {
+    "mp4": {
+        "extension": "mp4",
+        "video_codec": "libx264",
+        "video_pix_fmt": "yuv420p",
+        "video_stream_options": {"crf": 51},
+        "audio_codec": "aac",
+        "audio_format": "fltp",
+        "mode": "",
+    },
+    "mov": {
         "extension": "mov",
         "video_codec": "prores_ks",
-        "video_pix_fmt_rgb": "yuv444p10le",
-        "video_pix_fmt_rgba": "yuva444p10le",
+        "video_pix_fmt": "yuva444p10le",
         "audio_codec": "alac",
         "audio_format": "fltp",
     },
@@ -41,10 +48,25 @@ def vframes_to_tensor(frames):
     out_images = []
     out_masks = []
     for frame in frames:
+
+        # print(frame.format.name)
+        # img = frame.to_ndarray(format='rgba')
+        # rgba_image = frame.to_image() # Default is RGB; use reformat for RGBA
+        # img = frame.reformat(format='rgba').to_image()
+        # img = frame.to_ndarray(format='rgb24')#.astype(np.float32)
+        # print(type(img), img.shape)
+        # print(img.dtype)
+        # print(img.max(), img.min())
+        # print(torch.from_numpy(img))
+        # print('X')
+        
         img = frame.to_ndarray(format=f2f[frame.format.name]) # decode frame
         img = torch.from_numpy(img) / 255.0 # convert uint8 to float32
+        # print('A')
         img = img.unsqueeze(0) # shape: (1, H, W, C)
+        # print('B')
         image = img[:, :, :, :3] # keep first 3 channels
+        # print('C')
         out_images.append(image)
         if img.shape[3] == 4:
             mask = img[:, :, :, 3] # keep 4th channel as mask
@@ -87,9 +109,11 @@ def vframes_to_muxable(frames, target_pix_fmt):
     reformatter = av.video.reformatter.VideoReformatter()
     out_images = []
     for frame in frames:
-        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=f2f[frame.format.name]), format=f2f[frame.format.name]) # direct convert to yuva420p is not supported currently
+        format = f2f[frame.format.name]
+        new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=format), format=format) # direct convert to yuva420p is not supported currently
         new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
         out_images.append(new_frame)
+    print('vframes_to_muxable', target_pix_fmt, frame.format.name, format, new_frame.format.name)
     return out_images
 
 def aframes_to_muxable(frames, target_audio_format):
@@ -121,8 +145,6 @@ def load_frames(path=None, start_n=None, end_n=None):
             if isinstance(frame, av.video.frame.VideoFrame): vcount += 1
             if isinstance(frame, av.audio.frame.AudioFrame): acount += 1
             frames.append(frame)
-        print("vcount", vcount)
-        print("acount", acount)
         if start_n is None: start_n = 0 # missing start fix
         if end_n is None: end_n = vcount # missing end fix
         if end_n == 0: end_n = vcount # zero end fix
@@ -130,7 +152,6 @@ def load_frames(path=None, start_n=None, end_n=None):
         if end_n < 0: end_n = vcount + end_n # negative end fix
         vcount2 = 0
         for frame in frames:
-            # print('v' if isinstance(frame, av.video.frame.VideoFrame) else 'a', end="")
             if vcount2 >= start_n and vcount2 < end_n:
                 if isinstance(frame, av.video.frame.VideoFrame): out_vframes.append(frame)
                 if isinstance(frame, av.audio.frame.AudioFrame): out_aframes.append(frame)
@@ -152,14 +173,11 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
     with av.open(out_path, mode='w') as container:
         # Video stream setup
         if images is not None or masks is not None:
-            count = max(
-                images.shape[0] if images is not None else 0,
-                masks.shape[0] if masks is not None else 0,
-            )
             W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
             H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
-            video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(fps))
-            video_stream.pix_fmt = profiles[profile]["video_pix_fmt_rgb"] if masks is None else profiles[profile]["video_pix_fmt_rgba"]
+            video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
+            # video_stream.pix_fmt = profiles[profile]["video_pix_fmt_rgb"] if masks is None else profiles[profile]["video_pix_fmt_rgba"]
+            video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
             video_stream.width = W
             video_stream.height = H
 
@@ -168,8 +186,15 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
             sample_rate = audio["sample_rate"]
             audio_stream = container.add_stream(profiles[profile]["audio_codec"], rate=int(sample_rate))
 
+
+
+
         # Combine images and masks into RGBA format and write to video stream
         if images is not None or masks is not None:
+            count = max(
+                images.shape[0] if images is not None else 0,
+                masks.shape[0] if masks is not None else 0,
+            )
             for i in range(count):
                 img = images[i] if images is not None and images[i] is not None else torch.full((H, W, 3), 0.5)
                 img = (img * 255).cpu().numpy().astype(np.uint8)
@@ -204,6 +229,9 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
             for packet in audio_stream.encode():
                 container.mux(packet)
 
+
+
+
     return out_path, frontend_data
 
 def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
@@ -215,13 +243,14 @@ def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", ov
     sample_rate = input1_astream.codec_context.rate if input1_astream else None
     w = input1_vstream.codec_context.width if input1_vstream else None
     h = input1_vstream.codec_context.height if input1_vstream else None
-    pix_fmt = input1_vstream.pix_fmt if input1_vstream else None
+    # pix_fmt = input1_vstream.pix_fmt if input1_vstream else None
     input1.close()
 
     out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
     with av.open(out_path, 'w') as output:
         out_vstream = output.add_stream(profiles[profile]["video_codec"], fps)
-        out_vstream.pix_fmt = pix_fmt # profiles[profile]["video_pix_fmt_rgba"] # todo
+        # out_vstream.pix_fmt = pix_fmt # profiles[profile]["video_pix_fmt_rgba"] # todo
+        out_vstream.pix_fmt = profiles[profile]["video_pix_fmt"]
         out_vstream.width = w
         out_vstream.height = h
 
@@ -235,7 +264,7 @@ def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", ov
             end_n = -overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else None
             vframes, aframes, fps = load_frames(path=path, start_n=start_n, end_n=end_n)
             if len(vframes) > 0:
-                video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt_rgba"])
+                video = vframes_to_muxable(vframes, target_pix_fmt=profiles[profile]["video_pix_fmt"])
                 for frame in video: output.mux(out_vstream.encode(frame))
             if len(aframes) > 0:
                 audio = aframes_to_muxable(aframes, target_audio_format=profiles[profile]["audio_format"])

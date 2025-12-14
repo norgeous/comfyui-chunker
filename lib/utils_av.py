@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from fractions import Fraction
 from .utils_comfy import get_next_save_path
+from .utils import mask_to_image
 
 profiles = {
     "webm": {
@@ -31,18 +32,79 @@ profiles = {
 }
 profile_names = list(profiles.keys())
 
-f2f = {
-    "rgb24": "rgb24",       # shape: (H, W, 3)
-    "yuv420p": "rgb24",     # shape: (H, W, 3)
-    "yuvj444p": "rgb24",    # shape: (H, W, 3)
-    "yuvj420p": "rgb24",    # shape: (H, W, 3)
-    "yuv444p10le": "rgb24", # shape: (H, W, 3)
-    "yuv444p12le": "rgb24", # shape: (H, W, 3)
+def f2f(frame_format):
+    if frame_format.startswith(("yuva","rgba")): return "rgba"
+    return "rgb24"
 
-    "rgba": "rgba",         # shape: (H, W, 4)
-    "yuva444p10le": "rgba", # shape: (H, W, 4)
-    "yuva444p12le": "rgba", # shape: (H, W, 4)
-}
+
+
+
+
+
+
+
+
+
+alpha_save_modes = ['rgba', '2ndStream']
+def tensor_to_vframes(images, masks, alpha_save_mode=alpha_save_modes[0]):
+    vstreams = (
+        [], # for potentially stream 0
+        [], # for potentially stream 1
+    )
+    W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
+    H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
+    count = max(
+        images.shape[0] if images is not None else 0,
+        masks.shape[0] if masks is not None else 0,
+    )
+
+    # Create separate streams for images and masks
+    if alpha_save_mode == "2ndStream":
+        if images is not None:
+            for i in range(count):
+                img = images[i] if images[i] is not None else torch.full((H, W, 3), 0.5)
+                img = (img * 255).cpu().numpy().astype(np.uint8)
+                frame = av.VideoFrame.from_ndarray(img, format='rgb24')
+                vstreams[0].append(frame) # put rgb into stream 0
+        if masks is not None:
+            imasks = mask_to_image(masks)
+            for i in range(count):
+                imask = imasks[i] if masks[i] is not None else torch.full((H, W, 3), 1)
+                imask = (imask * 255).cpu().numpy().astype(np.uint8)
+                frame = av.VideoFrame.from_ndarray(imask, format='rgb24')
+                vstreams[1].append(frame) # put rgb into stream 1 (2nd stream)
+
+    # Combine images and masks into RGBA format in one stream
+    if alpha_save_mode == "rgba":
+        if images is not None or masks is not None:
+            for i in range(count):
+                img = images[i] if images[i] is not None else torch.full((H, W, 3), 0.5)
+                img = (img * 255).cpu().numpy().astype(np.uint8)
+                if masks is None:
+                    frame = av.VideoFrame.from_ndarray(img, format='rgb24')
+                else:
+                    mask = masks[i] 
+                    if mask is not None:
+                        mask = (mask * 255).cpu().numpy().astype(np.uint8)
+                        mask = mask.reshape((H, W, 1))
+                        rgba = np.concatenate([img, mask], axis=2)
+                        frame = av.VideoFrame.from_ndarray(rgba, format='rgba')
+                vstreams[0].append(frame) # put rgba into stream 0
+
+    if len(vstreams[0]) > 0 and len(vstreams[1]) > 0: return vstreams
+    if len(vstreams[0]) > 0 and len(vstreams[1]) == 0: return (vstreams[0],)
+    return []
+
+def tensor_to_aframes(audio):
+    aframes = []
+    if audio is not None:
+        waveform = audio["waveform"]
+        layout = 'mono' if waveform.shape[1] == 1 else 'stereo'
+        audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int32).max).astype(np.int32)
+        frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
+        frame.sample_rate = audio["sample_rate"]
+        aframes.append(frame)
+    return aframes if len(aframes) > 0 else None
 
 def vframes_to_tensor(frames):
     out_images = []
@@ -60,7 +122,7 @@ def vframes_to_tensor(frames):
         # print(torch.from_numpy(img))
         # print('X')
         
-        img = frame.to_ndarray(format=f2f[frame.format.name]) # decode frame
+        img = frame.to_ndarray(format=f2f(frame.format.name)) # decode frame
         img = torch.from_numpy(img) / 255.0 # convert uint8 to float32
         # print('A')
         img = img.unsqueeze(0) # shape: (1, H, W, C)
@@ -95,21 +157,11 @@ def aframes_to_tensor(frames):
     }        
     return audio_dict
 
-
-
-
-
-
-
-
-
-
-
 def vframes_to_muxable(frames, target_pix_fmt):
     reformatter = av.video.reformatter.VideoReformatter()
     out_images = []
     for frame in frames:
-        format = f2f[frame.format.name]
+        format = f2f(frame.format.name)
         new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=format), format=format) # direct convert to yuva420p is not supported currently
         new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
         out_images.append(new_frame)
@@ -165,74 +217,58 @@ def load(path=None, start_n=None, end_n=None):
     audio = aframes_to_tensor(aframes)
     return (images, masks, audio, fps)
 
-def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], filename_prefix="video/chunker/save"):
+
+
+def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], alpha_save_mode=alpha_save_modes[0], filename_prefix="video/chunker/save"):
     if images is None and masks is None and audio is None:
         raise ValueError("At least one of images, masks, or audio must be provided.")
+    
+    vstreams = tensor_to_vframes(images, masks, alpha_save_mode=alpha_save_mode)
+    aframes = tensor_to_aframes(audio)
 
     out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
     with av.open(out_path, mode='w') as container:
+        W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
+        H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
+
         # Video stream setup
-        if images is not None or masks is not None:
-            W = images.shape[2] if images is not None else (masks.shape[2] if masks is not None else None)
-            H = images.shape[1] if images is not None else (masks.shape[1] if masks is not None else None)
+        video_streams = []
+        for i in enumerate(vstreams):
             video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
-            # video_stream.pix_fmt = profiles[profile]["video_pix_fmt_rgb"] if masks is None else profiles[profile]["video_pix_fmt_rgba"]
             video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
             video_stream.width = W
             video_stream.height = H
+            video_streams.append(video_stream)
 
         # Audio stream setup
-        if audio is not None:
+        if aframes is not None:
             sample_rate = audio["sample_rate"]
             audio_stream = container.add_stream(profiles[profile]["audio_codec"], rate=int(sample_rate))
 
+        # NOTE: all av streams must be setup before any packets are sent into any stream
 
-
-
-        # Combine images and masks into RGBA format and write to video stream
-        if images is not None or masks is not None:
-            count = max(
-                images.shape[0] if images is not None else 0,
-                masks.shape[0] if masks is not None else 0,
-            )
-            for i in range(count):
-                img = images[i] if images is not None and images[i] is not None else torch.full((H, W, 3), 0.5)
-                img = (img * 255).cpu().numpy().astype(np.uint8)
-                if masks is None:
-                    frame = av.VideoFrame.from_ndarray(img, format='rgb24')
-                else:
-                    mask = masks[i] 
-                    if mask is not None:
-                        mask = (mask * 255).cpu().numpy().astype(np.uint8)
-                        mask = mask.reshape((H, W, 1))
-                        rgba = np.concatenate([img, mask], axis=2)
-                        frame = av.VideoFrame.from_ndarray(rgba, format='rgba')
-                
-                for packet in video_stream.encode(frame):
+        # push each vframes_stream into streams
+        for i, vstream in enumerate(vstreams):
+            for frame in vstream:
+                for packet in video_streams[i].encode(frame):
                     container.mux(packet)
-            
-            # Flush the video stream encoders
-            for packet in video_stream.encode():
+        
+            # Flush the video stream encoder
+            for packet in video_streams[i].encode():
                 container.mux(packet)
 
-        # Write Audio to audio stream
-        if audio is not None:
-            waveform = audio["waveform"]
-            layout = 'mono' if waveform.shape[1] == 1 else 'stereo'
-            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int32).max).astype(np.int32)
-            frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
-            frame.sample_rate = sample_rate
-            for packet in audio_stream.encode(frame):
-                container.mux(packet)
+        # push each audio packet to audio stream
+        if aframes is not None:
+            for frame in aframes:
+                for packet in audio_stream.encode(frame):
+                    container.mux(packet)
 
-            # Flush the audio stream encoders
+            # Flush the audio stream encoder
             for packet in audio_stream.encode():
                 container.mux(packet)
 
-
-
-
     return out_path, frontend_data
+
 
 def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
     # probe first file

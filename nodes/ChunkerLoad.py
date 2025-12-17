@@ -1,6 +1,6 @@
 import folder_paths
 from ..lib.utils import get_input_filenames
-from ..lib.utils_av import load
+from ..lib.utils_av import load, alpha_modes
 from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerLoad:
@@ -9,6 +9,7 @@ class ChunkerLoad:
         files = ["None", *sorted(get_input_filenames())]
         return {
             "required": {
+                "alpha_mode": (alpha_modes, {"default": alpha_modes[0]}),
                 "path": (files, {"default": "None", "tooltip": "Path to load"}),
             },
         }
@@ -30,9 +31,9 @@ class ChunkerLoad:
     CATEGORY = "Chunker"
     DESCRIPTION = "ChunkerLoad"
 
-    def execute(self, path="None"):
+    def execute(self, alpha_mode, path="None"):
         full_path = folder_paths.get_annotated_filepath(path)
-        out_images, out_masks, out_audio, fps = load(path=full_path)
+        out_images, out_masks, out_audio, fps = load(path=full_path, alpha_mode=alpha_mode)
 
         ui_values = {
             "output_label_values": {

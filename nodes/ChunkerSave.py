@@ -1,4 +1,4 @@
-from ..lib.utils_av import profile_names, alpha_save_modes, save
+from ..lib.utils_av import profile_names, alpha_modes, save
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps
 
 class ChunkerSave:
@@ -8,7 +8,7 @@ class ChunkerSave:
             "required": {
                 "fps": ("FLOAT", {"default": 30}),
                 "profile": (profile_names, {"default": profile_names[0]}),
-                "alpha_save_mode": (alpha_save_modes, {"default": alpha_save_modes[0]}),
+                "alpha_mode": (alpha_modes, {"default": alpha_modes[0]}),
                 "path": ("STRING", {"default": "video/chunker/save"}),
             },
             "optional": {
@@ -23,14 +23,14 @@ class ChunkerSave:
     CATEGORY = "Chunker"
     OUTPUT_NODE = True
 
-    def execute(self, fps, profile, alpha_save_mode, path, images=None, masks=None, audio=None):
+    def execute(self, fps, profile, alpha_mode, path, images=None, masks=None, audio=None):
         out_path, frontend_data = save(
             images=images,
             masks=masks,
             audio=audio,
             fps=fps,
             profile=profile,
-            alpha_save_mode=alpha_save_mode,
+            alpha_mode=alpha_mode,
             filename_prefix=path,
         )
 

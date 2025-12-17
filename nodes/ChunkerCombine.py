@@ -72,7 +72,8 @@ class ChunkerCombine:
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            profile="mov",
+            profile="mp4",
+            alpha_mode="2ndStream",
             filename_prefix="video/chunker/tmp/chunk",
         )[0]
         s["chunks"].append(chunk_path)
@@ -111,7 +112,7 @@ class ChunkerCombine:
             log("Mux all chunks...", end="")
             out_path = mux(
                 paths=s["chunks"],
-                profile="mov",
+                profile="mp4",
                 filename_prefix="video/chunker/final",
                 overlap=c["chunk_overlap"],
                 select_overlaps_from=select_overlaps_from,

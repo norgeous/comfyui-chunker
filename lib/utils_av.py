@@ -17,10 +17,9 @@ profiles = {
         "extension": "mp4",
         "video_codec": "libx264",
         "video_pix_fmt": "yuv420p",
-        "video_stream_options": {"crf": 51},
+        "video_stream_options": {"crf": 51}, # todo
         "audio_codec": "aac",
         "audio_format": "fltp",
-        "mode": "",
     },
     "mov": {
         "extension": "mov",

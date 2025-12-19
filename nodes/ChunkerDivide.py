@@ -1,17 +1,9 @@
 import torch
 import math
-from ..lib.utils import (
-    count,
-    log,
-    resize_image,
-    resize_mask,
-    force_wan_length,
-    fix_total_length,
-    get_this_chunk_length,
-)
-from ..lib.av.load_audio import concat_audios
+from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
+from ..lib.utils_av import load, concat_audios
+from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
 from ..lib.utils_format import format_audio, format_fps
-from ..lib.utils_av import load
 
 class ChunkerDivide:
     @classmethod
@@ -72,9 +64,10 @@ class ChunkerDivide:
             "last_chunk_path": None,
         }
 
-        if fps is None and mode == "Wan21": fps = 16
-        if fps is None and mode == "Wan22": fps = 24
-        if fps is None: fps = 30
+        out_fps = fps
+        if out_fps is None and mode == "Wan21": out_fps = 16.0
+        if out_fps is None and mode == "Wan22": out_fps = 24.0 # TODO: not correct?
+        if out_fps is None: out_fps = 30.0
 
         if total_length == 0:
             total_length = max(
@@ -109,7 +102,7 @@ class ChunkerDivide:
         out_masks = []
         out_audio = []
 
-        # get the overlap from the last chunk that Combine saved
+        # get the overlap from the last chunk (video file) that Combine saved
         if s["last_chunk_path"] is not None and chunk_overlap > 0:
             overlap_images, overlap_masks, overlap_audio_dict, fps = load(
                 path=s["last_chunk_path"],
@@ -122,10 +115,18 @@ class ChunkerDivide:
             if overlap_masks is not None: out_masks.append(overlap_masks)
             if overlap_audio_dict is not None: out_audio.append(overlap_audio_dict)
 
-        if (mode == "Wan21" or mode == "Wan22") and (count(out_images) > count(out_masks)):
-            black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)
-            out_masks.append(torch.cat([black_panel] * (count(out_images) - count(out_masks)))) # add same amount of black masks to masks
+        # prepare chunk of images from input
+        if images is not None:
+            if w is None: w = images.shape[2]
+            if h is None: h = images.shape[1]
+            images_chunk = images[start + count(out_images):end]
+            if (len(images_chunk) > 0): out_images.append(images_chunk)
 
+        # prepare chunk of masks from input
+        if masks is not None:
+            out_masks.append(masks[start + count(out_masks):end])
+
+        # prepare chunk of audio from input
         if audio is not None:
             samples_per_frame = math.floor(audio["sample_rate"] / fps)
             astart = (start + count(out_images)) * samples_per_frame
@@ -135,41 +136,41 @@ class ChunkerDivide:
                 "sample_rate": audio["sample_rate"],
             })
 
-        if images is not None:
-            if w is None: w = images.shape[2]
-            if h is None: h = images.shape[1]
-            out_images.append(images[start + count(out_images):end])
-
-        if masks is not None:
-            out_masks.append(masks[start + count(out_masks):end])
-
         if w is None: w = 512
         if h is None: h = 512
 
-        grey_panel = torch.full((1, h, w, 3), 0.5) # panel_image(w, h, 127, 127, 127)
-        white_panel = torch.full((1, h, w), 1) # panel_mask(w, h, 255)
-        black_panel = torch.full((1, h, w), 0) # panel_mask(w, h, 0)
-
-        # do some stuff for Wan
+        # for wan vace
         if mode == "Wan21" or mode == "Wan22":
-            # if not enough images, invent some blank (grey) ones (for t2v)
-            if count(out_images) < this_chunk_length: out_images.append(torch.cat([grey_panel] * (this_chunk_length - count(out_images))))
+            # if more images than masks, add same amount of black masks to masks
+            if count(out_images) > count(out_masks):
+                black_mask = monochrome_mask(w, h, 0)
+                out_masks.append(torch.cat([black_mask] * (count(out_images) - count(out_masks))))
 
-            # if not enough masks, invent some blank (white) ones (for t2v)
-            if count(out_masks) < this_chunk_length: out_masks.append(torch.cat([white_panel] * (this_chunk_length - count(out_masks))))
+            # if not enough images to fill chunk, add some grey images
+            if count(out_images) < this_chunk_length:
+                grey_image = monochrome_image(w, h, 0.5)
+                out_images.append(torch.cat([grey_image] * (this_chunk_length - count(out_images))))
 
+            # if not enough masks to fill chunk, add some white masks
+            if count(out_masks) < this_chunk_length:
+                white_mask = monochrome_mask(w, h, 1.0)
+                out_masks.append(torch.cat([white_mask] * (this_chunk_length - count(out_masks))))
+
+        # finalise out images, resize and concat together
         out_images_torch = None
         if len(out_images) > 0:
             out_images_resized = list(map(lambda tensor: resize_image(tensor, w, h), out_images))
             out_images_torch = torch.cat(out_images_resized)
-            assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}"
+            assert len(out_images_torch.shape) == 4, f"images are not rank 4 {out_images_torch.shape}, expected BHWC"
 
+        # finalise out masks, resize and concat together
         out_masks_torch = None
         if len(out_masks) > 0:
             out_masks_resized = list(map(lambda tensor: resize_mask(tensor, w, h), out_masks))
             out_masks_torch = torch.cat(out_masks_resized)
-            assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}"
+            assert len(out_masks_torch.shape) == 3, f"masks are not rank 3 {out_masks_torch.shape}, expected BHW"
 
+        # finalise out audio, concat together
         out_audio_dict = None
         if len(out_audio) > 0:
             out_audio_dict = concat_audios(out_audio)
@@ -178,7 +179,7 @@ class ChunkerDivide:
             "start_node_id": unique_id,
             "index": s["index"],
             "chunker_config": c,
-            "fps": fps,
+            "fps": out_fps,
         }
 
         ui_values = {

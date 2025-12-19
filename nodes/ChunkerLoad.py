@@ -1,12 +1,12 @@
 import folder_paths
-from ..lib.utils import get_input_filenames
+from ..lib.utils_comfy import get_input_filenames
 from ..lib.utils_av import load, alpha_modes
 from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerLoad:
     @classmethod
     def INPUT_TYPES(cls):
-        files = ["None", *sorted(get_input_filenames())]
+        files = ["None", *get_input_filenames()]
         return {
             "required": {
                 "alpha_mode": (alpha_modes, {"default": alpha_modes[0]}),

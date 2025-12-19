@@ -3,7 +3,9 @@ import torch
 import numpy as np
 from fractions import Fraction
 from .utils_comfy import get_next_save_path
-from .utils import mask_to_image, image_to_mask
+from .utils_tensor import monochrome_image, mask_to_image, image_to_mask
+from comfy_extras.nodes_audio import match_audio_sample_rates
+from functools import reduce
 
 profiles = {
     "webm": {
@@ -35,15 +37,6 @@ def f2f(frame_format):
     if frame_format.startswith(("yuva","rgba")): return "rgba"
     return "rgb24"
 
-
-
-
-
-
-
-
-
-
 alpha_modes = ['rgba', '2ndStream']
 def tensor_to_vstreams(images, masks, alpha_mode=alpha_modes[0]):
     vstreams = (
@@ -61,14 +54,14 @@ def tensor_to_vstreams(images, masks, alpha_mode=alpha_modes[0]):
     if alpha_mode == "2ndStream":
         if images is not None:
             for i in range(count):
-                img = images[i] if images[i] is not None else torch.full((H, W, 3), 0.5)
+                img = images[i] if images[i] is not None else monochrome_image(W, H, 0.5)
                 img = (img * 255).cpu().numpy().astype(np.uint8)
                 frame = av.VideoFrame.from_ndarray(img, format='rgb24')
                 vstreams[0].append(frame) # put rgb into stream 0
         if masks is not None:
             imasks = mask_to_image(masks)
             for i in range(count):
-                imask = imasks[i] if masks[i] is not None else torch.full((H, W, 3), 1)
+                imask = imasks[i] if masks[i] is not None else monochrome_image(W, H, 1.0)
                 imask = (imask * 255).cpu().numpy().astype(np.uint8)
                 frame = av.VideoFrame.from_ndarray(imask, format='rgb24')
                 vstreams[1].append(frame) # put rgb into stream 1 (2nd stream)
@@ -77,7 +70,7 @@ def tensor_to_vstreams(images, masks, alpha_mode=alpha_modes[0]):
     if alpha_mode == "rgba":
         if images is not None or masks is not None:
             for i in range(count):
-                img = images[i] if images[i] is not None else torch.full((H, W, 3), 0.5)
+                img = images[i] if images[i] is not None else monochrome_image(W, H, 0.5)
                 img = (img * 255).cpu().numpy().astype(np.uint8)
                 if masks is None:
                     frame = av.VideoFrame.from_ndarray(img, format='rgb24')
@@ -103,7 +96,7 @@ def tensor_to_astreams(audio):
         frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
         frame.sample_rate = audio["sample_rate"]
         aframes.append(frame)
-    return [aframes] if len(aframes) > 0 else None
+    return [aframes] if len(aframes) > 0 else []
 
 def vstreams_to_tensor(vstreams, alpha_mode="rgba"):
     out_images = []
@@ -137,6 +130,7 @@ def vstreams_to_tensor(vstreams, alpha_mode="rgba"):
     )
 
 def astreams_to_tensor(astreams):
+    if len(astreams) == 0: return None
     out_audio = []
     for frame in astreams[0]:
         audio = frame.to_ndarray() # shape: (C, S)
@@ -170,6 +164,8 @@ def vstreams_to_muxable(vstreams, target_pix_fmt):
     return out_vstreams
 
 def astreams_to_muxable(astreams, target_audio_format):
+    if len(astreams) == 0: return []
+    print("astreams", astreams)
     resampler = av.AudioResampler(
         format=target_audio_format,
         layout=astreams[0][0].layout,
@@ -196,7 +192,7 @@ def load_streams(path=None, start_n=None, end_n=None):
         for packet in container.demux():
             for frame in packet.decode():
                 frames.append(frame)
-                if isinstance(frame, av.video.frame.VideoFrame):
+                if isinstance(frame, av.video.frame.VideoFrame) and packet.stream.index == 0:
                     vcount += 1
 
     with av.open(path) as container:
@@ -207,32 +203,38 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n < 0: end_n = vcount + end_n # negative end fix
         start_t = float(start_n / fps)
         end_t = float(end_n / fps)
-        print("load_streams s/e n", start_n, end_n)
-        print("load_streams s/e t", start_t, end_t)
+        # print("load_streams s/e", start_n, end_n, ':', start_t, end_t, ':', round(start_t,3), round(end_t,3))
+        print()
         for packet in container.demux():
             stream_index = packet.stream.index
+            # print("stream_index", stream_index)
             for frame in packet.decode():
                 isv = isinstance(frame, av.video.frame.VideoFrame)
-                ftype1 = 'V' if isv else 'A'
-                ftype2 = 'v' if isv else 'a'
-                delta = f"{end_t - frame.time:.2f}"
-                print(ftype1 if frame.time >= start_t and frame.time <= end_t else ftype2, delta, ', ', end='')
+                ftype = 'V' if isv else 'A'
+                # delta = f"{end_t - frame.time:.2f}"
+                print(ftype if frame.time >= start_t and frame.time < end_t else ftype.lower(), end='')
                 if isinstance(frame, av.video.frame.VideoFrame):
-                    if stream_index not in vstreams: vstreams[stream_index] = []
                     if frame.time >= start_t and frame.time < end_t:
+                        if stream_index not in vstreams: vstreams[stream_index] = []
                         vstreams[stream_index].append(frame)
                 if isinstance(frame, av.audio.frame.AudioFrame):
-                    if stream_index not in astreams: astreams[stream_index] = []
                     if frame.time >= start_t and frame.time < end_t:
+                        if stream_index not in astreams: astreams[stream_index] = []
                         astreams[stream_index].append(frame)
-        print(f"from {path}, collected {len(vstreams[0])} in video stream 0")
+    print()
+
     out_vstreams = []
     for k in vstreams: out_vstreams.append(vstreams[k])
     out_astreams = []
-    for k in astreams: out_astreams.append(astreams[k])
+    for k in astreams:
+        print("load_streams astreams key", k, astreams[k])
+        out_astreams.append(astreams[k])
+    # print(f"from {path} (with {len(out_vstreams)} vstreams), collected {len(out_vstreams[0])} in first video stream")
+   
     return out_vstreams, out_astreams, fps
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
+    print("av.load", path)
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)
@@ -307,7 +309,9 @@ def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", ov
     with av.open(out_path, 'w') as output:
         # Video streams setup
         out_vstreams = []
+        # print()
         for i in enumerate(input1_vstreams):
+            # print("mux: creating out vstream", i)
             video_stream = output.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
             video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
             video_stream.width = w
@@ -355,3 +359,22 @@ def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", ov
             output.mux(out_packet)
 
     return out_path, frontend_data
+
+def concat_audio(audio1, audio2):
+    waveform_1 = audio1["waveform"]
+    waveform_2 = audio2["waveform"]
+    sample_rate_1 = audio1["sample_rate"]
+    sample_rate_2 = audio2["sample_rate"]
+    if waveform_1.shape[1] == 1:
+        waveform_1 = waveform_1.repeat(1, 2, 1) # Convert mono to stereo
+    if waveform_2.shape[1] == 1:
+        waveform_2 = waveform_2.repeat(1, 2, 1) # Convert mono to stereo
+    waveform_1, waveform_2, output_sample_rate = match_audio_sample_rates(waveform_1, sample_rate_1, waveform_2, sample_rate_2)
+    concatenated_audio = torch.cat((waveform_1, waveform_2), dim=2)
+    return {
+        "waveform": concatenated_audio,
+        "sample_rate": output_sample_rate,
+    }
+
+def concat_audios(audios):
+    return reduce(lambda a, b: concat_audio(a, b), audios)

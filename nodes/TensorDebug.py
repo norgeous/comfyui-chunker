@@ -33,7 +33,7 @@ class TensorDebug:
                 ui_values["dtype"] = str(tensor.dtype)
                 ui_values["min"]   = torch.min(tensor).item()
                 ui_values["max"]   = torch.max(tensor).item()
-                ui_values["mean"]  = torch.mean(tensor).item()
+                # ui_values["mean"]  = torch.mean(tensor).item()
 
             case dict():
                 ui_values["keys"] = list(tensor.keys())

@@ -1,8 +1,9 @@
-from comfy_execution.graph_utils import GraphBuilder
-from ..lib.utils import log, resize_mask
+from ..lib.utils import log
 from ..lib.utils_av import save, mux, load
-from ..lib.debug_overlay import create_preview_video
-from ..lib.repeat_nodes import comfyui_repeat_nodes, get_node_ids_by_type
+from ..lib.utils_tensor import resize_mask
+from ..lib.utils_image_text_overlay import create_preview_video
+from ..lib.utils_comfy import comfyui_repeat_nodes, get_node_ids_by_type
+from comfy_execution.graph_utils import GraphBuilder
 from ..lib.utils_format import format_audio, format_fps
 
 class ChunkerCombine:
@@ -31,7 +32,7 @@ class ChunkerCombine:
     OUTPUT_TOOLTIPS = (
         "Combined images from all chunks",
         "Combined masks from all chunks",
-        "Audio from images input of Chunker",
+        "Combined audio from all chunks",
         "FPS",
     )
     FUNCTION = "execute"
@@ -120,7 +121,7 @@ class ChunkerCombine:
             print("done")
  
             log("Load final tensors...", end="")
-            out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path)
+            out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path, alpha_mode="2ndStream")
             print("done")
 
             ui_values = {
@@ -148,7 +149,7 @@ class ChunkerCombine:
                     out_images_torch,
                     out_masks_torch,
                     out_audio_dict,
-                    d["fps"],
+                    float(d["fps"]), # it might be a Fraction or float, so cast to float
                 )
             }
 

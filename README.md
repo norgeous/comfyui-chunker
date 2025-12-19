@@ -29,22 +29,16 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 - A fully grey first or last image in the input control_video will result in `None` output for the corresponding `clip_vision_` and `_image`
 
 ## prep for release
-- decide on intermediate format:
-  - 2 mp4s
-  - 1 mp4 with 2 streams
-  - 1 mp4 with alpha sbs
-  - webm (problem:cant decode alpha)
-  - mov (problem:huge file)
 - combined audio sounds glitchy
 - KSampler with seed connected to values causes Combine to error
 - remove extra nodes
 - Tidy unused code
 - revise readme and samples
 - finalise a few workflows with animated preview
-  - chunker-t2v
+  - chunker-mmaudio
   - chunker-sam3
-  - chunker-wan21vace
-  - chunker-wan22fl
+  - chunker-wan21-vace
+  - chunker-wan22-flf2v
 - test everything
 - trash this repo make a new one with one commit
 - publish to comfyui-manager via PR

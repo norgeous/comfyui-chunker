@@ -129,8 +129,11 @@ class ChunkerDivide:
         # prepare chunk of audio from input
         if audio is not None:
             samples_per_frame = math.floor(audio["sample_rate"] / fps)
-            astart = (start + count(out_images)) * samples_per_frame
+            # astart = (start + count(out_images)) * samples_per_frame
+            astart = start * samples_per_frame
             aend = end * samples_per_frame
+            # print('end start',end,start)
+            # print('aend astart',aend,astart)
             out_audio.append({
                 "waveform": audio["waveform"][:,:,astart:aend],
                 "sample_rate": audio["sample_rate"],

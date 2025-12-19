@@ -165,7 +165,6 @@ def vstreams_to_muxable(vstreams, target_pix_fmt):
 
 def astreams_to_muxable(astreams, target_audio_format):
     if len(astreams) == 0: return []
-    print("astreams", astreams)
     resampler = av.AudioResampler(
         format=target_audio_format,
         layout=astreams[0][0].layout,
@@ -186,7 +185,6 @@ def load_streams(path=None, start_n=None, end_n=None):
     with av.open(path) as container:
         fps = container.streams.video[0].average_rate if len(container.streams.video) > 0 else 30
         # vcount = container.streams.video[0].frames if len(container.streams.video) > 0 else None # unreliable
-
         # vcount might be None, if no vstream or because stream.frames might report wrong value 0
         vcount = 0
         for packet in container.demux():
@@ -226,15 +224,12 @@ def load_streams(path=None, start_n=None, end_n=None):
     out_vstreams = []
     for k in vstreams: out_vstreams.append(vstreams[k])
     out_astreams = []
-    for k in astreams:
-        print("load_streams astreams key", k, astreams[k])
-        out_astreams.append(astreams[k])
-    # print(f"from {path} (with {len(out_vstreams)} vstreams), collected {len(out_vstreams[0])} in first video stream")
+    for k in astreams: out_astreams.append(astreams[k])
    
     return out_vstreams, out_astreams, fps
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
-    print("av.load", path)
+    # print("av.load", path)
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)

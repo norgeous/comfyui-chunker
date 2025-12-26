@@ -1,3 +1,4 @@
+import os
 import av
 import torch
 import numpy as np
@@ -149,34 +150,6 @@ def astreams_to_tensor(astreams):
     }        
     return audio_dict
 
-def vstreams_to_muxable(vstreams, target_pix_fmt):
-    reformatter = av.video.reformatter.VideoReformatter()
-    out_images = {}
-    for i, vstream in enumerate(vstreams):
-        if i not in out_images: out_images[i] = []
-        for frame in vstream:
-            format = f2f(frame.format.name)
-            new_frame = av.VideoFrame.from_ndarray(frame.to_ndarray(format=format), format=format) # direct convert to yuva420p is not supported currently
-            new_frame = reformatter.reformat(new_frame, format=target_pix_fmt)
-            out_images[i].append(new_frame)
-    out_vstreams = []
-    for k in out_images: out_vstreams.append(out_images[k])
-    return out_vstreams
-
-def astreams_to_muxable(astreams, target_audio_format):
-    if len(astreams) == 0: return []
-    resampler = av.AudioResampler(
-        format=target_audio_format,
-        layout=astreams[0][0].layout,
-        rate=astreams[0][0].sample_rate,
-    )
-    out_audio = []
-    for frame in astreams[0]:
-        new_frame = resampler.resample(frame)[0]
-        new_frame.pts = None
-        out_audio.append(new_frame)
-    return [out_audio]
-
 def load_streams(path=None, start_n=None, end_n=None):
     vstreams = {}
     astreams = {}
@@ -201,15 +174,11 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n < 0: end_n = vcount + end_n # negative end fix
         start_t = float(start_n / fps)
         end_t = float(end_n / fps)
-        # print("load_streams s/e", start_n, end_n, ':', start_t, end_t, ':', round(start_t,3), round(end_t,3))
-        print()
         for packet in container.demux():
             stream_index = packet.stream.index
-            # print("stream_index", stream_index)
             for frame in packet.decode():
                 isv = isinstance(frame, av.video.frame.VideoFrame)
                 ftype = 'V' if isv else 'A'
-                # delta = f"{end_t - frame.time:.2f}"
                 print(ftype if frame.time >= start_t and frame.time < end_t else ftype.lower(), end='')
                 if isinstance(frame, av.video.frame.VideoFrame):
                     if frame.time >= start_t and frame.time < end_t:
@@ -219,8 +188,6 @@ def load_streams(path=None, start_n=None, end_n=None):
                     if frame.time >= start_t and frame.time < end_t:
                         if stream_index not in astreams: astreams[stream_index] = []
                         astreams[stream_index].append(frame)
-    print()
-
     out_vstreams = []
     for k in vstreams: out_vstreams.append(vstreams[k])
     out_astreams = []
@@ -229,7 +196,6 @@ def load_streams(path=None, start_n=None, end_n=None):
     return out_vstreams, out_astreams, fps
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
-    # print("av.load", path)
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)
@@ -286,72 +252,112 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
 
     return out_path, frontend_data
 
-
-def mux(paths, profile=profile_names[0], filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
-    # probe first file
-    input1 = av.open(paths[0])
-    input1_vstreams = input1.streams.video
-    input1_astreams = input1.streams.audio
-    input1_vstream = input1.streams.video[0] if len(input1.streams.video) > 0 else None
-    input1_astream = input1.streams.audio[0] if len(input1.streams.audio) > 0 else None
-    fps = input1_vstream.average_rate if input1_vstream else None
-    sample_rate = input1_astream.codec_context.rate if input1_astream else None
-    w = input1_vstream.codec_context.width if input1_vstream else None
-    h = input1_vstream.codec_context.height if input1_vstream else None
-    input1.close()
-
-    out_path, frontend_data = get_next_save_path(filename_prefix, profiles[profile]["extension"])
-    with av.open(out_path, 'w') as output:
-        # Video streams setup
+def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
+    ext = os.path.splitext(paths[0])[1][1:]
+    out_path, frontend_data = get_next_save_path(filename_prefix, ext)
+    with av.open(out_path, mode="w") as output:
         out_vstreams = []
-        # print()
-        for i in enumerate(input1_vstreams):
-            # print("mux: creating out vstream", i)
-            video_stream = output.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
-            video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
-            video_stream.width = w
-            video_stream.height = h
-            out_vstreams.append(video_stream)
-
-        # audio streams setup
         out_astreams = []
-        for i in enumerate(input1_astreams):
-            out_astream = output.add_stream(profiles[profile]["audio_codec"], sample_rate)
-            out_astreams.append(out_astream)
-
-        # NOTE: all av streams must be added to container before any packets are sent into any stream
-
+        v_dts_offsets = []
+        a_dts_offsets = []
         for i, path in enumerate(paths):
+            vpacketstreams = []
+            apacketstreams = []
+            with av.open(path) as input:
+                vstreams = input.streams.video
+                astreams = input.streams.audio
+
+                # when 1st video is open, setup output streams same as first video
+                if i == 0:
+                    for j, vstream in enumerate(vstreams):
+                        if len(out_vstreams) == j:
+                            out_vstream = output.add_stream(vstream.codec_context.name, rate=Fraction(f"{vstream.average_rate:.6f}"))
+                            out_vstream.pix_fmt = vstream.codec_context.pix_fmt 
+                            out_vstream.width = vstream.codec_context.width
+                            out_vstream.height = vstream.codec_context.height
+                            out_vstreams.append(out_vstream)
+                            v_dts_offsets.append(0)
+                    for j, astream in enumerate(astreams):
+                        if len(out_astreams) == j:
+                            out_astream = output.add_stream(astream.codec_context.name, astream.codec_context.rate)
+                            out_astreams.append(out_astream)
+                            a_dts_offsets.append(0)
+
+                # demux packets in all input streams
+                for packet in input.demux():
+                    if packet.dts is None: continue # skip the "flushing" packets
+                    if packet.stream.type == 'video':
+                        j = packet.stream_index
+                        if len(vpacketstreams) == j: vpacketstreams.append([])
+                        vpacketstreams[j].append(packet)
+                    if packet.stream.type == 'audio':
+                        j = packet.stream_index - len(vstreams)
+                        if len(apacketstreams) == j: apacketstreams.append([])
+                        apacketstreams[j].append(packet)
+
             is_first_chunk = i == 0
             is_final_chunk = i == len(paths) - 1
             start_n = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else None
             end_n = -overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else None
 
-            # load clip
-            vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
-            vstreams_m = vstreams_to_muxable(vstreams, target_pix_fmt=profiles[profile]["video_pix_fmt"])
-            astreams_m = astreams_to_muxable(astreams, target_audio_format=profiles[profile]["audio_format"])
+            vcount = len(vpacketstreams[0])
+            if start_n is None: start_n = 0 # missing start fix
+            if end_n is None: end_n = vcount # missing end fix
+            if end_n == 0: end_n = vcount # zero end fix
+            if start_n < 0: start_n = vcount + start_n # negative start fix
+            if end_n < 0: end_n = vcount + end_n # negative end fix
 
-            # push each vstreams_m into out streams
-            for i, vstream in enumerate(vstreams_m):
-                for frame in vstream:
-                    for packet in out_vstreams[i].encode(frame):
-                        output.mux(packet)
+            # mux video packets
+            # fps = out_vstreams[0].average_rate
+            # base = (1 / (1/1000)) / fps
+            # print('fps', fps)
+            # print('base', base)
+            # print('ovs.time_base', out_vstreams[0].time_base)
+            # start_dts = int(start_n * base)
+            # end_dts = int(end_n * base)
+            # print('start/end dts', start_dts, end_dts)
 
-            # push each audio packet to audio streams
-            for i, astream in enumerate(astreams_m):
-                for frame in astream:
-                    for packet in out_astreams[i].encode(frame):
-                        output.mux(packet)
+            max_dts = 0
+            for j, packets in enumerate(vpacketstreams):
+                # print()
+                # print("file",i,'input vstream',j, "length", len(packets))
+                for k, packet in enumerate(packets):
+                    fps = out_vstreams[0].average_rate
+                    base = (1 / packet.time_base) / fps
+                    start_dts = int(start_n * base)
+                    end_dts = int(end_n * base)
+                    if packet.dts < start_dts or packet.dts >= end_dts:
+                        # print('v', end='')
+                        # print(packet.dts, end='')
+                        continue # skip trimmed packets
+                    # print('V', end='')
+                    
+                    # packet.dts += v_dts_offsets[j]
+                    packet.dts = v_dts_offsets[j] + (base * k)
 
-        # Flush the encoders
-        for vstream in out_vstreams:
-            out_packet = vstream.encode(None)
-            output.mux(out_packet)
+                    packet.pts = packet.dts
+                    packet.stream = out_vstreams[j]
+                    # print(f"{packet.dts},", end="")
+                    output.mux(packet)
+                    max_dts = max(max_dts, packet.dts)
+                v_dts_offsets[j] = max_dts + base
+            
+            # mux audio packets
+            max_dts = 0
+            for j, packets in enumerate(apacketstreams):
+                # print()
+                # print("file",i,'input astream',j, "length", len(packets))
+                for packet in packets:
+                    if packet.dts < start_dts or packet.dts >= end_dts: continue # skip trimmed packets
+                    packet.dts += a_dts_offsets[j]
+                    packet.pts = packet.dts
+                    packet.stream = out_astreams[j]
+                    # print(f"{packet.dts},", end="")
+                    output.mux(packet)
+                    max_dts = max(max_dts, packet.dts)
+                a_dts_offsets[j] = max_dts
 
-        for astream in out_astreams:
-            out_packet = astream.encode(None)
-            output.mux(out_packet)
+        # todo: do we need to flush output streams?
 
     return out_path, frontend_data
 

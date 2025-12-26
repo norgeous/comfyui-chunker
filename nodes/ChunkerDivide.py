@@ -4,13 +4,14 @@ from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this
 from ..lib.utils_av import load, concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
 from ..lib.utils_format import format_audio, format_fps
+from ..lib.utils_performance import get_ts
 
 class ChunkerDivide:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "mode": (["None", "Wan21", "Wan22"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
+                "mode": (["None", "Wan-VACE"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 1, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
@@ -59,14 +60,16 @@ class ChunkerDivide:
         store=None,
         unique_id=None,
     ):
+        ts_chunk_start = get_ts()
+
         s = store if store is not None else {
             "index": 0,
             "last_chunk_path": None,
+            "ts_chunk_starts": [],
         }
 
         out_fps = fps
-        if out_fps is None and mode == "Wan21": out_fps = 16.0
-        if out_fps is None and mode == "Wan22": out_fps = 24.0 # TODO: not correct?
+        if out_fps is None and mode == "Wan-VACE": out_fps = 16.0
         if out_fps is None: out_fps = 30.0
 
         if total_length == 0:
@@ -75,7 +78,7 @@ class ChunkerDivide:
                 len(masks) if masks is not None else 0,
             )
 
-        if mode == "Wan21" or mode == "Wan22":
+        if mode == "Wan-VACE":
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
 
@@ -111,9 +114,17 @@ class ChunkerDivide:
             )
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]
-            if overlap_images is not None: out_images.append(overlap_images)
-            if overlap_masks is not None: out_masks.append(overlap_masks)
+            if overlap_images is not None:
+                out_images.append(overlap_images)
+                if mode == "Wan-VACE":
+                    # preserve overlap images with black masks
+                    black_mask = monochrome_mask(w, h, 0)
+                    out_masks.append(torch.cat([black_mask] * len(overlap_images)))
+            if overlap_masks is not None:
+                if mode != "Wan-VACE":
+                    out_masks.append(overlap_masks)
             if overlap_audio_dict is not None: out_audio.append(overlap_audio_dict)
+
 
         # prepare chunk of images from input
         if images is not None:
@@ -143,7 +154,7 @@ class ChunkerDivide:
         if h is None: h = 512
 
         # for wan vace
-        if mode == "Wan21" or mode == "Wan22":
+        if mode == "Wan-VACE":
             # if more images than masks, add same amount of black masks to masks
             if count(out_images) > count(out_masks):
                 black_mask = monochrome_mask(w, h, 0)
@@ -183,6 +194,10 @@ class ChunkerDivide:
             "index": s["index"],
             "chunker_config": c,
             "fps": out_fps,
+            "ts_chunk_starts": [
+                *s["ts_chunk_starts"],
+                ts_chunk_start,
+            ],
         }
 
         ui_values = {

@@ -45,7 +45,7 @@ const humanMillis = milliseconds => {
   const { p, s, ms, precision } = intervals.find(({ ms }) => ~~(milliseconds / ms));
   const value = +(milliseconds / ms).toFixed(precision);
   const warn = milliseconds >= 1000 * 60 * 30; // 30 min
-  return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
+  return `${value} ${value === 1 ? s : p}${warn ? ' <span style="font-size:75%">\u26A0\uFE0F</span>' : ''}`;
 };
 
 const jsonDivStore = (element) => {
@@ -141,37 +141,73 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
   uploadWidget.options.serialize = false;
 };
 
-const fetchFirstFrame = (that, filename) => {
-  const ext = filename.split(".").reverse()[0];
-  if (['mp4'].includes(ext)) {
-    fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename })}`)
-      .then(response => {
-        if (!response.ok) console.error("chunker first-frame fetch failed");
-        return response.json();
-      }).then(data => {
-        that.images = [data];
-        const img = new Image();
-        img.src = `/api/view?${new URLSearchParams(data)}`;
-        that.imgs = [img];
-      });
-  }
-  if (['jpg', 'jpeg', 'png'].includes(ext)) {
-    const data = {
-      type: 'input',
-      subfolder: '',
-      filename,
-    };
-    that.images = [data];
-    const img = new Image();
-    img.src = `/api/view?${new URLSearchParams(data)}`;
-    that.imgs = [img];
-  }
-};
+// const fetchFirstFrame = (that, filename) => {
+//   const ext = filename.split(".").reverse()[0];
+//   if (['mp4'].includes(ext)) {
+//     fetch(`/api/chunker/get-first-frame?${new URLSearchParams({ filename })}`)
+//       .then(response => {
+//         if (!response.ok) console.error("chunker first-frame fetch failed");
+//         return response.json();
+//       }).then(data => {
+//         that.images = [data];
+//         const img = new Image();
+//         img.src = `/api/view?${new URLSearchParams(data)}`;
+//         that.imgs = [img];
+//       });
+//   }
+//   if (['jpg', 'jpeg', 'png'].includes(ext)) {
+//     const data = {
+//       type: 'input',
+//       subfolder: '',
+//       filename,
+//     };
+//     that.images = [data];
+//     const img = new Image();
+//     img.src = `/api/view?${new URLSearchParams(data)}`;
+//     that.imgs = [img];
+//   }
+// };
+
+// const predictNext = (data, nextCount) => {
+//   const n = data.length;
+//   if (n < 2) return data;
+//   const x = Array.from({ length: n }, (_, i) => i + 1);
+//   const getLinearFit = (X, Y) => {
+//     let sX = 0, sY = 0, sXY = 0, sXX = 0;
+//     for (let i = 0; i < n; i++) {
+//       sX += X[i]; sY += Y[i];
+//       sXY += X[i] * Y[i]; sXX += X[i] * X[i];
+//     }
+//     const slope = (n * sXY - sX * sY) / (n * sXX - sX * sX);
+//     const intercept = (sY - slope * sX) / n;
+    
+//     const predict = (v) => slope * v + intercept;
+//     const error = Y.reduce((sum, val, i) => sum + Math.pow(val - predict(X[i]), 2), 0);
+//     return { predict, error };
+//   };
+//   const linear = getLinearFit(x, data);
+//   let exponential = { error: Infinity };
+//   if (data.every(v => v > 0)) {
+//     const lnY = data.map(v => Math.log(v));
+//     const logModel = getLinearFit(x, lnY);
+    
+//     const predict = (v) => Math.exp(logModel.predict(v));
+//     const error = data.reduce((sum, val, i) => sum + Math.pow(val - predict(x[i]), 2), 0);
+//     exponential = { predict, error };
+//   }
+//   const bestModel = (exponential.error < linear.error) ? exponential : linear;
+//   const predictions = Array.from({ length: nextCount }, (_, i) => {
+//     return Math.round(bestModel.predict(n + i + 1));
+//   });
+//   return [...data, ...predictions];
+// };
+
 
 app.registerExtension({
   name: "comfyui-chunker",
 
   async setup(app) {
+    console.log("app", app)
     app.api.addEventListener("execution_cached", (...data) => {
       // console.log("chunker execution_cached", data);
     });
@@ -185,7 +221,6 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData, app) {
     ({
-
       "ChunkerLoad": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           addUploadWidget(this, nodeType, "images", "choose file to upload");
@@ -245,14 +280,14 @@ app.registerExtension({
           updateLabels(this);
         });
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this);
+          // updateLabels(this);
         });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
 
-          if (ui.values[0].output_label_values.index === 0) {
-            document.querySelectorAll('#data_store').forEach(store => store.innerHTML = JSON.stringify({ timestamp2: Date.now() }));
-          }
+          // if (ui.values[0].output_label_values.index === 0) {
+          //   document.querySelectorAll('#data_store').forEach(store => store.innerHTML = JSON.stringify({ timestamp2: Date.now() }));
+          // }
         });
       },
 
@@ -261,7 +296,7 @@ app.registerExtension({
           updateLabels(this);
         });
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this);
+          // updateLabels(this);
         });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
@@ -292,41 +327,41 @@ app.registerExtension({
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            const { timestamp1, timestamp2, index = 0, chunk_count = 0 } = this.store.get();
-
-            if (!timestamp2) {
-              element.querySelector("#status").innerHTML = "Awaiting ChunkerDivide...";
-              return;
-            }
-
-            const waitMillis = Date.now() - timestamp2;
-
-            if (!timestamp1) {
-              element.querySelector("#status").innerHTML = `Awaiting first chunk for ${humanMillis(waitMillis)}...`;
-              return;
-            }
+            const { index, chunk_count, historical_deltas, predicted_deltas, ts } = this.store.get();
 
             const chunks_completed = index + 1;
-            const chunks_remaining = chunk_count - chunks_completed;
-            const isDone = chunks_completed === chunk_count;
 
-            if (isDone) {
-              element.querySelector("#status").innerHTML = "Done";
-              return;
+            if (!historical_deltas) {
+              element.querySelector("#status").innerHTML = `Awaiting data...`;
+              return
             }
 
-            const lastChunkDelta = timestamp2 - timestamp1;
-            const sinceLastTimestamp = Date.now() - timestamp2;
-            const nextChunkMillis = lastChunkDelta - sinceLastTimestamp;
-            const finalChunkMillis = (lastChunkDelta * chunks_remaining) - sinceLastTimestamp;
+            const now = Date.now();
+            const elapsedMillis = now - ts;
+            const etaNextMillis = predicted_deltas[0] - elapsedMillis;
+            const etaFinalMillis = predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis;
+
+            const etaNext = humanMillis(etaNextMillis);
+            const etaFinal = humanMillis(etaFinalMillis);
+            const dueDate = new Date(now + etaFinalMillis);
+            const due = `${String(dueDate.getHours()).padStart(2, '0')}${Math.round(now / 1000) % 2 === 0 ? ':' : ' '}${String(dueDate.getMinutes()).padStart(2, '0')}`
 
             element.querySelector("#status").innerHTML = `
-              <div>Next: ${humanMillis(nextChunkMillis)}, Final: ${humanMillis(finalChunkMillis)}</div>
-              <progress style="display:block; width:100%;" value="${chunks_completed}" max="${chunk_count}"></progress>
+              <div style="display:flex; justify-content:center; align-items:center; gap:2px;">Next: ${etaNext}, Final: ${etaFinal}, Due: ${due}</div>
+              <div style="display:flex; gap:1px;">
+                ${historical_deltas.map((delta, i) => {
+                  const label = `Chunk ${i + 1}\n${humanMillis(delta)}`;
+                  return `<div style="flex:1 1; height:6px; background:green;" title="${label}"></div>`;
+                }).join('\n')}
+                ${predicted_deltas.map((delta, i) => {
+                  const label = `Chunk ${i + 1 + historical_deltas.length}\n~${humanMillis(delta)}`;
+                  if (i === 0) return `<div style="flex:1 1; height:6px; background:aqua;" title="${label}"></div>`;
+                  return `<div style="flex:1 1; height:6px; background:gray;" title="${label}"></div>`;
+                }).join('\n')}
+              </div>
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
           }, 1_000);
-
           this.uuid = makeUUID();
           element.id = `chunk-info-${this.uuid}`;
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
@@ -335,25 +370,21 @@ app.registerExtension({
             getHeight: () => 220,
           });
         });
-
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this);
         });
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this);
         });
-        // chainCallback(nodeType.prototype, "onAfterExecuteNode", function (ui) {
-        //   //console.log("onAfterExecuteNode");
-        // });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
-          const { index, chunk_count, video_path } = ui.values[0];
-          this.store.set({ timestamp1: this.store.get().timestamp2, timestamp2: Date.now(), index, chunk_count });
+          const { index, chunk_count, video_path, historical_deltas, predicted_deltas } = ui.values[0];
+          this.store.set({ index, chunk_count, historical_deltas, predicted_deltas, ts: Date.now() });
           const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
           if (video_path) {
             const videoTag  = infoContainer.querySelector("video");
             videoTag.src = `/api/view?${new URLSearchParams(video_path).toString()}`;
-            videoTag.volume = 0.5;
+            // videoTag.volume = 0.5; // todo
           }
         });
       },

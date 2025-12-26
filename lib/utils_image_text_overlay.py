@@ -125,7 +125,7 @@ def batch_draw_text(
                     #use_cache,
                 )
             images_out.append(np.array(img).astype(np.float32) / 255.0)
-            use_cache = True
+            # use_cache = True
         images_np = np.stack(images_out)
         images_tensor = torch.from_numpy(images_np)
         return images_tensor
@@ -143,9 +143,11 @@ def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
 def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, length, overlap, fps):
     frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap)
     configs = []
+    em = h / 512
     configs.append(
         {
             "text": f"{frame_label}\n{chunk_label}",
+            "font_size": int(em * 20),
             "vertical_alignment": "top",
             "horizontal_alignment": "right",
         },
@@ -153,7 +155,7 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
     configs.append(
         {
             "text": f"{w} x {h} @ {fps:.2f}FPS\nchunk_length: {length}\nchunk_overlap: {overlap}",
-            "font_size": 12,
+            "font_size": int(em * 16),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
         },
@@ -162,7 +164,7 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
         configs.append(
             {
                 "text": "OVERLAP",
-                "font_size": 24,
+                "font_size": int(em * 28),
                 "fill_color_hex": "#FF0000",
                 "stroke_color_hex": "#FFFFFF",
                 "vertical_alignment": "top",
@@ -172,12 +174,12 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
         configs.append(
             {
                 "text": overlap_label,
-                "font_size": 14,
+                "y_shift": int(em * (28 + 4)),
+                "font_size": int(em * 18),
                 "fill_color_hex": "#FF0000",
                 "stroke_color_hex": "#FFFFFF",
                 "vertical_alignment": "top",
                 "horizontal_alignment": "left",
-                "y_shift": 24 + 4,
             },
         )
     return configs
@@ -197,7 +199,6 @@ def combine_images_and_masks(images, masks):
     if images is not None and imasks is None: out = images
     if images is None and imasks is not None: out = masks
     if images is not None and imasks is not None: out = simple_blend(images, imasks)
-    #if images is not None and masks is not None: out = torch.cat((images, masks), dim=1) # side-by-side
     return out
 
 def create_preview_video(images, masks, show_debug, d, c):

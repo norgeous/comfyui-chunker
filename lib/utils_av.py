@@ -172,8 +172,9 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n == 0: end_n = vcount # zero end fix
         if start_n < 0: start_n = vcount + start_n # negative start fix
         if end_n < 0: end_n = vcount + end_n # negative end fix
-        start_t = float(start_n / fps)
-        end_t = float(end_n / fps)
+        start_t = round(start_n / fps, 3)
+        end_t = round(end_n / fps, 3)
+        # print(vcount, start_n, start_t, end_n, end_t)
         for packet in container.demux():
             stream_index = packet.stream.index
             for frame in packet.decode():
@@ -181,6 +182,7 @@ def load_streams(path=None, start_n=None, end_n=None):
                 ftype = 'V' if isv else 'A'
                 print(ftype if frame.time >= start_t and frame.time < end_t else ftype.lower(), end='')
                 if isinstance(frame, av.video.frame.VideoFrame):
+                    # print(frame.time)
                     if frame.time >= start_t and frame.time < end_t:
                         if stream_index not in vstreams: vstreams[stream_index] = []
                         vstreams[stream_index].append(frame)
@@ -197,6 +199,7 @@ def load_streams(path=None, start_n=None, end_n=None):
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
+    # print(vstreams)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)
     return (images, masks, audio, fps)

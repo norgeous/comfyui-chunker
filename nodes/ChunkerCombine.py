@@ -4,7 +4,7 @@ from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, get_node_ids_by_type
 from comfy_execution.graph_utils import GraphBuilder
-from ..lib.utils_format import format_audio, format_fps, format_milliseconds
+from ..lib.utils_format import format_images, format_masks, format_audio, format_latents, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts, predict
 
 class ChunkerCombine:
@@ -20,6 +20,7 @@ class ChunkerCombine:
                 "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
                 "masks": ("MASK", {"tooltip": "Processed chunk of masks"}),
                 "audio": ("AUDIO", {"tooltip": "Processed chunk of audio"}),
+                "latents": ("LATENT", {"tooltip": "Latents"}),
                 "store": ("*",), # hidden by js
             },
             "hidden": {
@@ -49,6 +50,7 @@ class ChunkerCombine:
         images=None,
         masks=None,
         audio=None,
+        latents=None,
         store=None,
         dynprompt=None,
         unique_id=None,
@@ -62,6 +64,7 @@ class ChunkerCombine:
             "chunks": [],
             "preview_chunks": [],
             "ts_chunk_ends": [],
+            "last_latents": None,
         }
 
         # lanczos resize masks to match images size
@@ -138,13 +141,14 @@ class ChunkerCombine:
 
             ui_values = {
                 "input_label_values": {
-                    "images": len(images) if images is not None else 0,
-                    "masks": len(masks) if masks is not None else 0,
+                    "images": format_images(images),
+                    "masks": format_masks(masks),
                     "audio": format_audio(audio),
+                    "latents": format_latents(latents),
                 },
                 "output_label_values": {
-                    "images": len(out_images_torch) if out_images_torch is not None else 0,
-                    "masks": len(out_masks_torch) if out_masks_torch is not None else 0,
+                    "images": format_images(out_images_torch),
+                    "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
@@ -178,9 +182,10 @@ class ChunkerCombine:
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None, # filename of last chunk saved
             "ts_chunk_starts": d["ts_chunk_starts"],
+            "last_latents": latents,
         })
 
-        # increment seeds in cloned KSamplers, to prevent same motion in each chunk (for Wan21)
+        # increment seeds in cloned KSampler nodes, to prevent same motion in each chunk (for Wan21)
         ids = get_node_ids_by_type(graph.finalize(), "KSampler")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")
@@ -188,8 +193,16 @@ class ChunkerCombine:
             seed = node.get_input("seed")
             node.set_input("seed", seed + d["index"] + 1)
 
-        # increment seeds in cloned KSamplersAdvanced, to prevent same motion in each chunk (for Wan22)
+        # increment seeds in cloned KSamplerAdvanced nodes, to prevent same motion in each chunk (for Wan22)
         ids = get_node_ids_by_type(graph.finalize(), "KSamplerAdvanced")
+        for id in ids:
+            real_id = id.replace(f"{unique_id}.0.0.", "")
+            node = graph.lookup_node(real_id)
+            seed = node.get_input("noise_seed")
+            node.set_input("noise_seed", seed + d["index"] + 1)
+
+        # increment seeds in cloned RandomNoise nodes, to prevent same motion in each chunk (for Wan22)
+        ids = get_node_ids_by_type(graph.finalize(), "RandomNoise")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")
             node = graph.lookup_node(real_id)
@@ -213,9 +226,10 @@ class ChunkerCombine:
 
         ui_values = {
             "input_label_values": {
-                "images": len(images) if images is not None else 0,
-                "masks": len(masks) if masks is not None else 0,
+                "images": format_images(images),
+                "masks": format_masks(masks),
                 "audio": format_audio(audio),
+                "latents": format_latents(latents),
             },
             "output_label_values": {
                 "images": None,

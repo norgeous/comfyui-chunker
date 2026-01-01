@@ -3,7 +3,7 @@ import math
 from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
 from ..lib.utils_av import load, concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
-from ..lib.utils_format import format_audio, format_fps
+from ..lib.utils_format import format_images, format_masks, format_audio, format_latents, format_fps
 from ..lib.utils_performance import get_ts
 
 class ChunkerDivide:
@@ -11,7 +11,7 @@ class ChunkerDivide:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "mode": (["None", "Wan-VACE"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
+                "mode": (["None", "Wan", "Wan-VACE"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
                 "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 1, "tooltip": "Count of images in each chunk"}),
                 "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
                 "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
@@ -28,13 +28,14 @@ class ChunkerDivide:
             }
         }
 
-    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "AUDIO", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
-    RETURN_NAMES = ("chunker_data", "images", "masks", "audio", "width", "height", "chunk_length", "chunk_overlap", "total_length", "chunk_count", "index")
+    RETURN_TYPES = ("CHUNKER_DATA", "IMAGE", "MASK", "AUDIO", "LATENT", "INT", "INT", "INT", "INT", "INT", "INT", "INT")
+    RETURN_NAMES = ("chunker_data", "images", "masks", "audio", "latents", "width", "height", "chunk_length", "chunk_overlap", "total_length", "chunk_count", "index")
     OUTPUT_TOOLTIPS = (
         "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
         "Chunk of images",
         "Chunk of masks",
         "Chunk of audio",
+        "Last chunk's latents",
         "Width of images",
         "Height of images",
         "Count of images in each chunk",
@@ -66,10 +67,11 @@ class ChunkerDivide:
             "index": 0,
             "last_chunk_path": None,
             "ts_chunk_starts": [],
+            "last_latents": None,
         }
 
         out_fps = fps
-        if out_fps is None and mode == "Wan-VACE": out_fps = 16.0
+        if out_fps is None and mode.startswith("Wan"): out_fps = 16.0
         if out_fps is None: out_fps = 30.0
 
         if total_length == 0:
@@ -78,7 +80,7 @@ class ChunkerDivide:
                 len(masks) if masks is not None else 0,
             )
 
-        if mode == "Wan-VACE":
+        if mode.startswith("Wan"):
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
 
@@ -189,6 +191,8 @@ class ChunkerDivide:
         if len(out_audio) > 0:
             out_audio_dict = concat_audios(out_audio)
 
+        latents = s["last_latents"]
+
         chunker_data = {
             "start_node_id": unique_id,
             "index": s["index"],
@@ -202,15 +206,16 @@ class ChunkerDivide:
 
         ui_values = {
             "input_label_values": {
-                "images": len(images) if images is not None else 0,
-                "masks": len(masks) if masks is not None else 0,
+                "images": format_images(images),
+                "masks": format_masks(masks),
                 "audio": format_audio(audio),
                 "fps": format_fps(fps),
             },
             "output_label_values": {
-                "images": count(out_images),
-                "masks": count(out_masks),
+                "images": format_images(out_images_torch),
+                "masks": format_masks(out_masks_torch),
                 "audio": format_audio(out_audio_dict),
+                "latents": format_latents(latents),
                 "width": w,
                 "height": h,
                 "chunk_length": max(count(out_images), count(out_masks)),
@@ -228,6 +233,7 @@ class ChunkerDivide:
                 out_images_torch,
                 out_masks_torch,
                 out_audio_dict,
+                latents,
                 w,
                 h,
                 max(count(out_images), count(out_masks)),

@@ -45,7 +45,7 @@ const humanMillis = milliseconds => {
   const { p, s, ms, precision } = intervals.find(({ ms }) => ~~(milliseconds / ms));
   const value = +(milliseconds / ms).toFixed(precision);
   const warn = milliseconds >= 1000 * 60 * 30; // 30 min
-  return `${value} ${value === 1 ? s : p}${warn ? ' <span style="font-size:75%">\u26A0\uFE0F</span>' : ''}`;
+  return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
 };
 
 const jsonDivStore = (element) => {
@@ -310,9 +310,9 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          const statusHeight = 32;
+          const statusHeight = 40;
           element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`);
-          element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center;" />`);
+          element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center; gap:4px; font-size:8px;" />`);
           element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:var(--hdr-gradient);" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";

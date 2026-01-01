@@ -174,15 +174,15 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n < 0: end_n = vcount + end_n # negative end fix
         start_t = round(start_n / fps, 3)
         end_t = round(end_n / fps, 3)
-        # print(vcount, start_n, start_t, end_n, end_t)
+        print(vcount, start_n, start_t, end_n, end_t)
         for packet in container.demux():
             stream_index = packet.stream.index
             for frame in packet.decode():
                 isv = isinstance(frame, av.video.frame.VideoFrame)
                 ftype = 'V' if isv else 'A'
                 print(ftype if frame.time >= start_t and frame.time < end_t else ftype.lower(), end='')
+                print(frame.time, frame.dts)
                 if isinstance(frame, av.video.frame.VideoFrame):
-                    # print(frame.time)
                     if frame.time >= start_t and frame.time < end_t:
                         if stream_index not in vstreams: vstreams[stream_index] = []
                         vstreams[stream_index].append(frame)

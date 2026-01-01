@@ -50,20 +50,35 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - Create audio for long video in chunks of 8 seconds (200 frames)
 
+### [chunker-wan22-svi-pro](workflows/chunker-wan22-svi-pro.json)
+
+- todo
+
 ## prep for release
 
-- set crf on intermediate mp4
-- combined audio sounds glitchy? also not working?
-- tqdm + comfy progressbar for video ops
-- seed
-  - option to enable seed incrementing (might want either)
-  - KSampler with manual seed connected to values causes Combine to error when setting the value
+- Divide
+  - load_frames gets 4 when asking for 5
+  - cached Divide, causes wrong time estimates in Combine
+
+- Combine
+  - bug: glitched video if "previous_chunk"? muxing issue?
+  - buggy warning emoji in timestamps
+  - Combine setting: "overlap_blend": older_only, linear_blend, ease_in_out, newer_only
+  - set crf on intermediate mp4
+  - combined audio sounds glitchy? also not working? muxing issue where 1024 samples in each packet?
+  - tqdm + comfy progressbar for video ops
+  - think about any way to show underlap when "previous_chunk"
+  - seed
+    - option to enable seed incrementing (might want either)
+    - KSampler with manual seed connected to values causes Combine to error when setting the value
+    - increment "RandomNoise" seed for workflows with "SamplerCustomAdvanced"
+  - keep progress bar shown after final execution
+
 - remove extra nodes
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working
 - finalise a few workflows with previews
-- think about any way to show underlap when "previous_chunk"
 - swapping internal comfyui workflow tab erases progress bar
 - test everything
 - fix preview webm alpha

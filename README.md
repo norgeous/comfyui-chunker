@@ -42,15 +42,15 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - Output 1: ![video](.github/assets/chunker-wan21-vace-output1.mp4)
 
-### [chunker-wan22-flf2v](workflows/chunker-wan22-flf2v.json)
-
-- todo
-
 ### [chunker-mmaudio](workflows/chunker-mmaudio.json)
 
 - Create audio for long video in chunks of 8 seconds (200 frames)
 
 ### [chunker-wan22-svi-pro](workflows/chunker-wan22-svi-pro.json)
+
+- todo
+
+### [chunker-wan22-flf2v](workflows/chunker-wan22-flf2v.json)
 
 - todo
 
@@ -62,7 +62,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - Combine
   - bug: glitched video if "previous_chunk"? muxing issue?
-  - buggy warning emoji in timestamps
   - Combine setting: "overlap_blend": older_only, linear_blend, ease_in_out, newer_only
   - set crf on intermediate mp4
   - combined audio sounds glitchy? also not working? muxing issue where 1024 samples in each packet?

@@ -46,7 +46,11 @@ class ChunkerDivide:
     )
     FUNCTION = "execute"
     CATEGORY = "Chunker"
-    DESCRIPTION = "Chunker"
+    DESCRIPTION = "ChunkerDivide"
+
+    @classmethod
+    def IS_CHANGED(self, image):
+        return float("NaN") # force run if cached, so start timestamp updates
 
     def execute(
         self,
@@ -218,7 +222,7 @@ class ChunkerDivide:
                 "latents": format_latents(latents),
                 "width": w,
                 "height": h,
-                "chunk_length": max(count(out_images), count(out_masks)),
+                "chunk_length": this_chunk_length, # max(count(out_images), count(out_masks)),
                 "chunk_overlap": chunk_overlap,
                 "total_length": total_length,
                 "chunk_count": chunk_count,
@@ -236,7 +240,7 @@ class ChunkerDivide:
                 latents,
                 w,
                 h,
-                max(count(out_images), count(out_masks)),
+                this_chunk_length, # max(count(out_images), count(out_masks)),
                 chunk_overlap,
                 total_length,
                 chunk_count,

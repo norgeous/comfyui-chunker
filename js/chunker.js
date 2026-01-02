@@ -31,22 +31,47 @@ function chainCallback(object, property, callback) {
   }
 }
 
-const intervals = [
-  { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2 },
-  { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2 },
-  { p: 'days',  s: 'day',  ms: 1000 * 60 * 60 * 24,          precision: 2 },
-  { p: 'hours', s: 'hour', ms: 1000 * 60 * 60,               precision: 2 },
-  { p: 'mins',  s: 'min',  ms: 1000 * 60,                    precision: 1 },
-  { p: 'secs',  s: 'sec',  ms: 1000,                         precision: 0 },
-];
-const humanMillis = milliseconds => {
-  if (milliseconds <= 0) return 'overdue';
-  if (milliseconds < 1_000) return '< 1 sec';
-  const { p, s, ms, precision } = intervals.find(({ ms }) => ~~(milliseconds / ms));
-  const value = +(milliseconds / ms).toFixed(precision);
-  const warn = milliseconds >= 1000 * 60 * 30; // 30 min
-  return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
-};
+// const intervals = [
+//   { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2 },
+//   { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2 },
+//   { p: 'days',  s: 'day',  ms: 1000 * 60 * 60 * 24,          precision: 2 },
+//   { p: 'hours', s: 'hour', ms: 1000 * 60 * 60,               precision: 2 },
+//   { p: 'mins',  s: 'min',  ms: 1000 * 60,                    precision: 1 },
+//   { p: 'secs',  s: 'sec',  ms: 1000,                         precision: 0 },
+// ];
+// const humanMillis = milliseconds => {
+//   if (milliseconds <= 0) return 'overdue';
+//   if (milliseconds < 1_000) return '< 1 sec';
+//   const { p, s, ms, precision } = intervals.find(({ ms }) => ~~(milliseconds / ms));
+//   const value = +(milliseconds / ms).toFixed(precision);
+//   const warn = milliseconds >= 1000 * 60 * 30; // 30 min
+//   return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
+// };
+
+const formatMilliseconds = (ms) => {
+  if (ms < 0) return "overdue";
+  if (ms === 0) return "0";
+  const divisors = [1, 1000, 60, 60, 24, 7, 52];
+  const units = ['ms', 's', 'm', 'h', 'd', 'w', 'y'];
+  const results = [];
+  let quotient = ms;
+  for (let i = 1; i < divisors.length; i++) {
+    results.push(quotient % divisors[i]);
+    quotient = Math.floor(quotient / divisors[i]);
+  }
+  results.push(quotient);
+  const rResults = [...results].reverse();
+  const rUnits = [...units].reverse();
+  const first = rResults.findIndex(v => v > 0);
+  const last = results.length - results.findIndex(v => v > 0);
+  const out = [];
+  for (let i = first; i < last; i++) {
+    out.push(`${rResults[i]}${rUnits[i]}`);
+  }
+  const value = out.slice(0, 2).join('');
+  const warn = ms >= 1000 * 60 * 30; // 30 min
+  return `${value}${warn ? ' \u26A0\uFE0F' : ''}`;
+}
 
 const jsonDivStore = (element) => {
   element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="display:none; font-size:8px; text-align:left;">{}</pre>');
@@ -341,8 +366,8 @@ app.registerExtension({
             const etaNextMillis = predicted_deltas[0] - elapsedMillis;
             const etaFinalMillis = predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis;
 
-            const etaNext = humanMillis(etaNextMillis);
-            const etaFinal = humanMillis(etaFinalMillis);
+            const etaNext = formatMilliseconds(etaNextMillis);
+            const etaFinal = formatMilliseconds(etaFinalMillis);
             const dueDate = new Date(now + etaFinalMillis);
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${Math.round(now / 1000) % 2 === 0 ? ':' : ' '}${String(dueDate.getMinutes()).padStart(2, '0')}`
 
@@ -350,11 +375,11 @@ app.registerExtension({
               <div style="display:flex; justify-content:center; align-items:center; gap:2px;">Next: ${etaNext}, Final: ${etaFinal}, Due: ${due}</div>
               <div style="display:flex; gap:1px;">
                 ${historical_deltas.map((delta, i) => {
-                  const label = `Chunk ${i + 1}\n${humanMillis(delta)}`;
+                  const label = `Chunk ${i + 1}\n${formatMilliseconds(delta)}`;
                   return `<div style="flex:1 1; height:6px; background:green;" title="${label}"></div>`;
                 }).join('\n')}
                 ${predicted_deltas.map((delta, i) => {
-                  const label = `Chunk ${i + 1 + historical_deltas.length}\n~${humanMillis(delta)}`;
+                  const label = `Chunk ${i + 1 + historical_deltas.length}\n~${formatMilliseconds(delta)}`;
                   if (i === 0) return `<div style="flex:1 1; height:6px; background:aqua;" title="${label}"></div>`;
                   return `<div style="flex:1 1; height:6px; background:gray;" title="${label}"></div>`;
                 }).join('\n')}

@@ -4,10 +4,14 @@ import math
 def get_ts():
     return int(time.time() * 1000) # current time in milliseconds
 
+def predict(data, next_count):
+    avg = sum(data) / len(data)
+    return [avg] * next_count
+
 # Example Usage:
 # result = predict_next([10, 20, 30], 2)
 # print(result) # [40, 50]
-def predict(data, next_count):
+def predict2(data, next_count):
     n = len(data)
     # if n < 2: return []
     if n == 1: return data * next_count

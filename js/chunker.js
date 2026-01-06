@@ -31,6 +31,64 @@ function chainCallback(object, property, callback) {
   }
 }
 
+const statusHeight = 40;
+document.body.insertAdjacentHTML("beforeEnd", `
+<style>
+:root {
+  --hdr-gradient: linear-gradient(-45deg in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));
+}
+@keyframes animatepos {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+.chunker-status {
+  height: ${statusHeight}px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  font-size: 8px;
+}
+.chunker-timings {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.chunker-timestamp {
+  font-family: monospace;
+}
+.chunker-bar {
+  display: flex;
+  gap: 1px;
+  font-size: 3px;
+}
+.chunker-bar-section {
+  flex: 1 1;
+  padding: 1px;
+  color: black;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  &.complete { background: #bada55; }
+  &.current { background: linear-gradient(90deg, #bada55 0%, #bada55 50%, grey 50%, grey 100%); }
+  &.pending { background: grey; }
+}
+.chunker-video {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  height: calc(100% - ${statusHeight}px);
+  background: var(--hdr-gradient);
+  background-size: 400% 400%;
+  animation: animatepos 20s infinite;
+}
+</style>
+`);
+
+
+
 // const intervals = [
 //   { p: 'years', s: 'year', ms: 1000 * 60 * 60 * 24 * 7 * 52, precision: 2 },
 //   { p: 'weeks', s: 'week', ms: 1000 * 60 * 60 * 24 * 7,      precision: 2 },
@@ -48,7 +106,8 @@ function chainCallback(object, property, callback) {
 //   return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
 // };
 
-const formatMilliseconds = (ms) => {
+const formatMilliseconds = (ms, hideMs = false) => {
+  ms = Math.floor(ms)
   if (ms < 0) return "overdue";
   if (ms === 0) return "0";
   const divisors = [1, 1000, 60, 60, 24, 7, 52];
@@ -66,11 +125,11 @@ const formatMilliseconds = (ms) => {
   const last = results.length - results.findIndex(v => v > 0);
   const out = [];
   for (let i = first; i < last; i++) {
-    out.push(`${rResults[i]}${rUnits[i]}`);
+    out.push(`${String(rResults[i]).padStart(2, '0')}${rUnits[i]}`);
   }
+  if (hideMs && out.length > 1) out.pop();
   const value = out.slice(0, 2).join('');
-  const warn = ms >= 1000 * 60 * 30; // 30 min
-  return `${value}${warn ? ' \u26A0\uFE0F' : ''}`;
+  return value
 }
 
 const jsonDivStore = (element) => {
@@ -335,10 +394,8 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          const statusHeight = 40;
-          element.insertAdjacentHTML("beforeEnd", `<style>:root {--hdr-gradient: linear-gradient(to top left in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));}</style>`);
-          element.insertAdjacentHTML("beforeEnd", `<div id="status" style="height:${statusHeight}px; display:flex; flex-direction:column; justify-content:center; gap:4px; font-size:8px;" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video controls autoplay loop muted onloadstart="this.volume=0.5" style="display:block; width:100%; min-height:100px; height:calc(100% - ${statusHeight}px); background:var(--hdr-gradient);" />`);
+          element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
+          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted onloadstart="this.volume=0.5" />`);
           element.style.display = "flex";
           element.style.flexDirection = "column";
           element.style.gap = "2px";
@@ -357,31 +414,47 @@ app.registerExtension({
             const chunks_completed = index + 1;
 
             if (!historical_deltas) {
-              element.querySelector("#status").innerHTML = `Awaiting data...`;
+              element.querySelector(".chunker-status").innerHTML = `Awaiting data...`;
               return
             }
 
             const now = Date.now();
             const elapsedMillis = now - ts;
-            const etaNextMillis = predicted_deltas[0] - elapsedMillis;
-            const etaFinalMillis = predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis;
+            const etaNextMillis = predicted_deltas ? predicted_deltas[0] - elapsedMillis : 0;
+            const etaFinalMillis = predicted_deltas ? predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis : 0;
 
-            const etaNext = formatMilliseconds(etaNextMillis);
-            const etaFinal = formatMilliseconds(etaFinalMillis);
+            const etaNext = formatMilliseconds(etaNextMillis, true);
+            const etaFinal = formatMilliseconds(etaFinalMillis, true);
             const dueDate = new Date(now + etaFinalMillis);
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${Math.round(now / 1000) % 2 === 0 ? ':' : ' '}${String(dueDate.getMinutes()).padStart(2, '0')}`
+            const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
 
-            element.querySelector("#status").innerHTML = `
-              <div style="display:flex; justify-content:center; align-items:center; gap:2px;">Next: ${etaNext}, Final: ${etaFinal}, Due: ${due}</div>
-              <div style="display:flex; gap:1px;">
+            const timings = `
+              <div class="chunker-timings">
+                <div class="chunker-timestamp">Next: ~${etaNext}</div>
+                <div class="chunker-timestamp">Final: ~${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
+              </div>
+            `;
+            element.querySelector(".chunker-status").innerHTML = `
+              ${predicted_deltas?.length ? timings : `Done in ${formatMilliseconds(historical_deltas.reduce((acc, delta) => acc + delta, 0))}`}
+              <div class="chunker-bar">
                 ${historical_deltas.map((delta, i) => {
-                  const label = `Chunk ${i + 1}\n${formatMilliseconds(delta)}`;
-                  return `<div style="flex:1 1; height:6px; background:green;" title="${label}"></div>`;
+                  const label = `${formatMilliseconds(delta)}`;
+                  return `<div class="chunker-bar-section complete" title="Chunk ${i + 1}\n${label}">${label}</div>`;
                 }).join('\n')}
                 ${predicted_deltas.map((delta, i) => {
-                  const label = `Chunk ${i + 1 + historical_deltas.length}\n~${formatMilliseconds(delta)}`;
-                  if (i === 0) return `<div style="flex:1 1; height:6px; background:aqua;" title="${label}"></div>`;
-                  return `<div style="flex:1 1; height:6px; background:gray;" title="${label}"></div>`;
+                  const label = `${formatMilliseconds(delta)}`;
+                  if (i === 0) {
+                    const percent = Math.min(1, Math.max(0, (elapsedMillis) / delta)) * 100;
+                    return `
+                      <div
+                        class="chunker-bar-section current"
+                        style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"
+                        title="Chunk ${i + 1 + historical_deltas.length}\n~${label}"
+                      >${label}</div>
+                    `;
+                  }
+                  return `<div class="chunker-bar-section pending" title="Chunk ${i + 1 + historical_deltas.length}\n~${label}">${label}</div>`;
                 }).join('\n')}
               </div>
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>

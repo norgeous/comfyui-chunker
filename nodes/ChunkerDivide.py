@@ -1,5 +1,6 @@
 import torch
 import math
+from copy import copy
 from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
 from ..lib.utils_av import load, concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
@@ -49,7 +50,7 @@ class ChunkerDivide:
     DESCRIPTION = "ChunkerDivide"
 
     @classmethod
-    def IS_CHANGED(self, image):
+    def IS_CHANGED(self):
         return float("NaN") # force run if cached, so start timestamp updates
 
     def execute(
@@ -74,7 +75,7 @@ class ChunkerDivide:
             "last_latents": None,
         }
 
-        out_fps = fps
+        out_fps = copy(fps)
         if out_fps is None and mode.startswith("Wan"): out_fps = 16.0
         if out_fps is None: out_fps = 30.0
 
@@ -208,6 +209,8 @@ class ChunkerDivide:
             ],
         }
 
+        log(fps, out_fps)
+
         ui_values = {
             "input_label_values": {
                 "images": format_images(images),
@@ -222,7 +225,7 @@ class ChunkerDivide:
                 "latents": format_latents(latents),
                 "width": w,
                 "height": h,
-                "chunk_length": this_chunk_length, # max(count(out_images), count(out_masks)),
+                "chunk_length": this_chunk_length,
                 "chunk_overlap": chunk_overlap,
                 "total_length": total_length,
                 "chunk_count": chunk_count,
@@ -240,7 +243,7 @@ class ChunkerDivide:
                 latents,
                 w,
                 h,
-                this_chunk_length, # max(count(out_images), count(out_masks)),
+                this_chunk_length,
                 chunk_overlap,
                 total_length,
                 chunk_count,

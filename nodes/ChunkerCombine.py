@@ -139,6 +139,13 @@ class ChunkerCombine:
             out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path, alpha_mode="2ndStream")
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
+            ts_chunk_end = get_ts()
+            s["ts_chunk_ends"] = [
+                *s["ts_chunk_ends"],
+                ts_chunk_end,
+            ]
+            historical_deltas = [e - s for s, e in zip(d["ts_chunk_starts"], s["ts_chunk_ends"])]
+
             ui_values = {
                 "input_label_values": {
                     "images": format_images(images),
@@ -155,6 +162,8 @@ class ChunkerCombine:
                 "index": d["index"],
                 "chunk_count": c["chunk_count"],
                 "video_path": all_preview_frontend_data,
+                "historical_deltas": historical_deltas,
+                "predicted_deltas": [],
             }
 
             log(f"Finished all chunks {d["index"] + 1} of {c["chunk_count"]}!")

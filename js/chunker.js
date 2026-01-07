@@ -106,7 +106,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
 //   return `${value} ${value === 1 ? s : p}${warn ? ' \u26A0\uFE0F' : ''}`;
 // };
 
-const formatMilliseconds = (ms, hideMs = false) => {
+const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   ms = Math.floor(ms)
   if (ms < 0) return "overdue";
   if (ms === 0) return "0";
@@ -125,7 +125,8 @@ const formatMilliseconds = (ms, hideMs = false) => {
   const last = results.length - results.findIndex(v => v > 0);
   const out = [];
   for (let i = first; i < last; i++) {
-    out.push(`${String(rResults[i]).padStart(2, '0')}${rUnits[i]}`);
+    const display = !pad ? rResults[i] : String(rResults[i]).padStart(2, '0');
+    out.push(`${display}${rUnits[i]}`);
   }
   if (hideMs && out.length > 1) out.pop();
   const value = out.slice(0, 2).join('');
@@ -423,8 +424,8 @@ app.registerExtension({
             const etaNextMillis = predicted_deltas ? predicted_deltas[0] - elapsedMillis : 0;
             const etaFinalMillis = predicted_deltas ? predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis : 0;
 
-            const etaNext = formatMilliseconds(etaNextMillis, true);
-            const etaFinal = formatMilliseconds(etaFinalMillis, true);
+            const etaNext = formatMilliseconds(etaNextMillis, true, true);
+            const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
             const dueDate = new Date(now + etaFinalMillis);
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${Math.round(now / 1000) % 2 === 0 ? ':' : ' '}${String(dueDate.getMinutes()).padStart(2, '0')}`
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min

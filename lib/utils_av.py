@@ -13,6 +13,12 @@ profiles = {
         "extension": "webm",
         "video_codec": "libvpx-vp9",
         "video_pix_fmt": "yuva420p",
+        "video_stream_options": {
+            "crf": "15", # between 0 and 63, 20-30 is standard
+            "b": "0",
+            "deadline": "good",
+            "cpu-used": "2",
+        },
         "audio_codec": "vorbis",
         "audio_format": "s16", # previously "s16p",
     },
@@ -20,7 +26,10 @@ profiles = {
         "extension": "mp4",
         "video_codec": "libx264",
         "video_pix_fmt": "yuv420p",
-        "video_stream_options": {"crf": 51}, # todo
+        "video_stream_options": {
+            "crf": "18", # between 0 and 51, 18 is often considered visually lossless.
+            "preset": "slow",
+        },
         "audio_codec": "aac",
         "audio_format": "fltp",
     },
@@ -28,6 +37,9 @@ profiles = {
         "extension": "mov",
         "video_codec": "prores_ks",
         "video_pix_fmt": "yuva444p10le",
+        "video_stream_options": {
+            "qscale": "2", # between 1 and 31
+        } ,
         "audio_codec": "alac",
         "audio_format": "fltp",
     },
@@ -100,6 +112,7 @@ def tensor_to_astreams(audio):
     return [aframes] if len(aframes) > 0 else []
 
 def vstreams_to_tensor(vstreams, alpha_mode="rgba"):
+    if len(vstreams) == 0: return (None, None)
     out_images = []
     out_masks = []
     if alpha_mode == "2ndStream":
@@ -172,22 +185,23 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n == 0: end_n = vcount # zero end fix
         if start_n < 0: start_n = vcount + start_n # negative start fix
         if end_n < 0: end_n = vcount + end_n # negative end fix
-        start_t = round(start_n / fps, 3)
-        end_t = round(end_n / fps, 3)
+        start_t = float(round(start_n / fps, 3))
+        end_t = float(round(end_n / fps, 3))
         print(vcount, start_n, start_t, end_n, end_t)
         for packet in container.demux():
             stream_index = packet.stream.index
             for frame in packet.decode():
                 isv = isinstance(frame, av.video.frame.VideoFrame)
                 ftype = 'V' if isv else 'A'
-                print(ftype if frame.time >= start_t and frame.time < end_t else ftype.lower(), end='')
-                print(frame.time, frame.dts)
+                print(ftype if frame.time >= start_t and frame.time <= end_t else ftype.lower(), end='')
+                # base = (1 / (1/1000)) / fps
+                print('dts',frame.dts, 'pts',frame.pts, 'time',frame.time, 'base',frame.time_base, frame.sample_rate if not isv else 'no', start_t, end_t, frame.time >= start_t, frame.time <= end_t)
                 if isinstance(frame, av.video.frame.VideoFrame):
-                    if frame.time >= start_t and frame.time < end_t:
+                    if frame.time >= start_t and frame.time <= end_t:
                         if stream_index not in vstreams: vstreams[stream_index] = []
                         vstreams[stream_index].append(frame)
                 if isinstance(frame, av.audio.frame.AudioFrame):
-                    if frame.time >= start_t and frame.time < end_t:
+                    if frame.time >= start_t and frame.time <= end_t:
                         if stream_index not in astreams: astreams[stream_index] = []
                         astreams[stream_index].append(frame)
     out_vstreams = []
@@ -199,7 +213,7 @@ def load_streams(path=None, start_n=None, end_n=None):
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
-    # print(vstreams)
+    print(vstreams)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)
     return (images, masks, audio, fps)
@@ -221,6 +235,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
         for i in enumerate(vstreams):
             video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
             video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
+            video_stream.options = profiles[profile]["video_stream_options"]
             video_stream.width = W
             video_stream.height = H
             out_vstreams.append(video_stream)

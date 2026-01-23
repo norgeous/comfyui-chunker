@@ -210,7 +210,7 @@ class ChunkerCombine:
             seed = node.get_input("noise_seed")
             node.set_input("noise_seed", seed + d["index"] + 1)
 
-        # increment seeds in cloned RandomNoise nodes, to prevent same motion in each chunk (for Wan22)
+        # increment seeds in cloned RandomNoise nodes, to prevent same motion in each chunk (for Wan22 or LTX2)
         ids = get_node_ids_by_type(graph.finalize(), "RandomNoise")
         for id in ids:
             real_id = id.replace(f"{unique_id}.0.0.", "")

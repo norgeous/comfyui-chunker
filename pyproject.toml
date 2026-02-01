@@ -10,5 +10,5 @@ dependencies = []
 # Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = "norgeous"
-DisplayName = "ComfyUI-Chunker"
+# PublisherId = "norgeous"
+# DisplayName = "ComfyUI-Chunker"

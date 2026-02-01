@@ -1,6 +1,7 @@
+from pathlib import Path
 import os
 import folder_paths
-from comfy_execution.graph_utils import is_link
+from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
 
 def get_input_filenames():
@@ -28,6 +29,18 @@ def get_next_save_path(filename_prefix, extension):
             "type": "output",
         },
     )
+
+def find_lora_full_path(name):
+    # print(name)
+    lora_files = folder_paths.get_filename_list("loras")
+    lora_name = None
+    for lora_file in lora_files:
+        if Path(lora_file).name.startswith(name) or lora_file.startswith(name):
+            lora_name = lora_file
+            break
+    lora_path = folder_paths.get_full_path("loras", lora_name)
+    # print(lora_path)
+    return lora_path
 
 # from https://github.com/yolain/ComfyUI-Easy-Use/blob/main/py/nodes/logic.py
 
@@ -72,7 +85,9 @@ def collect_contained(node_id, upstream, contained):
             collect_contained(child_id, upstream, contained)
 
 
-def comfyui_repeat_nodes(dynprompt, graph, unique_id, start_node_id):
+def comfyui_repeat_nodes(dynprompt, unique_id, start_node_id):
+    graph = GraphBuilder()
+
     # Get the list of all nodes between the open and close nodes
     upstream = {}
     parent_ids = []
@@ -113,13 +128,30 @@ def comfyui_repeat_nodes(dynprompt, graph, unique_id, start_node_id):
             else:
                 node.set_input(k, v)
 
-    #print("contained", contained)
+    return graph
 
-def get_node_ids_by_type(prompt, type):
-    ids = []
+def increment_all_seeds(graph, unique_id, amt):
+    # graph = GraphBuilder()
+    partials = ["Sampler", "Noise"]
+    prompt = graph.finalize()
     for id in prompt:
         node = prompt[id]
         class_type = node["class_type"]
-        if class_type == type: ids.append(id)
-    return ids
+        for partial in partials:
+            if partial in class_type:
+                real_id = id.replace(f"{unique_id}.0.0.", "")
+                node = graph.lookup_node(real_id)
 
+                # if node has a disconnected seed input
+                seed = node.get_input("seed")
+                if isinstance(seed, int):
+                    new_seed = seed + amt
+                    node.set_input("seed", new_seed)
+
+                # if node has a disconnected noise_seed input
+                noise_seed = node.get_input("noise_seed")
+                if isinstance(noise_seed, int):
+                    new_noise_seed = noise_seed + amt
+                    node.set_input("noise_seed", new_noise_seed)
+                
+                break

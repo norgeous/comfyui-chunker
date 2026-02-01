@@ -1,87 +1,106 @@
 import torch
 import math
-from copy import copy
+from comfy_api.latest import io
 from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
 from ..lib.utils_av import load, concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
-from ..lib.utils_format import format_images, format_masks, format_audio, format_latents, format_fps
+from ..lib.utils_format import format_images, format_masks, format_audio, format_fps#, format_latents
 from ..lib.utils_performance import get_ts
 
-class ChunkerDivide:
+class ChunkerDivide(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "mode": (["None", "Wan", "Wan-VACE", "LTX2"], {"tooltip": "Force chunk lengths to match Wan's format 4n+1. 16fps for Wan21, 24fps for Wan22"}),
-                "chunk_length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 1, "tooltip": "Count of images in each chunk"}),
-                "chunk_overlap": ("INT", {"default": 4, "min": 0, "max": 4096, "step": 1, "tooltip": "Count of images to overlap between chunks"}),
-                "total_length": ("INT", {"default": 0, "min": 0, "max": 100000, "step": 1, "tooltip": "Minimum count of images in the final output. 0 to use the images length"}),
-            },
-            "optional": {
-                "images": ("IMAGE", {"tooltip": "images"}),
-                "masks": ("MASK", {"tooltip": "masks"}),
-                "audio": ("AUDIO", {"tooltip": "audio"}),
-                "fps": ("FLOAT", {"forceInput": True, "tooltip": "fps"}),
-                "store": ("*",), # hidden by js
-            },
-            "hidden": {
-                "unique_id": "UNIQUE_ID",
-            }
-        }
-
-    RETURN_TYPES = (
-        "CHUNKER_DATA",
-        "IMAGE",
-        "MASK",
-        "AUDIO",
-        "FLOAT",
-        "LATENT",
-        # "INT",
-        # "INT",
-        "INT",
-        "INT",
-        "INT",
-        "INT",
-        "INT",
-    )
-    RETURN_NAMES = (
-        "chunker_data",
-        "images",
-        "masks",
-        "audio",
-        "fps",
-        "latents",
-        # "width",
-        # "height",
-        "chunk_length",
-        "chunk_overlap",
-        "total_length",
-        "chunk_count",
-        "index",
-    )
-    OUTPUT_TOOLTIPS = (
-        "Connect \"chunker_data\" to the \"ChunkerCombine\" node",
-        "Chunk of images",
-        "Chunk of masks",
-        "Chunk of audio",
-        "FPS"
-        "Last chunk's latents",
-        # "Width of images",
-        # "Height of images",
-        "Count of images in each chunk",
-        "Count of images to overlap between each chunk",
-        "Total length of output images",
-        "Count of chunks",
-        "The current itteration index, ie; 0, 1, 2, ...",
-    )
-    FUNCTION = "execute"
-    CATEGORY = "Chunker"
-    DESCRIPTION = "ChunkerDivide"
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="ChunkerDivide",
+            display_name="\U0001F36B Divide",
+            category="chunker",
+            inputs=[
+                io.Image.Input("images",
+                    optional=True,
+                    tooltip="images",
+                ),
+                io.Mask.Input("masks",
+                    optional=True,
+                    tooltip="masks",
+                ),
+                io.Audio.Input("audio",
+                    optional=True,
+                    tooltip="audio",
+                ),
+                io.Float.Input("fps",
+                    optional=True,
+                    force_input=True,
+                    tooltip="FPS",
+                ),
+                io.Combo.Input("mode",
+                    options=["None", "Wan", "Wan-VACE", "LTX2"],
+                    tooltip="Adjust chunk_length and total_length to match Wan's format (4n+1) or LTX's format.",
+                ),
+                io.Int.Input("chunk_length",
+                    tooltip="Count of images in each chunk",
+                    default=81,
+                    min=1,
+                    max=4096,
+                    step=1,
+                ),
+                io.Int.Input("chunk_overlap",
+                    tooltip="Count of images to overlap between chunks",
+                    default=4,
+                    min=1,
+                    max=4096,
+                    step=1,
+                ),
+                io.Int.Input("total_length",
+                    tooltip="Minimum count of images in the final output. 0 to use the images length",
+                    default=0,
+                    min=1,
+                    max=10000,
+                    step=1,
+                ),
+                io.Custom("*").Input("store",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.Custom("CHUNKER_DATA").Output("chunker_data",
+                    tooltip="Connect \"chunker_data\" to the \"ChunkerCombine\" node"           
+                ),
+                io.Image.Output("images",
+                    tooltip="Chunk of images",
+                ),
+                io.Mask.Output("masks",
+                    tooltip="Chunk of masks",
+                ),
+                io.Audio.Output("audio",
+                    tooltip="Chunk of audio",
+                ),
+                io.Float.Output("fps",
+                    tooltip="FPS",
+                ),
+                io.Int.Output("chunk_length",
+                    tooltip="Count of images in this chunk",
+                ),
+                io.Int.Output("chunk_overlap",
+                    tooltip="Count of images to overlap between each chunk",
+                ),
+                io.Int.Output("total_length",
+                    tooltip="Total length of output images",
+                ),
+                io.Int.Output("chunk_count",
+                    tooltip="Count of chunks",
+                ),
+                io.Int.Output("index",
+                    tooltip="The current itteration index, ie; 0, 1, 2, ...",
+                ),
+            ],
+            hidden=[io.Hidden.unique_id],
+        )
 
     @classmethod
-    def IS_CHANGED(self):
-        return float("NaN") # force run if cached, so start timestamp updates
+    def fingerprint_inputs(cls, **kwargs):
+        return str(get_ts()) # force run if cached, so that start timestamp always updates
 
+    @classmethod
     def execute(
         self,
         mode,
@@ -93,18 +112,16 @@ class ChunkerDivide:
         audio=None,
         fps=None,
         store=None,
-        unique_id=None,
-    ):
+    ) -> io.NodeOutput:
         ts_chunk_start = get_ts()
 
         s = store if store is not None else {
             "index": 0,
             "last_chunk_path": None,
             "ts_chunk_starts": [],
-            "last_latents": None,
         }
 
-        out_fps = fps # copy(fps)
+        out_fps = fps
         if out_fps is None and mode.startswith("Wan"): out_fps = 16.0
         if out_fps is None and mode.startswith("LTX"): out_fps = 25.0
         if out_fps is None: out_fps = 30.0
@@ -183,11 +200,8 @@ class ChunkerDivide:
         # prepare chunk of audio from input
         if audio is not None:
             samples_per_frame = math.floor(audio["sample_rate"] / out_fps)
-            # astart = (start + count(out_images)) * samples_per_frame
             astart = start * samples_per_frame
             aend = end * samples_per_frame
-            # print('end start',end,start)
-            # print('aend astart',aend,astart)
             out_audio.append({
                 "waveform": audio["waveform"][:,:,astart:aend],
                 "sample_rate": audio["sample_rate"],
@@ -232,10 +246,8 @@ class ChunkerDivide:
         if len(out_audio) > 0:
             out_audio_dict = concat_audios(out_audio)
 
-        latents = s["last_latents"]
-
         chunker_data = {
-            "start_node_id": unique_id,
+            "start_node_id": self.hidden.unique_id,
             "index": s["index"],
             "chunker_config": c,
             "fps": out_fps,
@@ -257,9 +269,6 @@ class ChunkerDivide:
                 "masks": format_masks(out_masks_torch),
                 "audio": format_audio(out_audio_dict),
                 "fps": format_fps(out_fps),
-                "latents": format_latents(latents),
-                # "width": w,
-                # "height": h,
                 "chunk_length": this_chunk_length,
                 "chunk_overlap": chunk_overlap,
                 "total_length": total_length,
@@ -268,21 +277,16 @@ class ChunkerDivide:
             },
         }
 
-        return {
-            "ui": {"values": [ui_values]},
-            "result": (
-                chunker_data,
-                out_images_torch,
-                out_masks_torch,
-                out_audio_dict,
-                out_fps,
-                latents,
-                # w,
-                # h,
-                this_chunk_length,
-                chunk_overlap,
-                total_length,
-                chunk_count,
-                s["index"],
-            ),
-        }
+        return io.NodeOutput(
+            chunker_data,
+            out_images_torch,
+            out_masks_torch,
+            out_audio_dict,
+            out_fps,
+            this_chunk_length,
+            chunk_overlap,
+            total_length,
+            chunk_count,
+            s["index"],
+            ui={"values": [ui_values]},
+        )

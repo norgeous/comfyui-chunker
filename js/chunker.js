@@ -289,10 +289,10 @@ const addUploadWidget = (that, nodeType, widgetName, buttonLabel) => {
 
 
 app.registerExtension({
-  name: "comfyui-chunker",
+  name: "chunker",
 
   async setup(app) {
-    console.log("app", app)
+    // console.log("app", app)
     app.api.addEventListener("execution_cached", (...data) => {
       // console.log("chunker execution_cached", data);
     });
@@ -370,6 +370,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
 
+
           // if (ui.values[0].output_label_values.index === 0) {
           //   document.querySelectorAll('#data_store').forEach(store => store.innerHTML = JSON.stringify({ timestamp2: Date.now() }));
           // }
@@ -395,6 +396,8 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
+          this.uuid = makeUUID();
+          element.id = `chunk-info-${this.uuid}`;
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
           element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted onloadstart="this.volume=0.5" />`);
           element.style.display = "flex";
@@ -461,8 +464,6 @@ app.registerExtension({
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
           }, 1_000);
-          this.uuid = makeUUID();
-          element.id = `chunk-info-${this.uuid}`;
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
             serialize: false,
             hideOnZoom: false,

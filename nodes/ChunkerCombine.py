@@ -1,59 +1,71 @@
+from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import save, load, mux
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
-from ..lib.utils_comfy import comfyui_repeat_nodes, get_node_ids_by_type
-from comfy_execution.graph_utils import GraphBuilder
-from ..lib.utils_format import format_images, format_masks, format_audio, format_latents, format_fps, format_milliseconds
+from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds#, get_graph_node, get_graph_finalise
+from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds#, format_latents
 from ..lib.utils_performance import get_ts, predict
 
-class ChunkerCombine:
+class ChunkerCombine(io.ComfyNode):
     @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "chunker_data": ("CHUNKER_DATA", {"tooltip": "Connect chunker_data from Chunker node to here"}),
-                # "show_debug": ("BOOLEAN", {"default": True, "tooltip": "Show debug overlay in preview"}),
-                "select_overlaps_from": (["this_chunk", "previous_chunk"], {"default": "this_chunk", "tooltip": "When combining, select the overlaps from current or previous chunk"}),
-            },
-            "optional": {
-                "images": ("IMAGE", {"tooltip": "Processed chunk of images"}),
-                "masks": ("MASK", {"tooltip": "Processed chunk of masks"}),
-                "audio": ("AUDIO", {"tooltip": "Processed chunk of audio"}),
-                "latents": ("LATENT", {"tooltip": "Latents"}),
-                "store": ("*",), # hidden by js
-            },
-            "hidden": {
-                "dynprompt": "DYNPROMPT",
-                "unique_id": "UNIQUE_ID",
-            }
-        }
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="ChunkerCombine",
+            display_name="\U0001F36B Combine",
+            category="chunker",
+            inputs=[
+                io.Custom("CHUNKER_DATA").Input("chunker_data",
+                    tooltip="Connect chunker_data from ChunkerDivide node to here"             
+                ),
+                io.Image.Input("images",
+                    optional=True,
+                    tooltip="Processed chunk of images",
+                ),
+                io.Mask.Input("masks",
+                    optional=True,
+                    tooltip="Processed chunk of masks",
+                ),
+                io.Audio.Input("audio",
+                    optional=True,
+                    tooltip="Processed chunk of audio",
+                ),
+                io.Combo.Input("overlap_blend_mode",
+                    options=["this_chunk", "previous_chunk"],
+                    tooltip="When combining, select the overlaps from current or previous chunk",
+                ),
+                io.Custom("*").Input("store",
+                    optional=True,
+                ),
+            ],
+            outputs=[
+                io.Image.Output("images",
+                    tooltip="Combined images from all chunks",
+                ),
+                io.Mask.Output("masks",
+                    tooltip="Combined masks from all chunks",
+                ),
+                io.Audio.Output("audio",
+                    tooltip="Combined audio from all chunks",
+                ),
+                io.Float.Output("fps",
+                    tooltip="FPS",
+                ),
+            ],
+            hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
+            is_output_node=True,
+            enable_expand=True,
+        )
 
-    RETURN_TYPES = ("IMAGE", "MASK", "AUDIO", "FLOAT")
-    RETURN_NAMES = ("images", "masks", "audio", "fps")
-    OUTPUT_TOOLTIPS = (
-        "Combined images from all chunks",
-        "Combined masks from all chunks",
-        "Combined audio from all chunks",
-        "FPS",
-    )
-    FUNCTION = "execute"
-    CATEGORY = "Chunker"
-    DESCRIPTION = "ChunkerCombine"
-    OUTPUT_NODE = True
-
+    @classmethod
     def execute(
         self,
         chunker_data,
-        # show_debug,
-        select_overlaps_from,
+        overlap_blend_mode,
         images=None,
         masks=None,
         audio=None,
-        latents=None,
         store=None,
-        dynprompt=None,
-        unique_id=None,
     ):
         if images is None and masks is None and audio is None:
             raise ValueError("At least one of images, masks, or audio must be provided.")
@@ -64,7 +76,6 @@ class ChunkerCombine:
             "chunks": [],
             "preview_chunks": [],
             "ts_chunk_ends": [],
-            "last_latents": None,
         }
 
         # lanczos resize masks to match images size
@@ -115,7 +126,7 @@ class ChunkerCombine:
             paths=s["preview_chunks"],
             filename_prefix="video/chunker/tmp/all-preview",
             overlap=c["chunk_overlap"],
-            select_overlaps_from=select_overlaps_from,
+            select_overlaps_from=overlap_blend_mode,
         )
         print(f"done ({format_milliseconds(get_ts() - ts)}) {all_preview_path}")
 
@@ -130,7 +141,7 @@ class ChunkerCombine:
                 paths=s["chunks"],
                 filename_prefix="video/chunker/final",
                 overlap=c["chunk_overlap"],
-                select_overlaps_from=select_overlaps_from,
+                select_overlaps_from=overlap_blend_mode,
             )[0]
             print(f"done ({format_milliseconds(get_ts() - ts)})")
  
@@ -151,7 +162,6 @@ class ChunkerCombine:
                     "images": format_images(images),
                     "masks": format_masks(masks),
                     "audio": format_audio(audio),
-                    "latents": format_latents(latents),
                 },
                 "output_label_values": {
                     "images": format_images(out_images_torch),
@@ -181,9 +191,9 @@ class ChunkerCombine:
         ts = get_ts()
         log("Cloning nodes for next chunk...", end="")
 
+        # graph = GraphBuilder()
         # clone all the nodes between Chunker and ChunkerCombine
-        graph = GraphBuilder()
-        comfyui_repeat_nodes(dynprompt, graph, unique_id, d["start_node_id"])
+        graph = comfyui_repeat_nodes(self.hidden.dynprompt, self.hidden.unique_id, d["start_node_id"])
 
         # update the store in the new_divide
         new_divide = graph.lookup_node(d["start_node_id"])
@@ -191,32 +201,15 @@ class ChunkerCombine:
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None, # filename of last chunk saved
             "ts_chunk_starts": d["ts_chunk_starts"],
-            "last_latents": latents,
         })
 
-        # increment seeds in cloned KSampler nodes, to prevent same motion in each chunk (for Wan21)
-        ids = get_node_ids_by_type(graph.finalize(), "KSampler")
-        for id in ids:
-            real_id = id.replace(f"{unique_id}.0.0.", "")
-            node = graph.lookup_node(real_id)
-            seed = node.get_input("seed")
-            node.set_input("seed", seed + d["index"] + 1)
-
-        # increment seeds in cloned KSamplerAdvanced nodes, to prevent same motion in each chunk (for Wan22)
-        ids = get_node_ids_by_type(graph.finalize(), "KSamplerAdvanced")
-        for id in ids:
-            real_id = id.replace(f"{unique_id}.0.0.", "")
-            node = graph.lookup_node(real_id)
-            seed = node.get_input("noise_seed")
-            node.set_input("noise_seed", seed + d["index"] + 1)
-
-        # increment seeds in cloned RandomNoise nodes, to prevent same motion in each chunk (for Wan22 or LTX2)
-        ids = get_node_ids_by_type(graph.finalize(), "RandomNoise")
-        for id in ids:
-            real_id = id.replace(f"{unique_id}.0.0.", "")
-            node = graph.lookup_node(real_id)
-            seed = node.get_input("noise_seed")
-            node.set_input("noise_seed", seed + d["index"] + 1)
+        # increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
+        # - KSampler
+        # - KSamplerAdvanced
+        # - RandomNoise (used by SamplerCustomAdvanced)
+        # - ClownsharKSampler
+        # this is to prevent same motion in each chunk (for Wan22 or LTX2)
+        increment_all_seeds(graph, self.hidden.unique_id, d["index"] + 1)
 
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
@@ -238,7 +231,6 @@ class ChunkerCombine:
                 "images": format_images(images),
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),
-                "latents": format_latents(latents),
             },
             "output_label_values": {
                 "images": None,
@@ -254,14 +246,12 @@ class ChunkerCombine:
         }
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]} ({format_milliseconds(historical_deltas[-1])})")
-
-        return {
-            "ui": {"values": [ui_values]},
-            "result": (
-                new_combine.out(0), # images
-                new_combine.out(1), # masks
-                new_combine.out(2), # audio
-                new_combine.out(3), # fps
-            ),
-            "expand": graph.finalize(),
-        }
+        
+        return io.NodeOutput(
+            new_combine.out(0), # images
+            new_combine.out(1), # masks
+            new_combine.out(2), # audio
+            new_combine.out(3), # fps
+            ui={"values": [ui_values]},
+            expand=graph.finalize(),
+        )

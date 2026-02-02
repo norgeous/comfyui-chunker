@@ -35,7 +35,7 @@ const statusHeight = 40;
 document.body.insertAdjacentHTML("beforeEnd", `
 <style>
 :root {
-  --hdr-gradient: linear-gradient(-45deg in oklab, oklch(70% 0.5 340), oklch(90% 0.5 200));
+  --hdr-gradient: linear-gradient(-45deg in oklab, oklch(30% 0.5 340), oklch(30% 0.5 200));
 }
 @keyframes animatepos {
   0%{background-position:0% 50%}
@@ -82,7 +82,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   height: calc(100% - ${statusHeight}px);
   background: var(--hdr-gradient);
   background-size: 400% 400%;
-  animation: animatepos 20s infinite;
+  animation: animatepos 30s infinite;
 }
 </style>
 `);

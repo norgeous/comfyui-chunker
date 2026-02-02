@@ -1,3 +1,4 @@
+import os
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import save, load, mux
@@ -6,6 +7,7 @@ from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds#, get_graph_node, get_graph_finalise
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds#, format_latents
 from ..lib.utils_performance import get_ts, predict
+from ..enum.combine import OverlapBlendModes
 
 class ChunkerCombine(io.ComfyNode):
     @classmethod
@@ -31,8 +33,11 @@ class ChunkerCombine(io.ComfyNode):
                     tooltip="Processed chunk of audio",
                 ),
                 io.Combo.Input("overlap_blend_mode",
-                    options=["this_chunk", "previous_chunk"],
-                    tooltip="When combining, select the overlaps from current or previous chunk",
+                    options=list(map(lambda member: member.name, OverlapBlendModes)),
+                    tooltip="When combining and chunk_overlap is more than zero, select the overlaps from current or previous chunk",
+                ),
+                io.Boolean.Input("increment_seeds",
+                    tooltip="Increment \"seed\" or \"noise_seed\" inputs in cloned nodes that have \"Sampler\" or \"Noise\" within the node type name",
                 ),
                 io.Custom("*").Input("store",
                     optional=True,
@@ -62,6 +67,7 @@ class ChunkerCombine(io.ComfyNode):
         self,
         chunker_data,
         overlap_blend_mode,
+        increment_seeds,
         images=None,
         masks=None,
         audio=None,
@@ -76,6 +82,7 @@ class ChunkerCombine(io.ComfyNode):
             "chunks": [],
             "preview_chunks": [],
             "ts_chunk_ends": [],
+            "last_all_preview": None,
         }
 
         # lanczos resize masks to match images size
@@ -90,13 +97,13 @@ class ChunkerCombine(io.ComfyNode):
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            profile="webm",
-            # profile="mp4",
+            # profile="webm",
+            profile="mp4",
             alpha_mode="2ndStream",
             filename_prefix="video/chunker/tmp/chunk",
         )[0]
         s["chunks"].append(chunk_path)
-        print(f"done ({format_milliseconds(get_ts() - ts)}) {chunk_path}")
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Make preview from inputs
         ts = get_ts()
@@ -112,23 +119,26 @@ class ChunkerCombine(io.ComfyNode):
             masks=None,
             audio=audio,
             fps=d["fps"],
-            profile="webm",
-            # profile="mp4",
+            # profile="webm",
+            profile="mp4",
             filename_prefix="video/chunker/tmp/preview",
         )[0]
         s["preview_chunks"].append(preview_path)
-        print(f"done ({format_milliseconds(get_ts() - ts)}) {preview_path}")
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # combine all preview chunks to a new file, excluding the overlaps
         ts = get_ts()
         log("Mux all previews...", end="")
+        if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]):
+            os.remove(s["last_all_preview"]) 
         all_preview_path, all_preview_frontend_data = mux(
             paths=s["preview_chunks"],
             filename_prefix="video/chunker/tmp/all-preview",
             overlap=c["chunk_overlap"],
             select_overlaps_from=overlap_blend_mode,
         )
-        print(f"done ({format_milliseconds(get_ts() - ts)}) {all_preview_path}")
+        s["last_all_preview"] = all_preview_path
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]
@@ -144,10 +154,17 @@ class ChunkerCombine(io.ComfyNode):
                 select_overlaps_from=overlap_blend_mode,
             )[0]
             print(f"done ({format_milliseconds(get_ts() - ts)})")
- 
+
+            ts = get_ts()
+            log("Delete all temp chunks and preview chunks...", end="")
+            for path in [*s["chunks"], *s["preview_chunks"]]:
+                if os.path.exists(path):
+                    os.remove(path)
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
+
             ts = get_ts()
             log("Load final tensors...", end="")
-            out_images_torch, out_masks_torch, out_audio_dict, fps = load(path=out_path, alpha_mode="2ndStream")
+            out_images_torch, out_masks_torch, out_audio_dict, _fps = load(path=out_path, alpha_mode="2ndStream")
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
@@ -191,7 +208,6 @@ class ChunkerCombine(io.ComfyNode):
         ts = get_ts()
         log("Cloning nodes for next chunk...", end="")
 
-        # graph = GraphBuilder()
         # clone all the nodes between Chunker and ChunkerCombine
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, self.hidden.unique_id, d["start_node_id"])
 
@@ -203,13 +219,14 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_starts": d["ts_chunk_starts"],
         })
 
-        # increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
+        # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
         # - KSampler
         # - KSamplerAdvanced
         # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (for Wan22 or LTX2)
-        increment_all_seeds(graph, self.hidden.unique_id, d["index"] + 1)
+        if increment_seeds:
+            increment_all_seeds(graph, self.hidden.unique_id, d["index"] + 1)
 
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")

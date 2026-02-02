@@ -7,6 +7,7 @@ from .utils_comfy import get_next_save_path
 from .utils_tensor import monochrome_image, mask_to_image, image_to_mask
 from comfy_extras.nodes_audio import match_audio_sample_rates
 from functools import reduce
+from ..enum.combine import OverlapBlendModes
 
 profiles = {
     "webm": {
@@ -187,15 +188,15 @@ def load_streams(path=None, start_n=None, end_n=None):
         if end_n < 0: end_n = vcount + end_n # negative end fix
         start_t = float(round(start_n / fps, 3))
         end_t = float(round(end_n / fps, 3))
-        print(vcount, start_n, start_t, end_n, end_t)
+        # print(vcount, start_n, start_t, end_n, end_t)
         for packet in container.demux():
             stream_index = packet.stream.index
             for frame in packet.decode():
                 isv = isinstance(frame, av.video.frame.VideoFrame)
                 ftype = 'V' if isv else 'A'
-                print(ftype if frame.time >= start_t and frame.time <= end_t else ftype.lower(), end='')
+                # print(ftype if frame.time >= start_t and frame.time <= end_t else ftype.lower(), end='')
                 # base = (1 / (1/1000)) / fps
-                print('dts',frame.dts, 'pts',frame.pts, 'time',frame.time, 'base',frame.time_base, frame.sample_rate if not isv else 'no', start_t, end_t, frame.time >= start_t, frame.time <= end_t)
+                # print('dts',frame.dts, 'pts',frame.pts, 'time',frame.time, 'base',frame.time_base, frame.sample_rate if not isv else 'no', start_t, end_t, frame.time >= start_t, frame.time <= end_t)
                 if isinstance(frame, av.video.frame.VideoFrame):
                     if frame.time >= start_t and frame.time <= end_t:
                         if stream_index not in vstreams: vstreams[stream_index] = []
@@ -213,7 +214,7 @@ def load_streams(path=None, start_n=None, end_n=None):
 
 def load(path=None, alpha_mode="rgba", start_n=None, end_n=None):
     vstreams, astreams, fps = load_streams(path=path, start_n=start_n, end_n=end_n)
-    print(vstreams)
+    # print(vstreams)
     images, masks = vstreams_to_tensor(vstreams, alpha_mode=alpha_mode)
     audio = astreams_to_tensor(astreams)
     return (images, masks, audio, fps)
@@ -349,11 +350,17 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
                         # print(packet.dts, end='')
                         continue # skip trimmed packets
                     # print('V', end='')
-                    
-                    # packet.dts += v_dts_offsets[j]
-                    packet.dts = v_dts_offsets[j] + (base * k)
 
-                    packet.pts = packet.dts
+
+
+
+                    # packet.dts += v_dts_offsets[j]
+                    # packet.dts = v_dts_offsets[j] + (base * k)
+                    # packet.pts = packet.dts
+
+
+
+
                     packet.stream = out_vstreams[j]
                     # print(f"{packet.dts},", end="")
                     output.mux(packet)
@@ -367,8 +374,8 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
                 # print("file",i,'input astream',j, "length", len(packets))
                 for packet in packets:
                     if packet.dts < start_dts or packet.dts >= end_dts: continue # skip trimmed packets
-                    packet.dts += a_dts_offsets[j]
-                    packet.pts = packet.dts
+                    # packet.dts += a_dts_offsets[j]
+                    # packet.pts = packet.dts
                     packet.stream = out_astreams[j]
                     # print(f"{packet.dts},", end="")
                     output.mux(packet)

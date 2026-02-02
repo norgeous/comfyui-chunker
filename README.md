@@ -24,11 +24,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 - Combine sequential chunks back into single av tensors
 - Each chunk is saved to a mp4 file and recombined excluding the overlap frames
 
-### 🍫 VACE To First Last
-
-- Convert an i2v VACE control_video into First Last frames
-- A fully grey first or last image in the input control_video will result in `None` output for the corresponding `clip_vision_` and `_image`
-
 ## [Workflows](workflows/)
 
 ### [chunker-sam3](workflows/chunker-sam3.json)
@@ -50,15 +45,10 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - todo
 
-### [chunker-wan22-flf2v](workflows/chunker-wan22-flf2v.json)
-
-- todo
-
 ## prep for release
 
 - Divide
   - load_frames gets 4 when asking for 5
-  - cached Divide, causes wrong time estimates in Combine
 
 - Combine
   - bug: glitched video if "previous_chunk"? muxing issue?
@@ -66,12 +56,11 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
   - set crf on intermediate mp4
   - combined audio sounds glitchy? also not working? muxing issue where 1024 samples in each packet?
   - tqdm + comfy progressbar for video ops
-  - think about any way to show underlap when "previous_chunk"
-  - seed
-    - option to enable seed incrementing (might want either)
-    - KSampler with manual seed connected to values causes Combine to error when setting the value
-    - increment "RandomNoise" seed for workflows with "SamplerCustomAdvanced"
   - keep progress bar shown after final execution
+  - think about any way to show underlap in preview when blend mode "previous_chunk" / "older_only"
+  - write tmp files to tmp dir and delete tmp files after needed
+  - seed
+    - KSampler with manual seed connected to values causes Combine to error when setting the value
 
 - remove extra nodes
 - Tidy unused code

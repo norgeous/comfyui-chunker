@@ -7,7 +7,7 @@ from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds#, get_graph_node, get_graph_finalise
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds#, format_latents
 from ..lib.utils_performance import get_ts, predict
-from ..enum.combine import OverlapBlendModes
+from ..enum.options import OverlapBlendModes
 
 class ChunkerCombine(io.ComfyNode):
     @classmethod
@@ -34,10 +34,12 @@ class ChunkerCombine(io.ComfyNode):
                 ),
                 io.Combo.Input("overlap_blend_mode",
                     options=list(map(lambda member: member.name, OverlapBlendModes)),
+                    default=OverlapBlendModes.newer_only.name,
                     tooltip="When combining and chunk_overlap is more than zero, select the overlaps from current or previous chunk",
                 ),
                 io.Boolean.Input("increment_seeds",
                     tooltip="Increment \"seed\" or \"noise_seed\" inputs in cloned nodes that have \"Sampler\" or \"Noise\" within the node type name",
+                    default=True,
                 ),
                 io.Custom("*").Input("store",
                     optional=True,

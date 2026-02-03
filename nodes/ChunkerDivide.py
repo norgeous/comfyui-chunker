@@ -6,6 +6,7 @@ from ..lib.utils_av import load, concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps#, format_latents
 from ..lib.utils_performance import get_ts
+from ..enum.options import DivideMode
 
 class ChunkerDivide(io.ComfyNode):
     @classmethod
@@ -33,7 +34,7 @@ class ChunkerDivide(io.ComfyNode):
                     tooltip="FPS",
                 ),
                 io.Combo.Input("mode",
-                    options=["None", "Wan", "Wan-VACE", "LTX2"],
+                    options=list(map(lambda member: member.name, DivideMode)),
                     tooltip="Adjust chunk_length and total_length to match Wan's format (4n+1) or LTX's format.",
                 ),
                 io.Int.Input("chunk_length",
@@ -122,8 +123,8 @@ class ChunkerDivide(io.ComfyNode):
         }
 
         out_fps = fps
-        if out_fps is None and mode.startswith("Wan"): out_fps = 16.0
-        if out_fps is None and mode.startswith("LTX"): out_fps = 25.0
+        if out_fps is None and mode.startswith("wan"): out_fps = 16.0
+        if out_fps is None and mode.startswith("ltx"): out_fps = 25.0
         if out_fps is None: out_fps = 30.0
 
         if total_length == 0:
@@ -132,12 +133,12 @@ class ChunkerDivide(io.ComfyNode):
                 len(masks) if masks is not None else 0,
             )
 
-        if mode.startswith("Wan"):
+        if mode.startswith("wan"):
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
 
         # todo
-        if mode.startswith("LTX"):
+        if mode.startswith("ltx"):
             # force 8n+1 chunk_length. example: 1, 9, 17, 25, 33
             # fix total_length
             pass
@@ -176,12 +177,12 @@ class ChunkerDivide(io.ComfyNode):
             h = overlap_images.shape[1]
             if overlap_images is not None:
                 out_images.append(overlap_images)
-                if mode == "Wan-VACE":
+                if mode == "wan_vace":
                     # preserve overlap images with black masks
                     black_mask = monochrome_mask(w, h, 0)
                     out_masks.append(torch.cat([black_mask] * len(overlap_images)))
             if overlap_masks is not None:
-                if mode != "Wan-VACE":
+                if mode != "wan_vace":
                     out_masks.append(overlap_masks)
             if overlap_audio_dict is not None: out_audio.append(overlap_audio_dict)
 
@@ -211,7 +212,7 @@ class ChunkerDivide(io.ComfyNode):
         if h is None: h = 512
 
         # for wan vace
-        if mode == "Wan-VACE":
+        if mode == "wan_vace":
             # if more images than masks, add same amount of black masks to masks
             if count(out_images) > count(out_masks):
                 black_mask = monochrome_mask(w, h, 0)

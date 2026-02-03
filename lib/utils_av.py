@@ -7,7 +7,7 @@ from .utils_comfy import get_next_save_path
 from .utils_tensor import monochrome_image, mask_to_image, image_to_mask
 from comfy_extras.nodes_audio import match_audio_sample_rates
 from functools import reduce
-from ..enum.combine import OverlapBlendModes
+from ..enum.options import OverlapBlendModes
 
 profiles = {
     "webm": {

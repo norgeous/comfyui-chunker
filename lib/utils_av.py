@@ -237,6 +237,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
             video_stream = container.add_stream(profiles[profile]["video_codec"], rate=Fraction(f"{fps:.6f}"))
             video_stream.pix_fmt = profiles[profile]["video_pix_fmt"]
             video_stream.options = profiles[profile]["video_stream_options"]
+            video_stream.thread_type = "AUTO" # enable threading
             video_stream.width = W
             video_stream.height = H
             out_vstreams.append(video_stream)
@@ -245,6 +246,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
         out_astreams = []
         for i in enumerate(astreams):
             audio_stream = container.add_stream(profiles[profile]["audio_codec"], rate=int(audio["sample_rate"]))
+            audio_stream.thread_type = "AUTO" # enable threading
             out_astreams.append(audio_stream)
 
         # NOTE: all av streams must be added to container before any packets are sent into any stream
@@ -271,8 +273,87 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
 
     return out_path, frontend_data
 
-def mux2():
-    ...
+
+
+
+
+
+
+
+def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mode="this_chunk"):
+    ext = os.path.splitext(paths[0])[1][1:]
+    out_path, frontend_data = get_next_save_path(filename_prefix, ext)
+    with av.open(out_path, mode="w") as output:
+        out_vstreams = []
+        v_dts_offsets = []
+        for i, path in enumerate(paths):
+            vpacketstreams = []
+            apacketstreams = []
+            with av.open(path) as input:
+                vstreams = input.streams.video
+
+                # when 1st video is open, setup output streams same as first video
+                if i == 0:
+                    for j, vstream in enumerate(vstreams):
+                        if len(out_vstreams) == j:
+                            out_vstream = output.add_stream_from_template(vstream)
+                            out_vstream.thread_type = "AUTO" # enable threading
+                            out_vstreams.append(out_vstream)
+                            v_dts_offsets.append(0)
+
+                # demux packets in all input streams
+                for packet in input.demux():
+                    if packet.dts is None: continue # skip the "flushing" packets
+                    if packet.stream.type == 'video':
+                        j = packet.stream_index
+                        if len(vpacketstreams) == j: vpacketstreams.append([])
+                        vpacketstreams[j].append(packet)
+                    if packet.stream.type == 'audio':
+                        j = packet.stream_index - len(vstreams)
+                        if len(apacketstreams) == j: apacketstreams.append([])
+                        apacketstreams[j].append(packet)
+
+            is_first_chunk = i == 0
+            is_final_chunk = i == len(paths) - 1
+            start_n = overlap if overlap_blend_mode == "previous_chunk" and not is_first_chunk else None
+            end_n = -overlap if overlap_blend_mode == "this_chunk" and not is_final_chunk else None
+
+            vcount = len(vpacketstreams[0])
+            if start_n is None: start_n = 0 # missing start fix
+            if end_n is None: end_n = vcount # missing end fix
+            if end_n == 0: end_n = vcount # zero end fix
+            if start_n < 0: start_n = vcount + start_n # negative start fix
+            if end_n < 0: end_n = vcount + end_n # negative end fix
+
+            # fps = vstreams[0].average_rate
+            max_dts = 0
+            for j, packets in enumerate(vpacketstreams):
+                for k, packet in enumerate(packets):
+                    # base = (1 / packet.time_base) / fps
+                    # start_dts = int(start_n * base)
+                    # end_dts = int(end_n * base)
+                    # if packet.dts < start_dts or packet.dts >= end_dts:
+                    #     continue # skip trimmed packets
+  
+                    print(packet, packet.dts, packet.pts, packet.time_base, out_vstreams[j])
+
+                    packet.stream = out_vstreams[j]
+                    output.mux(packet)
+                    max_dts = max(max_dts, packet.dts)
+                # v_dts_offsets[j] = max_dts + base
+
+        # todo: do we need to flush output streams?
+
+    return out_path, frontend_data
+
+
+
+
+
+
+
+
+
 
 def mux(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mode="this_chunk"):
     ext = os.path.splitext(paths[0])[1][1:]

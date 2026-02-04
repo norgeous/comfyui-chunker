@@ -137,7 +137,7 @@ class ChunkerCombine(io.ComfyNode):
             paths=s["preview_chunks"],
             filename_prefix="video/chunker/tmp/all-preview",
             overlap=c["chunk_overlap"],
-            select_overlaps_from=overlap_blend_mode,
+            overlap_blend_mode=overlap_blend_mode,
         )
         s["last_all_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -153,7 +153,7 @@ class ChunkerCombine(io.ComfyNode):
                 paths=s["chunks"],
                 filename_prefix="video/chunker/final",
                 overlap=c["chunk_overlap"],
-                select_overlaps_from=overlap_blend_mode,
+                overlap_blend_mode=overlap_blend_mode,
             )[0]
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 

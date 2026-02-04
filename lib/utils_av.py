@@ -271,7 +271,10 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
 
     return out_path, frontend_data
 
-def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_from="this_chunk"):
+def mux2():
+    ...
+
+def mux(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mode="this_chunk"):
     ext = os.path.splitext(paths[0])[1][1:]
     out_path, frontend_data = get_next_save_path(filename_prefix, ext)
     with av.open(out_path, mode="w") as output:
@@ -290,10 +293,12 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
                 if i == 0:
                     for j, vstream in enumerate(vstreams):
                         if len(out_vstreams) == j:
-                            out_vstream = output.add_stream(vstream.codec_context.name, rate=Fraction(f"{vstream.average_rate:.6f}"))
-                            out_vstream.pix_fmt = vstream.codec_context.pix_fmt 
-                            out_vstream.width = vstream.codec_context.width
-                            out_vstream.height = vstream.codec_context.height
+                            # out_vstream = output.add_stream(vstream.codec_context.name, rate=Fraction(f"{vstream.average_rate:.6f}"))
+                            # out_vstream.pix_fmt = vstream.codec_context.pix_fmt
+                            # out_vstream.options = vstream.options
+                            # out_vstream.width = vstream.codec_context.width
+                            # out_vstream.height = vstream.codec_context.height
+                            out_vstream = output.add_stream_from_template(vstream)
                             out_vstreams.append(out_vstream)
                             v_dts_offsets.append(0)
                     for j, astream in enumerate(astreams):
@@ -316,8 +321,8 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
 
             is_first_chunk = i == 0
             is_final_chunk = i == len(paths) - 1
-            start_n = overlap if select_overlaps_from == "previous_chunk" and not is_first_chunk else None
-            end_n = -overlap if select_overlaps_from == "this_chunk" and not is_final_chunk else None
+            start_n = overlap if overlap_blend_mode == "previous_chunk" and not is_first_chunk else None
+            end_n = -overlap if overlap_blend_mode == "this_chunk" and not is_final_chunk else None
 
             vcount = len(vpacketstreams[0])
             if start_n is None: start_n = 0 # missing start fix
@@ -336,12 +341,15 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
             # end_dts = int(end_n * base)
             # print('start/end dts', start_dts, end_dts)
 
+
+            fps = vstreams[0].average_rate
+
             max_dts = 0
             for j, packets in enumerate(vpacketstreams):
                 # print()
                 # print("file",i,'input vstream',j, "length", len(packets))
                 for k, packet in enumerate(packets):
-                    fps = out_vstreams[0].average_rate
+                    # fps = out_vstreams[0].average_rate
                     base = (1 / packet.time_base) / fps
                     start_dts = int(start_n * base)
                     end_dts = int(end_n * base)
@@ -357,6 +365,9 @@ def mux(paths, filename_prefix="video/chunker/mux", overlap=0, select_overlaps_f
                     # packet.dts += v_dts_offsets[j]
                     # packet.dts = v_dts_offsets[j] + (base * k)
                     # packet.pts = packet.dts
+                    # packet.dts = None
+                    # packet.pts = None
+                    print(packet, packet.dts, packet.pts, packet.time_base)
 
 
 

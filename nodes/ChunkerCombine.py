@@ -99,7 +99,6 @@ class ChunkerCombine(io.ComfyNode):
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            # profile="webm",
             profile="mp4",
             alpha_mode="2ndStream",
             filename_prefix="video/chunker/tmp/chunk",
@@ -121,7 +120,6 @@ class ChunkerCombine(io.ComfyNode):
             masks=None,
             audio=audio,
             fps=d["fps"],
-            # profile="webm",
             profile="mp4",
             filename_prefix="video/chunker/tmp/preview",
         )[0]

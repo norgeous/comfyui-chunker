@@ -255,6 +255,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
         for i, vstream in enumerate(vstreams):
             for frame in vstream:
                 for packet in out_vstreams[i].encode(frame):
+                    print(packet)
                     container.mux(packet)
         
             # Flush the video stream encoder
@@ -280,7 +281,7 @@ def save(images=None, masks=None, audio=None, fps=30, profile=profile_names[0], 
 
 
 
-def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mode="this_chunk"):
+def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mode=OverlapBlendModes.newer_only.name):
     ext = os.path.splitext(paths[0])[1][1:]
     out_path, frontend_data = get_next_save_path(filename_prefix, ext)
     with av.open(out_path, mode="w") as output:
@@ -313,10 +314,18 @@ def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mo
                         if len(apacketstreams) == j: apacketstreams.append([])
                         apacketstreams[j].append(packet)
 
+            # sort packets by pts
+            for j, packets in enumerate(vpacketstreams):
+                vpacketstreams[j] = sorted(packets, key=lambda p: p.pts)
+
+            # # sort packets by dts
+            # for j, packets in enumerate(vpacketstreams):
+            #     vpacketstreams[j] = sorted(packets, key=lambda p: p.dts)
+
             is_first_chunk = i == 0
             is_final_chunk = i == len(paths) - 1
-            start_n = overlap if overlap_blend_mode == "previous_chunk" and not is_first_chunk else None
-            end_n = -overlap if overlap_blend_mode == "this_chunk" and not is_final_chunk else None
+            start_n = overlap if overlap_blend_mode == OverlapBlendModes.older_only.name and not is_first_chunk else None
+            end_n = -overlap if overlap_blend_mode == OverlapBlendModes.newer_only.name and not is_final_chunk else None
 
             vcount = len(vpacketstreams[0])
             if start_n is None: start_n = 0 # missing start fix
@@ -325,7 +334,7 @@ def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mo
             if start_n < 0: start_n = vcount + start_n # negative start fix
             if end_n < 0: end_n = vcount + end_n # negative end fix
 
-            # fps = vstreams[0].average_rate
+            fps = vstreams[0].average_rate
             max_dts = 0
             for j, packets in enumerate(vpacketstreams):
                 for k, packet in enumerate(packets):
@@ -335,9 +344,18 @@ def mux2(paths, filename_prefix="video/chunker/mux", overlap=0, overlap_blend_mo
                     # if packet.dts < start_dts or packet.dts >= end_dts:
                     #     continue # skip trimmed packets
   
-                    print(packet, packet.dts, packet.pts, packet.time_base, out_vstreams[j])
+                    delta = (1 / fps) / (packet.time_base)
+                    pts = delta * k
+                    print(k, packet, pts)
+                    print(packet.to_ndarray())
+
+                    packet.dts = pts #- (delta*2)
+                    packet.pts = pts
+                    # packet.dts = None
+                    # packet.pts = None
 
                     packet.stream = out_vstreams[j]
+                    print('->', k, packet, pts)
                     output.mux(packet)
                     max_dts = max(max_dts, packet.dts)
                 # v_dts_offsets[j] = max_dts + base

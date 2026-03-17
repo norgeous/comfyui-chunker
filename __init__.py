@@ -6,17 +6,19 @@ from .nodes.ChunkerDivide import ChunkerDivide
 from .nodes.ChunkerVACEToFirstLast import ChunkerVACEToFirstLast
 from .nodes.ChunkerCombine import ChunkerCombine
 
-from .nodes.ChunkerLoad import ChunkerLoad
-from .nodes.ChunkerSave import ChunkerSave
 from .nodes.ChunkerStorylines import ChunkerStorylines
 from .nodes.ChunkerLoraSequencer import ChunkerLoraSequencer
-from .nodes.TensorDebug import TensorDebug
+
+# from .nodes.ChunkerLoad import ChunkerLoad
+# from .nodes.ChunkerSave import ChunkerSave
+# from .nodes.TensorDebug import TensorDebug
 
 class Chunker(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
             ChunkerDivide,
             ChunkerCombine,
+            ChunkerStorylines,
             ChunkerLoraSequencer,
         ]
 

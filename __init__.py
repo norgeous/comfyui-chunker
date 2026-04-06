@@ -18,8 +18,8 @@ class Chunker(ComfyExtension):
         return [
             ChunkerDivide,
             ChunkerCombine,
-            ChunkerStorylines,
-            ChunkerLoraSequencer,
+            # ChunkerStorylines,
+            # ChunkerLoraSequencer,
         ]
 
 async def comfy_entrypoint() -> ComfyExtension:

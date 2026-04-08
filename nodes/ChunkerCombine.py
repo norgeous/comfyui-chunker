@@ -2,10 +2,10 @@ import os
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import save, load #, mux, mux2
-from ..lib.av.mux import mux
+from ..lib.av.mux.mux import mux
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
-from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds#, get_graph_node, get_graph_finalise
+from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds, get_next_save_path#, get_graph_node, get_graph_finalise
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds#, format_latents
 from ..lib.utils_performance import get_ts, predict
 from ..enum.options import OverlapBlendModes
@@ -132,9 +132,10 @@ class ChunkerCombine(io.ComfyNode):
         log("Mux all previews...", end="")
         if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]):
             os.remove(s["last_all_preview"]) 
-        all_preview_path, all_preview_frontend_data = mux(
+        all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "mp4")
+        mux(
             paths=s["preview_chunks"],
-            filename_prefix="video/chunker/tmp/all-preview",
+            out_path=all_preview_path,
             overlap_count=c["chunk_overlap"],
             overlap_blend_mode=overlap_blend_mode,
         )
@@ -148,9 +149,10 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Mux all chunks...", end="")
-            out_path = mux(
+            final_path, = get_next_save_path("video/chunker/final", "mp4")
+            mux(
                 paths=s["chunks"],
-                filename_prefix="video/chunker/final",
+                out_path=final_path,
                 overlap_count=c["chunk_overlap"],
                 overlap_blend_mode=overlap_blend_mode,
             )[0]
@@ -165,7 +167,7 @@ class ChunkerCombine(io.ComfyNode):
 
             ts = get_ts()
             log("Load final tensors...", end="")
-            out_images_torch, out_masks_torch, out_audio_dict, _fps = load(path=out_path, alpha_mode="2ndStream")
+            out_images_torch, out_masks_torch, out_audio_dict, _fps = load(path=final_path, alpha_mode="2ndStream")
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()

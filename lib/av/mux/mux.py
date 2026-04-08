@@ -2,7 +2,6 @@ import av
 import numpy as np
 from typing import List, Any
 from fractions import Fraction
-from .utils_comfy import get_next_save_path
 
 
 SAMPLES_PER_AUDIO_FRAME = 1024
@@ -265,7 +264,7 @@ def process_audio_stream(
     return output_audio_sample
 
 
-def mux(paths: List[str], filename_prefix: str, overlap_count: int, overlap_blend_mode: str):
+def mux(paths: List[str], out_path: str, overlap_count: int, overlap_blend_mode: str):
     valid_modes = {"older_only", "linear_blend", "ease_in_out", "newer_only"}
     if overlap_blend_mode not in valid_modes:
         raise ValueError(f"Unknown blend mode: {overlap_blend_mode}")
@@ -275,8 +274,6 @@ def mux(paths: List[str], filename_prefix: str, overlap_count: int, overlap_blen
     try:
         video_streams = [c.streams.video[0] for c in input_containers]
         audio_streams = [c.streams.audio[0] for c in input_containers]
-
-        out_path, frontend_data = get_next_save_path(filename_prefix, "mp4")
         output_container = av.open(out_path, mode="w", format="mp4")
         
         try:
@@ -323,5 +320,3 @@ def mux(paths: List[str], filename_prefix: str, overlap_count: int, overlap_blen
     finally:
         for c in input_containers:
             c.close()
-
-    return out_path, frontend_data

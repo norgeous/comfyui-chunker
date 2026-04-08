@@ -228,7 +228,7 @@ def test_no_overlap(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-0o-none.mp4")
     
-    mux(videos, 0, "older_only", output_path)
+    mux(videos, output_path, 0, "older_only")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     
@@ -283,7 +283,7 @@ def test_older_only(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-4o-older_only.mp4")
     
-    mux(videos, 4, "older_only", output_path)
+    mux(videos, output_path, 4, "older_only")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     
@@ -341,7 +341,7 @@ def test_linear_blend(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-4o-linear_blend.mp4")
     
-    mux(videos, 4, "linear_blend", output_path)
+    mux(videos, output_path, 4, "linear_blend")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     
@@ -432,7 +432,7 @@ def test_ease_in_out(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-4o-ease_in_out.mp4")
     
-    mux(videos, 4, "ease_in_out", output_path)
+    mux(videos, output_path, 4, "ease_in_out")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     
@@ -511,7 +511,7 @@ def test_newer_only(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-4o-newer_only.mp4")
     
-    mux(videos, 4, "newer_only", output_path)
+    mux(videos, output_path, 4, "newer_only")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     

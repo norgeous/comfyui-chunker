@@ -149,13 +149,13 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Mux all chunks...", end="")
-            final_path, = get_next_save_path("video/chunker/final", "mp4")
+            final_path = get_next_save_path("video/chunker/final", "mp4")[0]
             mux(
                 paths=s["chunks"],
                 out_path=final_path,
                 overlap_count=c["chunk_overlap"],
                 overlap_blend_mode=overlap_blend_mode,
-            )[0]
+            )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts = get_ts()

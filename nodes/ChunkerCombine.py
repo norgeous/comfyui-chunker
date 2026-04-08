@@ -1,7 +1,8 @@
 import os
 from comfy_api.latest import io
 from ..lib.utils import log
-from ..lib.utils_av import save, load, mux, mux2
+from ..lib.utils_av import save, load #, mux, mux2
+from ..lib.utils_mux import mux
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds#, get_graph_node, get_graph_finalise
@@ -131,10 +132,10 @@ class ChunkerCombine(io.ComfyNode):
         log("Mux all previews...", end="")
         if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]):
             os.remove(s["last_all_preview"]) 
-        all_preview_path, all_preview_frontend_data = mux2(
+        all_preview_path, all_preview_frontend_data = mux(
             paths=s["preview_chunks"],
             filename_prefix="video/chunker/tmp/all-preview",
-            overlap=c["chunk_overlap"],
+            overlap_count=c["chunk_overlap"],
             overlap_blend_mode=overlap_blend_mode,
         )
         s["last_all_preview"] = all_preview_path
@@ -150,7 +151,7 @@ class ChunkerCombine(io.ComfyNode):
             out_path = mux(
                 paths=s["chunks"],
                 filename_prefix="video/chunker/final",
-                overlap=c["chunk_overlap"],
+                overlap_count=c["chunk_overlap"],
                 overlap_blend_mode=overlap_blend_mode,
             )[0]
             print(f"done ({format_milliseconds(get_ts() - ts)})")

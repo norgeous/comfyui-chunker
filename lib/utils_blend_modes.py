@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Callable
 
 
 class OverlapBlendMode(Enum):
@@ -8,7 +9,9 @@ class OverlapBlendMode(Enum):
     OLDER = "older"
 
 
-handlers = {
+BlendHandler = Callable[[float], float]
+
+handlers: dict[OverlapBlendMode, BlendHandler] = {
     OverlapBlendMode.LINEAR_BLEND: lambda p: p,
     OverlapBlendMode.EASE_IN_OUT: lambda p: (p * p * (3 - 2 * p)),
     OverlapBlendMode.NEWER: lambda p: 0.0 if p > 0 else 1.0,

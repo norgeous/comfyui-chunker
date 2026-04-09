@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import av
-from lib.av.mux.mux import mux
+from lib.mux import mux
 
 AUDIO_SAMPLE_RATE = 44100
 AUDIO_DURATION = 2.0

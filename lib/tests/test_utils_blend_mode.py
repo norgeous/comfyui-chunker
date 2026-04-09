@@ -12,7 +12,7 @@ class TestGetBlendFactor:
         (1.0, 0.0),
     ])
     def test_linear_blend_factor(self, percent, expected):
-        assert get_blend_factor(OverlapBlendMode.LINEAR_BLEND, percent) ==  pytest.approx(expected)
+        assert get_blend_factor(OverlapBlendMode.LINEAR_BLEND, percent) == pytest.approx(expected)
 
     @pytest.mark.parametrize("percent,expected", [
         (0.0, 1.0),
@@ -23,7 +23,7 @@ class TestGetBlendFactor:
         (1.0, 0.0),
     ])
     def test_ease_in_out_factor(self, percent, expected):
-        assert get_blend_factor(OverlapBlendMode.EASE_IN_OUT, percent) ==  pytest.approx(expected)
+        assert get_blend_factor(OverlapBlendMode.EASE_IN_OUT, percent) == pytest.approx(expected)
 
     @pytest.mark.parametrize("percent,expected", [
         (0.0, 1.0),
@@ -34,7 +34,7 @@ class TestGetBlendFactor:
         (1.0, 0.0),
     ])
     def test_newer_factor(self, percent, expected):
-        assert get_blend_factor(OverlapBlendMode.NEWER, percent) ==  pytest.approx(expected)
+        assert get_blend_factor(OverlapBlendMode.NEWER, percent) == pytest.approx(expected)
 
     @pytest.mark.parametrize("percent,expected", [
         (0.0, 1.0),
@@ -45,4 +45,4 @@ class TestGetBlendFactor:
         (1.0, 0.0),
     ])
     def test_older_factor(self, percent, expected):
-        assert get_blend_factor(OverlapBlendMode.OLDER, percent) ==  pytest.approx(expected)
+        assert get_blend_factor(OverlapBlendMode.OLDER, percent) == pytest.approx(expected)

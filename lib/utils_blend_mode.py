@@ -5,8 +5,8 @@ from typing import Callable
 class OverlapBlendMode(Enum):
     LINEAR_BLEND = "linear_blend"
     EASE_IN_OUT = "ease_in_out"
-    NEWER = "newer"
-    OLDER = "older"
+    NEWER = "newer_only"
+    OLDER = "older_only"
 
 
 BlendHandler = Callable[[float], float]

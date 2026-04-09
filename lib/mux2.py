@@ -1,4 +1,5 @@
 import av
+from fractions import Fraction
 from .utils_blend_mode import OverlapBlendMode
 from .utils_blend_packets import blend_all_packets
 
@@ -12,47 +13,40 @@ def mux(videos: list, output_path: str, overlap_count: int, overlap_blend_mode: 
     
     mode = OverlapBlendMode(overlap_blend_mode)
     
+    # Open all input containers
     input_containers = [av.open(v) for v in videos]
     
     video_streams = [c.streams.video[0] for c in input_containers]
     audio_streams = [c.streams.audio[0] for c in input_containers]
     
-    fps = video_streams[0].average_rate
-    fps_int = int(fps) if fps else 15
-    
     with av.open(output_path, mode="w", format="mp4") as output_container:
         # Use template-based stream creation for proper remuxing
         out_video_stream = output_container.add_stream_from_template(video_streams[0])
         out_video_stream.options = {'preset': 'slow', 'crf': '10'}
+        # Set time_base to match input to avoid timing issues
+        out_video_stream.time_base = video_streams[0].time_base
+        out_video_stream.codec_context.time_base = video_streams[0].time_base
         
         out_audio_stream = output_container.add_stream_from_template(audio_streams[0])
+        out_audio_stream.time_base = audio_streams[0].time_base
         
-        # Demux all streams at once using tuple-based demux to avoid corruption
+        # Demux video packets from each source
         video_packets_all = []
-        audio_packets_all = []
         
-        for i, (container, video_stream, audio_stream) in enumerate(zip(input_containers, video_streams, audio_streams)):
+        for container, video_stream in zip(input_containers, video_streams):
             video_packets = []
-            audio_packets = []
             
-            # Demux all streams at once - avoids demux corruption
-            for packet in container.demux((video_stream, audio_stream)):
-                if packet.dts is None:  # Skip flushing packets
+            for packet in container.demux(video_stream):
+                if packet.dts is None:
                     continue
-                if packet.stream == video_stream:
-                    video_packets.append(packet)
-                elif packet.stream == audio_stream:
-                    audio_packets.append(packet)
+                video_packets.append(packet)
             
             video_packets_all.append(video_packets)
-            audio_packets_all.append(audio_packets)
         
-        # Video processing: hybrid approach
-        # - Non-overlapping: remux packets directly
-        # - Overlapping: decode -> blend -> re-encode
+        # Process video: handle overlap blending
         video_pts_counter = [0]
         video_packets = blend_all_packets(
-            mode, video_packets_all, overlap_count, 
+            mode, video_packets_all, overlap_count,
             out_video_stream, video_pts_counter
         )
         
@@ -61,25 +55,27 @@ def mux(videos: list, output_path: str, overlap_count: int, overlap_blend_mode: 
             packet.stream = out_video_stream
             output_container.mux(packet)
         
-        # Flush video encoder for any remaining packets from blending
+        # Flush video encoder
         for packet in out_video_stream.encode():
             packet.stream = out_video_stream
             output_container.mux(packet)
         
-        # Audio: remux directly (no blending)
+        # Audio: demux and remux with rebased timestamps
         audio_pts = 0
-        for packet_list in audio_packets_all:
-            for packet in packet_list:
+        for video_path in videos:
+            audio_container = av.open(video_path)
+            audio_stream = audio_container.streams.audio[0]
+            
+            for packet in audio_container.demux(audio_stream):
                 if packet.dts is None:
                     continue
                 packet.stream = out_audio_stream
+                packet.pts = audio_pts
+                packet.dts = audio_pts
                 output_container.mux(packet)
                 audio_pts += 1
-        
-        # Flush audio encoder
-        for packet in out_audio_stream.encode():
-            packet.stream = out_audio_stream
-            output_container.mux(packet)
+            
+            audio_container.close()
     
     for c in input_containers:
         c.close()

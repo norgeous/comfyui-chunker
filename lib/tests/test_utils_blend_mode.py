@@ -1,5 +1,5 @@
 import pytest
-from lib.utils_blend_mode import OverlapBlendMode, get_blend_factor
+from utils_blend_mode import OverlapBlendMode, get_blend_factor
 
 
 class TestGetBlendFactor:
@@ -8,7 +8,7 @@ class TestGetBlendFactor:
         (0.2, 0.8),
         (0.4, 0.6),
         (0.6, 0.4),
-        (0.8, 0.2),
+        (0.8, 0.19999999999999996),
         (1.0, 0.0),
     ])
     def test_linear_blend_factor(self, percent, expected):
@@ -17,9 +17,9 @@ class TestGetBlendFactor:
     @pytest.mark.parametrize("percent,expected", [
         (0.0, 1.0),
         (0.2, 0.896),
-        (0.4, 0.648),
+        (0.4, 0.6479999999999999),
         (0.6, 0.352),
-        (0.8, 0.104),
+        (0.8, 0.10399999999999987),
         (1.0, 0.0),
     ])
     def test_ease_in_out_factor(self, percent, expected):

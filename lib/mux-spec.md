@@ -5,6 +5,7 @@
 - use PyAV 17.0.0+
 - read the docs at https://pyav.basswood-io.com/docs/stable/
 - do not use ffmpeg subprocess calls
+- use the `with av.open` syntax
 
 ## mux Function
 - code inside `./mux2.py` only, dont edit other files

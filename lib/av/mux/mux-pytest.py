@@ -283,7 +283,7 @@ def test_older_only(source_videos, output_dir):
     ]
     output_path = os.path.join(output_dir, "mux-3x30i-4o-older_only.mp4")
     
-    mux(videos, output_path, 4, "older")
+    mux(videos, output_path, 4, "older_only")
     
     frames, audio_samples, _, _ = get_frame_info(output_path)
     

@@ -2,7 +2,7 @@ import os
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import save, load #, mux, mux2
-from ..lib.av.mux.mux import mux
+from ..lib.mux import mux
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds, get_next_save_path#, get_graph_node, get_graph_finalise

@@ -16,13 +16,15 @@
     - **output_path**: Path to save the output mp4 file (required)
 - process
     - processing video packets from all source videos
-        - you must use pyav remuxing when possible, dont decode all packets
         - itterate through each video stream and collect a list of list of packets
-        - use utils_blend_videos.py to combine packets into a flat list
+        - use utils_blend_packets.py to combine packets into a flat list
+        - use pyav remuxing to push flat list of packets into the output container, you might need to fix the pts and dts
     - processing audio packets from all sources
-        - decode all audio packets from all sources first into samples, collect a list of list of samples
-        - using samples per frame logic, convert overlap to audio overlap
-        - itterate through each audio packet and decode into a new list of samples
+        - itterate through each audio stream and collect a list of list of packets
+        - use utils_blend_packets.py to combine packets into a flat list
+        - use pyav remuxing to push flat list of packets into the output container, you might need to fix the pts and dts
     - it's important to setup the both empty audio and video streams inside the output container before starting to add packets to either stream.
-    - add packets into both streams
+    - add processed packets into both streams
 
+## tests
+- copy tests from test_mux.py exactly, do not edit the tests

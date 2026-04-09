@@ -11,8 +11,8 @@ python -m pytest lib/tests/ -v --rootdir=lib
 
 ### Run specific test file
 ```bash
-python -m pytest lib/tests/utils_blend_mode_test.py -v --rootdir=lib
-python -m pytest lib/tests/mux_test.py -v --rootdir=lib
+python -m pytest lib/tests/test_utils_blend_mode.py -v --rootdir=lib
+python -m pytest lib/tests/test_mux.py -v --rootdir=lib
 ```
 
 ### Run tests with coverage (optional)

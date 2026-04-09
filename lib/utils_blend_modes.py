@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class BlendMode(Enum):
+class OverlapBlendMode(Enum):
     LINEAR_BLEND = "linear_blend"
     EASE_IN_OUT = "ease_in_out"
     NEWER = "newer"
@@ -9,12 +9,12 @@ class BlendMode(Enum):
 
 
 handlers = {
-    BlendMode.LINEAR_BLEND: lambda p: 1 - p,
-    BlendMode.EASE_IN_OUT: lambda p: 1 - (p * p * (3 - 2 * p)),
-    BlendMode.NEWER: lambda p: 1.0 if p == 0 else 0.0,
-    BlendMode.OLDER: lambda p: 0.0 if p == 1.0 else 1.0,
+    OverlapBlendMode.LINEAR_BLEND: lambda p: p,
+    OverlapBlendMode.EASE_IN_OUT: lambda p: (p * p * (3 - 2 * p)),
+    OverlapBlendMode.NEWER: lambda p: 0.0 if p > 0 else 1.0,
+    OverlapBlendMode.OLDER: lambda p: 1.0 if p < 1 else 0.0,
 }
 
 
-def get_blend_factor(mode: BlendMode, percent: float) -> float:
+def get_blend_factor(mode: OverlapBlendMode, percent: float) -> float:
     return 1 - handlers[mode](percent)

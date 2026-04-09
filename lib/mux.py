@@ -2,7 +2,7 @@ import av
 import numpy as np
 from typing import List, Any
 from fractions import Fraction
-from ...utils_blend_mode import get_blend_factor, OverlapBlendMode
+from .utils_blend_mode import get_blend_factor, OverlapBlendMode
 
 SAMPLES_PER_AUDIO_FRAME = 1024
 

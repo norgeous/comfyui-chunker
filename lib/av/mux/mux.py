@@ -2,7 +2,7 @@ import av
 import numpy as np
 from typing import List, Any
 from fractions import Fraction
-
+from ...utils_blend_mode import get_blend_factor, OverlapBlendMode
 
 SAMPLES_PER_AUDIO_FRAME = 1024
 
@@ -43,21 +43,6 @@ def calculate_output_frame_counts(
         output_counts.append(max_frames)
     
     return output_counts
-
-
-def get_blend_factor(overlap_blend_mode: str, frame_idx: int, overlap_count: int) -> float:
-    if overlap_blend_mode == "older_only":
-        return 1.0
-    elif overlap_blend_mode == "newer_only":
-        return 0.0
-    elif overlap_blend_mode in ["linear_blend", "ease_in_out"]:
-        frames_into_overlap = frame_idx + 1
-        if overlap_blend_mode == "linear_blend":
-            return frames_into_overlap / (overlap_count + 1)
-        else:
-            t = frames_into_overlap / (overlap_count + 1)
-            return t * t * (3 - 2 * t)
-    return 0.0
 
 
 def process_video_stream(
@@ -135,7 +120,8 @@ def process_video_stream(
                 neighbor_frame_idx = max(0, min(neighbor_frame_idx, len(video_frames_all[neighbor_idx]) - 1))
                 neighbor_frame = video_frames_all[neighbor_idx][neighbor_frame_idx]
                 
-                factor = get_blend_factor(overlap_blend_mode, idx_in_blend, overlap_count)
+                # factor = get_blend_factor(overlap_blend_mode, idx_in_blend, overlap_count)
+                factor = get_blend_factor(OverlapBlendMode(overlap_blend_mode), idx_in_blend / overlap_count)
                 
                 img1 = neighbor_frame.to_ndarray(format='rgb24')
                 img2 = frame.to_ndarray(format='rgb24')
@@ -227,7 +213,7 @@ def process_audio_stream(
                     neighbor_frame = audio_frames_all[neighbor_idx][neighbor_frame_idx]
                     
                     idx_in_blend = video_frames_since_start
-                    factor = get_blend_factor(overlap_blend_mode, idx_in_blend, overlap_count)
+                    factor = get_blend_factor(OverlapBlendMode(overlap_blend_mode), idx_in_blend / overlap_count)
                     
                     samples_current = frame.to_ndarray()
                     samples_neighbor = neighbor_frame.to_ndarray()

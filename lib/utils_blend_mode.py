@@ -14,8 +14,8 @@ BlendHandler = Callable[[float], float]
 handlers: dict[OverlapBlendMode, BlendHandler] = {
     OverlapBlendMode.LINEAR_BLEND: lambda p: p,
     OverlapBlendMode.EASE_IN_OUT: lambda p: (p * p * (3 - 2 * p)),
-    OverlapBlendMode.NEWER: lambda p: 0.0 if p > 0 else 1.0,
-    OverlapBlendMode.OLDER: lambda p: 1.0 if p < 1 else 0.0,
+    OverlapBlendMode.NEWER: lambda p: float(p != 0),
+    OverlapBlendMode.OLDER: lambda p: float(p == 1),
 }
 
 

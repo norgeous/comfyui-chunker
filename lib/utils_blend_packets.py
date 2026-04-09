@@ -2,7 +2,7 @@ import av
 from .utils_blend_mode import get_blend_factor, OverlapBlendMode
 
 
-def blend_packets(mode: OverlapBlendMode, all_packets: list[list[av.Packet]], overlap_count=10) -> list[av.Packet]:
+def blend_all_packets(mode: OverlapBlendMode, all_packets: list[list[av.Packet]], overlap_count=10) -> list[av.Packet]:
     out_packets = []
     for i, packets in enumerate(all_packets):
         is_first = i == 0

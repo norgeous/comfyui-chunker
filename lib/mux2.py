@@ -20,12 +20,11 @@ def mux(videos: list, output_path: str, overlap_count: int, overlap_blend_mode: 
     audio_streams = [c.streams.audio[0] for c in input_containers]
     
     with av.open(output_path, mode="w", format="mp4") as output_container:
-        # Use template-based stream creation for proper remuxing
+        # Use template-based stream creation for remuxing
         out_video_stream = output_container.add_stream_from_template(video_streams[0])
         out_video_stream.options = {'preset': 'slow', 'crf': '10'}
         # Set time_base to match input to avoid timing issues
         out_video_stream.time_base = video_streams[0].time_base
-        out_video_stream.codec_context.time_base = video_streams[0].time_base
         
         out_audio_stream = output_container.add_stream_from_template(audio_streams[0])
         out_audio_stream.time_base = audio_streams[0].time_base

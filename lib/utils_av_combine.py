@@ -99,15 +99,15 @@ def trim_audio(samples: np.ndarray, remove_start: int, remove_end: int) -> np.nd
     return samples
 
 
-def generate_combined(
-    source_paths: List[str],
+def combine(
+    paths: List[str],
     output_path: str,
     overlap_frame_count: int = 10,
     video_blend_mode: BlendMode = BlendMode.LINEAR,
     audio_blend_mode: BlendMode = BlendMode.EQUAL_POWER
 ) -> None:
     sources: List[dict[str, List[av.VideoFrame] | np.ndarray | int]] = []
-    for path in source_paths:
+    for path in paths:
         frames: List[av.VideoFrame]
         audio: np.ndarray
         fps: int

@@ -46,7 +46,11 @@ def load_video(path: str) -> Tuple[List[av.VideoFrame], np.ndarray, int, int]:
         sample_rate = in_audio.rate
         audio_frames: List[np.ndarray] = [frame.to_ndarray() for frame in inp.decode(in_audio)]
         if audio_frames:
-            audio_data = np.concatenate(audio_frames, axis=-1).flatten()
+            audio_data = np.concatenate(audio_frames, axis=-1)
+            if audio_data.ndim == 2:
+                audio_data = audio_data  # Keep stereo (2, N)
+            else:
+                audio_data = audio_data.flatten()  # Mono (N,)
 
     inp.seek(0)
     frames: List[av.VideoFrame] = list(inp.decode(in_video))
@@ -131,12 +135,22 @@ def combine(
             overlap_frames = create_overlap_frames(end_frames, start_frames, overlap_frame_count, video_blend_mode)
 
             if a["audio"] is not None and b["audio"] is not None:
-                a_1d: np.ndarray = a["audio"].flatten() if a["audio"].ndim > 1 else a["audio"]
-                b_1d: np.ndarray = b["audio"].flatten() if b["audio"].ndim > 1 else b["audio"]
+                is_stereo = a["audio"].ndim > 1 and a["audio"].shape[0] == 2
+                if is_stereo:
+                    a_1d = a["audio"][0]  # Left channel
+                    b_1d = b["audio"][0]  # Left channel
+                else:
+                    a_1d: np.ndarray = a["audio"].flatten() if a["audio"].ndim > 1 else a["audio"]
+                    b_1d: np.ndarray = b["audio"].flatten() if b["audio"].ndim > 1 else b["audio"]
                 overlap_samples: int = overlap_frame_count * (sr // fps)
                 end_audio: np.ndarray = a_1d[-overlap_samples:]
                 start_audio: np.ndarray = b_1d[:overlap_samples]
                 overlap_audio = create_overlap_audio(end_audio, start_audio, audio_blend_mode)
+                if is_stereo:
+                    end_audio_r = a["audio"][1][-overlap_samples:]
+                    start_audio_r = b["audio"][1][:overlap_samples]
+                    overlap_audio_r = create_overlap_audio(end_audio_r, start_audio_r, audio_blend_mode)
+                    overlap_audio = np.stack([overlap_audio, overlap_audio_r], axis=0)
 
         overlaps.append({"frames": overlap_frames, "audio": overlap_audio})
 
@@ -151,8 +165,18 @@ def combine(
         final_frames.extend(trimmed)
 
         if src["audio"] is not None:
-            audio_1d: np.ndarray = src["audio"].flatten() if src["audio"].ndim > 1 else src["audio"]
-            trimmed_audio: np.ndarray = trim_audio(audio_1d, remove_start * (sr // fps), remove_end * (sr // fps))
+            is_stereo = src["audio"].ndim > 1 and src["audio"].shape[0] == 2
+            if is_stereo:
+                trim_start = remove_start * (sr // fps)
+                trim_end = remove_end * (sr // fps)
+                left = src["audio"][0]
+                right = src["audio"][1]
+                trimmed_left = trim_audio(left, trim_start, trim_end)
+                trimmed_right = trim_audio(right, trim_start, trim_end)
+                trimmed_audio: np.ndarray = np.stack([trimmed_left, trimmed_right], axis=0)
+            else:
+                audio_1d: np.ndarray = src["audio"].flatten() if src["audio"].ndim > 1 else src["audio"]
+                trimmed_audio = trim_audio(audio_1d, remove_start * (sr // fps), remove_end * (sr // fps))
             final_audio.append(trimmed_audio)
 
         if idx < len(overlaps):
@@ -169,8 +193,9 @@ def combine(
 
     out_audio: av.stream.Stream = None  # type: ignore[assignment]
     if final_audio:
+        is_stereo = final_audio[0].ndim > 1 and final_audio[0].shape[0] == 2
         out_audio = output.add_stream('pcm_s16le', rate=sr)
-        out_audio.layout = 'mono'
+        out_audio.layout = 'stereo' if is_stereo else 'mono'
 
     for i, frame in enumerate(final_frames):
         frame = frame.reformat(format='yuv420p')
@@ -183,9 +208,18 @@ def combine(
         output.mux(pkt)
 
     if out_audio and final_audio:
-        audio_concat: np.ndarray = np.concatenate(final_audio)
-        audio_format, audio_layout = get_audio_format_and_layout(audio_concat)
-        audio_frame: av.audio.AudioFrame = av.AudioFrame.from_ndarray(audio_concat.reshape(1, -1), format=audio_format, layout=audio_layout)
+        audio_concat: np.ndarray = np.concatenate(final_audio, axis=1)
+        is_stereo = audio_concat.ndim > 1 and audio_concat.shape[0] == 2
+        
+        if is_stereo:
+            audio_format, _ = get_audio_format_and_layout(audio_concat[0])
+            audio_format = audio_format + 'p'  # Planar format required for stereo
+            audio_frame: av.audio.AudioFrame = av.AudioFrame.from_ndarray(audio_concat, format=audio_format, layout='stereo')
+        else:
+            audio_concat_1d = audio_concat.flatten()
+            audio_format, audio_layout = get_audio_format_and_layout(audio_concat_1d)
+            audio_frame = av.AudioFrame.from_ndarray(audio_concat_1d.reshape(1, -1), format=audio_format, layout=audio_layout)
+        
         audio_frame.rate = sr
         audio_frame.pts = 0
         audio_frame.time_base = Fraction(1, sr)

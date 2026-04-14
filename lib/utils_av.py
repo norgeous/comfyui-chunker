@@ -9,6 +9,32 @@ from comfy_extras.nodes_audio import match_audio_sample_rates
 from functools import reduce
 from ..enum.options import OverlapBlendModes
 
+
+def get_audio_format_and_layout(audio: np.ndarray) -> tuple[str, str]:
+    dtype_map = {
+        'int16': 's16',
+        'int32': 's32',
+        'float32': 'flt',
+        'float64': 'dbl',
+        'uint8': 'u8',
+    }
+    format_str = dtype_map.get(str(audio.dtype), 's16')
+    
+    if audio.ndim == 1:
+        layout = 'mono'
+    elif audio.shape[0] == 1:
+        layout = 'mono'
+    elif audio.shape[0] == 2:
+        layout = 'stereo'
+    else:
+        layout = 'mono'
+    
+    if layout == 'stereo':
+        format_str = format_str + 'p'
+    
+    return format_str, layout
+
+
 profiles = {
     "webm": {
         "extension": "webm",
@@ -105,9 +131,9 @@ def tensor_to_astreams(audio):
     aframes = []
     if audio is not None:
         waveform = audio["waveform"]
-        layout = 'mono' if waveform.shape[1] == 1 else 'stereo'
         audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int32).max).astype(np.int32)
-        frame = av.AudioFrame.from_ndarray(audio_ndarray, format="s32p", layout=layout)
+        audio_format, audio_layout = get_audio_format_and_layout(audio_ndarray)
+        frame = av.AudioFrame.from_ndarray(audio_ndarray, format=audio_format, layout=audio_layout)
         frame.sample_rate = audio["sample_rate"]
         aframes.append(frame)
     return [aframes] if len(aframes) > 0 else []

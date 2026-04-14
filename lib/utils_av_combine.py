@@ -6,6 +6,8 @@ from typing import List, Tuple, Callable
 import av
 import numpy as np
 
+from .utils_av import get_audio_format_and_layout
+
 
 class BlendMode(Enum):
     EQUAL_POWER = "equal_power"
@@ -182,7 +184,8 @@ def combine(
 
     if out_audio and final_audio:
         audio_concat: np.ndarray = np.concatenate(final_audio)
-        audio_frame: av.audio.AudioFrame = av.AudioFrame.from_ndarray(audio_concat.reshape(1, -1), format='s16', layout='mono')
+        audio_format, audio_layout = get_audio_format_and_layout(audio_concat)
+        audio_frame: av.audio.AudioFrame = av.AudioFrame.from_ndarray(audio_concat.reshape(1, -1), format=audio_format, layout=audio_layout)
         audio_frame.rate = sr
         audio_frame.pts = 0
         audio_frame.time_base = Fraction(1, sr)

@@ -29,9 +29,6 @@ def get_audio_format_and_layout(audio: np.ndarray) -> tuple[str, str]:
     else:
         layout = 'mono'
     
-    if layout == 'stereo':
-        format_str = format_str + 'p'
-    
     return format_str, layout
 
 
@@ -132,8 +129,15 @@ def tensor_to_astreams(audio):
     if audio is not None:
         waveform = audio["waveform"]
         audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int32).max).astype(np.int32)
-        audio_format, audio_layout = get_audio_format_and_layout(audio_ndarray)
-        frame = av.AudioFrame.from_ndarray(audio_ndarray, format=audio_format, layout=audio_layout)
+        
+        is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
+        if is_stereo:
+            audio_format = 's32p'  # Planar format for stereo
+            frame = av.AudioFrame.from_ndarray(audio_ndarray, format=audio_format, layout='stereo')
+        else:
+            audio_format, audio_layout = get_audio_format_and_layout(audio_ndarray)
+            frame = av.AudioFrame.from_ndarray(audio_ndarray, format=audio_format, layout=audio_layout)
+        
         frame.sample_rate = audio["sample_rate"]
         aframes.append(frame)
     return [aframes] if len(aframes) > 0 else []

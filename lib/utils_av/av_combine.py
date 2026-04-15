@@ -6,8 +6,8 @@ import av
 import numpy as np
 import torch
 
-from av_load import av_load
-from av_save import av_save
+from .av_load import av_load
+from .av_save import av_save
 
 
 class BlendMode(Enum):

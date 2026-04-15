@@ -1,5 +1,5 @@
 import pytest
-from av_load import av_load
+from .av_load import av_load
 
 
 def test_load_video_audio_stereo(source_videos):

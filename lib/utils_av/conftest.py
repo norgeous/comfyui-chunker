@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-from av_save import av_save
+from .av_save import av_save
 
 
 def create_source_tensors(

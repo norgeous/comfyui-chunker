@@ -97,6 +97,7 @@ class ChunkerCombine(io.ComfyNode):
         # save input images, masks and / or audio to lossless file
         ts = get_ts()
         log("Save chunk...", end="")
+        chunk_path = get_next_save_path("video/chunker/tmp/chunk", "mp4")[0]
         chunk_path = av_save(
             images=images,
             # masks=masks,
@@ -104,7 +105,7 @@ class ChunkerCombine(io.ComfyNode):
             fps=d["fps"],
             # profile="mp4",
             # alpha_mode="2ndStream",
-            output_path="video/chunker/tmp/chunk",
+            output_path=chunk_path,
         )[0]
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -118,13 +119,14 @@ class ChunkerCombine(io.ComfyNode):
         # Save preview
         ts = get_ts()
         log("Save preview...", end="")
+        preview_path = get_next_save_path("video/chunker/tmp/preview", "mp4")[0]
         preview_path = av_save(
             images=preview,
             # masks=None,
             audio=audio,
             fps=d["fps"],
             # profile="mp4",
-            output_path="video/chunker/tmp/preview",
+            output_path=preview_path,
         )[0]
         s["preview_chunks"].append(preview_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")

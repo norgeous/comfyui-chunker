@@ -30,23 +30,23 @@ def plot_audio_waveform(waveform, sample_rate, title, output_path):
 
 def main():
     mp4_files = [
-        '/home/user/dev/save_load_combine/test-output/save_video_audio_stereo.mp4',
-        '/home/user/dev/save_load_combine/test-output/save_video_audio_mono.mp4',
-        '/home/user/dev/save_load_combine/test-output/save_audio_stereo.mp4',
-        '/home/user/dev/save_load_combine/test-output/save_audio_mono.mp4',
-        '/home/user/dev/save_load_combine/test-output/save_video_only.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-4o-equal_power.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-4o-newer_only.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-4o-ease_in_out.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-4o-linear.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-4o-older_only.mp4',
-        '/home/user/dev/save_load_combine/test-output/combine-3x30i-0o-none.mp4',
-        '/home/user/dev/save_load_combine/test-source/source3.mp4',
-        '/home/user/dev/save_load_combine/test-source/source2.mp4',
-        '/home/user/dev/save_load_combine/test-source/source1.mp4',
+        'test-output/save_video_audio_stereo.mp4',
+        'test-output/save_video_audio_mono.mp4',
+        'test-output/save_audio_stereo.mp4',
+        'test-output/save_audio_mono.mp4',
+        'test-output/save_video_only.mp4',
+        'test-output/combine-3x30i-4o-equal_power.mp4',
+        'test-output/combine-3x30i-4o-newer_only.mp4',
+        'test-output/combine-3x30i-4o-ease_in_out.mp4',
+        'test-output/combine-3x30i-4o-linear.mp4',
+        'test-output/combine-3x30i-4o-older_only.mp4',
+        'test-output/combine-3x30i-0o-none.mp4',
+        'test-source/source3.mp4',
+        'test-source/source2.mp4',
+        'test-source/source1.mp4',
     ]
 
-    output_dir = Path('/home/user/dev/save_load_combine/audio-graphs')
+    output_dir = Path('audio-graphs')
     output_dir.mkdir(exist_ok=True)
 
     for mp4_path in mp4_files:

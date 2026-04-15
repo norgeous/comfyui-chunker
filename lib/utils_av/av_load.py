@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 import av
 import numpy as np
 import torch
+import math
 
 
 def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[dict]]:
@@ -16,7 +17,14 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
     if container.streams.video:
         video_stream = container.streams.video[0]
         fps = int(video_stream.average_rate)
-
+           
+        vstart = None
+        vend = None
+        if overlap_frame_count > 0:
+            vend = overlap_frame_count
+        if overlap_frame_count < 0:
+            vstart = overlap_frame_count
+      
         frames = []
         for frame in container.decode(video_stream):
             arr = frame.to_ndarray(format="rgb24")
@@ -24,7 +32,7 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             frames.append(torch.from_numpy(arr))
 
         if frames:
-            images = torch.stack(frames)
+            images = torch.stack(frames)[vstart:vend]
 
     container.seek(0)
 
@@ -33,13 +41,29 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
         sample_rate = audio_stream.rate
         is_stereo = audio_stream.layout.name == 'stereo'
 
+        samples_per_frame = math.floor(sample_rate / fps)
+
+        astart = None
+        aend = None
+        if overlap_frame_count > 0:
+            aend = overlap_frame_count * samples_per_frame
+        if overlap_frame_count < 0:
+            astart = overlap_frame_count * samples_per_frame
+
         audio_frames = []
         for frame in container.decode(audio_stream):
             arr = frame.to_ndarray()
+            is_planar = frame.format.is_planar
 
             if is_stereo:
-                arr = arr.reshape(2, -1)
+                if is_planar:
+                    # Planar stereo: already (2, num_samples)
+                    pass
+                else:
+                    # Packed stereo: (1, num_samples * 2) → (2, num_samples)
+                    arr = arr.reshape(2, -1)
             else:
+                # Mono: always flatten (1, num_samples) → (num_samples,)
                 arr = arr.flatten()
 
             audio_frames.append(arr)
@@ -47,28 +71,17 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
         if audio_frames:
             audio_data = np.concatenate(audio_frames, axis=-1)
 
-            if is_stereo:
-                waveform = torch.from_numpy(audio_data.astype(np.float32) / 32767.0)
-            else:
-                waveform = torch.from_numpy(audio_data.astype(np.float32) / 32767.0)
-                waveform = waveform.unsqueeze(0)
-
+            waveform = torch.from_numpy(audio_data.astype(np.float32) / 32767.0)
+            # Add batch dimension: (channels, samples) → (1, channels, samples)
+            waveform = waveform.unsqueeze(0)
+            # Apply slicing: (1, channels, samples) → (1, channels, start:end)
+            waveform = waveform[:, :, astart:aend]
+          
             audio = {
                 "waveform": waveform,
                 "sample_rate": sample_rate,
             }
 
+    container.close()
+    return images, audio
 
-    if overlap_frame_count == 0:
-        container.close()
-        return images, audio
-
-    sr = audio["sample_rate"]
-    overlap_sample_count = sr * (overlap_frame_count / fps)
-    audio = {
-        "waveform": audio[:-overlap_sample_count],
-        "sample_rate": sr,
-    }
-
-    container.close()av_load(
-    return images[:-overlap_frame_count], audio

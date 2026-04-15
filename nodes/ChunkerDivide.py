@@ -2,7 +2,8 @@ import torch
 import math
 from comfy_api.latest import io
 from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
-from ..lib.utils_av import av_load#, concat_audios
+from ..lib.utils_av import av_load
+from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps#, format_latents
 from ..lib.utils_performance import get_ts
@@ -170,8 +171,7 @@ class ChunkerDivide(io.ComfyNode):
         if s["last_chunk_path"] is not None and chunk_overlap > 0:
             overlap_images, overlap_audio_dict = av_load(
                 path=s["last_chunk_path"],
-                # alpha_mode="2ndStream",
-                # start_n=-chunk_overlap,
+                overlap_frame_count=-chunk_overlap,
             )
             overlap_masks = None
             w = overlap_images.shape[2]
@@ -246,8 +246,8 @@ class ChunkerDivide(io.ComfyNode):
         # finalise out audio, concat together
         out_audio_dict = None
         if len(out_audio) > 0:
-            pass
-        #     out_audio_dict = concat_audios(out_audio)
+            # pass
+            out_audio_dict = concat_audios(out_audio)
 
         chunker_data = {
             "start_node_id": self.hidden.unique_id,

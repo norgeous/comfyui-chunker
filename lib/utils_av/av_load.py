@@ -5,12 +5,13 @@ import numpy as np
 import torch
 
 
-def av_load(path: str) -> Tuple[Optional[torch.Tensor], Optional[dict]]:
+def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[dict]]:
     container = av.open(path)
     container.seek(0)
 
     images = None
     audio = None
+    fps = 30
 
     if container.streams.video:
         video_stream = container.streams.video[0]
@@ -57,5 +58,17 @@ def av_load(path: str) -> Tuple[Optional[torch.Tensor], Optional[dict]]:
                 "sample_rate": sample_rate,
             }
 
-    container.close()
-    return images, audio
+
+    if overlap_frame_count == 0:
+        container.close()
+        return images, audio
+
+    sr = audio["sample_rate"]
+    overlap_sample_count = sr * (overlap_frame_count / fps)
+    audio = {
+        "waveform": audio[:-overlap_sample_count],
+        "sample_rate": sr,
+    }
+
+    container.close()av_load(
+    return images[:-overlap_frame_count], audio

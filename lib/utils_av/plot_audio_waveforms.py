@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 from av_load import av_load
 
@@ -8,23 +9,31 @@ plt.style.use('dark_background')
 
 
 def plot_audio_waveform(waveform, sample_rate, title, output_path):
+    waveform = waveform[0]
     num_channels = waveform.shape[0]
     num_samples = waveform.shape[1]
-    time = np.arange(num_samples) / sample_rate
 
     width = min(40, max(12, num_samples / 5000))
     fig, axes = plt.subplots(num_channels, 1, figsize=(width, 4 * num_channels), squeeze=False)
     fig.suptitle(title, fontsize=14)
 
     for i in range(num_channels):
-        axes[i, 0].plot(time, waveform[i].numpy(), linewidth=0.3)
-        axes[i, 0].set_xlabel('Time (s)')
+        axes[i, 0].plot(np.arange(num_samples), waveform[i].numpy(), linewidth=0.3)
+        axes[i, 0].set_xlabel('Samples')
         axes[i, 0].set_ylabel('Amplitude')
         axes[i, 0].set_title(f'Channel {i + 1}')
-        axes[i, 0].grid(True)
+        # axes[i, 0].set_ylim(-32768, 32767)
+        
+        # Set x-axis ticks to multiples of sample_rate
+        tick_locations = np.arange(0, num_samples + 1, sample_rate)
+        axes[i, 0].set_xticks(tick_locations)
+        axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
+        
+        interval = sample_rate / 15
+        for sample_pos in np.arange(0, num_samples, interval):
+            axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)
 
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=600, bbox_inches='tight')
+    plt.savefig(output_path, dpi=600, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 

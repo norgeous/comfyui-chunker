@@ -50,12 +50,13 @@ def av_save(
             H, W = images.shape[1], images.shape[2]
             count = images.shape[0]
 
-            video_stream = container.add_stream(VIDEO_CODEC, rate=Fraction(f"{fps:.6f}"))
+            fps_fraction = Fraction(f"{fps:.6f}")
+            video_stream = container.add_stream(VIDEO_CODEC, rate=fps_fraction)
             video_stream.pix_fmt = VIDEO_PIXEL_FORMAT
             video_stream.options = {'preset': VIDEO_PRESET, 'crf': str(VIDEO_CRF)}
             video_stream.width = W
             video_stream.height = H
-            video_stream.time_base = Fraction(1, fps)
+            video_stream.time_base = Fraction(1, 1) / fps_fraction
 
             for i in range(count):
                 img = images[i]

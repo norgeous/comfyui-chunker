@@ -70,13 +70,13 @@ def av_combine(
 ) -> str:
     sources = []
     for path in paths:
-        images, audio = av_load(path)
-        sources.append({"images": images, "audio": audio})
+        images, audio, fps = av_load(path)
+        sources.append({"images": images, "audio": audio, "fps": fps})
 
     if len(sources) == 0:
         raise ValueError("No sources provided")
 
-    fps = sources[0]["images"].shape[0] // 2
+    fps = sources[0]["fps"]
 
     overlaps = []
     for i in range(len(sources) - 1):
@@ -94,6 +94,7 @@ def av_combine(
         if a["audio"] is not None and b["audio"] is not None:
             is_stereo = a["audio"]["waveform"].shape[1] == 2
             sr = a["audio"]["sample_rate"]
+            source_fps = a["fps"]  # Use actual FPS from video
 
             if is_stereo:
                 a_left = a["audio"]["waveform"][0, 0].numpy()
@@ -106,7 +107,7 @@ def av_combine(
                 a_right = None
                 b_right = None
 
-            overlap_samples = overlap_frame_count * (sr // fps)
+            overlap_samples = overlap_frame_count * (sr // source_fps)
             end_audio = a_left[-overlap_samples:]
             start_audio = b_left[:overlap_samples]
 
@@ -139,19 +140,20 @@ def av_combine(
 
         if src["audio"] is not None:
             sr = src["audio"]["sample_rate"]
+            source_fps = src["fps"]  # Use actual FPS from video
             is_stereo = src["audio"]["waveform"].shape[1] == 2
 
             if is_stereo:
                 left = src["audio"]["waveform"][0, 0].numpy()
                 right = src["audio"]["waveform"][0, 1].numpy()
-                trim_start = remove_start * (sr // fps)
-                trim_end = remove_end * (sr // fps)
+                trim_start = remove_start * (sr // source_fps)
+                trim_end = remove_end * (sr // source_fps)
                 trimmed_left = left[trim_start:-trim_end] if trim_end > 0 else left[trim_start:]
                 trimmed_right = right[trim_start:-trim_end] if trim_end > 0 else right[trim_start:]
                 trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
             else:
                 audio_1d = src["audio"]["waveform"][0, 0].numpy()
-                trimmed_audio = audio_1d[remove_start * (sr // fps):-remove_end * (sr // fps)] if remove_end > 0 else audio_1d[remove_start * (sr // fps):]
+                trimmed_audio = audio_1d[remove_start * (sr // source_fps):-remove_end * (sr // source_fps)] if remove_end > 0 else audio_1d[remove_start * (sr // source_fps):]
 
             final_audio.append(trimmed_audio)
 

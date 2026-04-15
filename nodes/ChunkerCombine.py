@@ -173,7 +173,7 @@ class ChunkerCombine(io.ComfyNode):
 
             ts = get_ts()
             log("Load final tensors...", end="")
-            out_images_torch, out_audio_dict = av_load(path=final_path)
+            out_images_torch, out_audio_dict, _ = av_load(path=final_path)
             out_masks_torch = None
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 

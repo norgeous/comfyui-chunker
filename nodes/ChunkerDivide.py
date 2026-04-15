@@ -169,7 +169,7 @@ class ChunkerDivide(io.ComfyNode):
 
         # get the overlap from the last chunk (video file) that Combine saved
         if s["last_chunk_path"] is not None and chunk_overlap > 0:
-            overlap_images, overlap_audio_dict = av_load(
+            overlap_images, overlap_audio_dict, _ = av_load(
                 path=s["last_chunk_path"],
                 overlap_frame_count=-chunk_overlap,
             )

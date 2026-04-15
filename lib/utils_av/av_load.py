@@ -6,7 +6,7 @@ import torch
 import math
 
 
-def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[dict]]:
+def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[dict], int]:
     container = av.open(path)
     container.seek(0)
 
@@ -73,7 +73,12 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
 
             waveform = torch.from_numpy(audio_data.astype(np.float32) / 32767.0)
             # Add batch dimension: (channels, samples) → (1, channels, samples)
-            waveform = waveform.unsqueeze(0)
+            # For mono: (samples,) → (1, samples) → (1, 1, samples)
+            # For stereo: (2, samples) → (1, 2, samples)
+            if waveform.dim() == 1:
+                # Mono audio: add channel dimension first
+                waveform = waveform.unsqueeze(0)  # (samples,) → (1, samples)
+            waveform = waveform.unsqueeze(0)  # Add batch dimension
             # Apply slicing: (1, channels, samples) → (1, channels, start:end)
             waveform = waveform[:, :, astart:aend]
           
@@ -83,5 +88,5 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             }
 
     container.close()
-    return images, audio
+    return images, audio, fps
 

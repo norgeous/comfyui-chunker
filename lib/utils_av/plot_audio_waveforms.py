@@ -55,7 +55,7 @@ def main():
             continue
 
         print(f"Processing {mp4_path}")
-        _, audio = av_load(mp4_path)
+        _, audio, _ = av_load(mp4_path)
 
         if audio is None:
             print(f"  No audio found in {mp4_path}")

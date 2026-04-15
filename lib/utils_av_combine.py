@@ -6,7 +6,29 @@ from typing import List, Tuple, Callable
 import av
 import numpy as np
 
-from .utils_av import get_audio_format_and_layout
+try:
+    from .utils_av import get_audio_format_and_layout
+except ImportError:
+    def get_audio_format_and_layout(audio: np.ndarray) -> tuple[str, str]:
+        dtype_map = {
+            'int16': 's16',
+            'int32': 's32',
+            'float32': 'flt',
+            'float64': 'dbl',
+            'uint8': 'u8',
+        }
+        format_str = dtype_map.get(str(audio.dtype), 's16')
+        
+        if audio.ndim == 1:
+            layout = 'mono'
+        elif audio.shape[0] == 1:
+            layout = 'mono'
+        elif audio.shape[0] == 2:
+            layout = 'stereo'
+        else:
+            layout = 'mono'
+        
+        return format_str, layout
 
 
 class BlendMode(Enum):
@@ -208,8 +230,11 @@ def combine(
         output.mux(pkt)
 
     if out_audio and final_audio:
-        audio_concat: np.ndarray = np.concatenate(final_audio, axis=1)
-        is_stereo = audio_concat.ndim > 1 and audio_concat.shape[0] == 2
+        is_stereo = final_audio[0].ndim > 1 and final_audio[0].shape[0] == 2
+        if is_stereo:
+            audio_concat: np.ndarray = np.concatenate(final_audio, axis=1)
+        else:
+            audio_concat: np.ndarray = np.concatenate(final_audio, axis=0)
         
         if is_stereo:
             audio_format, _ = get_audio_format_and_layout(audio_concat[0])
@@ -218,7 +243,10 @@ def combine(
         else:
             audio_concat_1d = audio_concat.flatten()
             audio_format, audio_layout = get_audio_format_and_layout(audio_concat_1d)
-            audio_frame = av.AudioFrame.from_ndarray(audio_concat_1d.reshape(1, -1), format=audio_format, layout=audio_layout)
+            if audio_layout == 'stereo':
+                audio_frame = av.AudioFrame.from_ndarray(audio_concat.reshape(2, -1), format=audio_format, layout=audio_layout)
+            else:
+                audio_frame = av.AudioFrame.from_ndarray(audio_concat.reshape(1, -1), format=audio_format, layout=audio_layout)
         
         audio_frame.rate = sr
         audio_frame.pts = 0

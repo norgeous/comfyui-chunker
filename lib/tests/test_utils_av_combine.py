@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 import av
 from fractions import Fraction
 from typing import Tuple
-from generate_combined import generate_combined, BlendMode
+from utils_av_combine import combine as generate_combined, BlendMode
 
 AUDIO_SAMPLE_RATE: int = 44100
 AUDIO_DURATION: float = 2.0

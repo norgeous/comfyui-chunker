@@ -174,6 +174,7 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log("Load final tensors...", end="")
             out_images_torch, out_audio_dict = av_load(path=final_path)
+            out_masks_torch = None
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
@@ -191,7 +192,7 @@ class ChunkerCombine(io.ComfyNode):
                 },
                 "output_label_values": {
                     "images": format_images(out_images_torch),
-                    # "masks": format_masks(out_masks_torch),
+                    "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
@@ -208,7 +209,7 @@ class ChunkerCombine(io.ComfyNode):
                 "ui": {"values": [ui_values]},
                 "result":(
                     out_images_torch,
-                    # out_masks_torch,
+                    out_masks_torch,
                     out_audio_dict,
                     float(d["fps"]), # it might be a Fraction or float, so cast to float
                 )

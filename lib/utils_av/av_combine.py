@@ -92,17 +92,17 @@ def av_combine(
             overlap_frames = create_overlap_frames(end_frames, start_frames, overlap_frame_count, video_blend_mode)
 
         if a["audio"] is not None and b["audio"] is not None:
-            is_stereo = a["audio"]["waveform"].shape[0] == 2
+            is_stereo = a["audio"]["waveform"].shape[1] == 2
             sr = a["audio"]["sample_rate"]
 
             if is_stereo:
-                a_left = a["audio"]["waveform"][0].numpy()
-                b_left = b["audio"]["waveform"][0].numpy()
-                a_right = a["audio"]["waveform"][1].numpy()
-                b_right = b["audio"]["waveform"][1].numpy()
+                a_left = a["audio"]["waveform"][0, 0].numpy()
+                b_left = b["audio"]["waveform"][0, 0].numpy()
+                a_right = a["audio"]["waveform"][0, 1].numpy()
+                b_right = b["audio"]["waveform"][0, 1].numpy()
             else:
-                a_left = a["audio"]["waveform"].squeeze(0).numpy()
-                b_left = b["audio"]["waveform"].squeeze(0).numpy()
+                a_left = a["audio"]["waveform"][0, 0].numpy()
+                b_left = b["audio"]["waveform"][0, 0].numpy()
                 a_right = None
                 b_right = None
 
@@ -139,18 +139,18 @@ def av_combine(
 
         if src["audio"] is not None:
             sr = src["audio"]["sample_rate"]
-            is_stereo = src["audio"]["waveform"].shape[0] == 2
+            is_stereo = src["audio"]["waveform"].shape[1] == 2
 
             if is_stereo:
-                left = src["audio"]["waveform"][0].numpy()
-                right = src["audio"]["waveform"][1].numpy()
+                left = src["audio"]["waveform"][0, 0].numpy()
+                right = src["audio"]["waveform"][0, 1].numpy()
                 trim_start = remove_start * (sr // fps)
                 trim_end = remove_end * (sr // fps)
                 trimmed_left = left[trim_start:-trim_end] if trim_end > 0 else left[trim_start:]
                 trimmed_right = right[trim_start:-trim_end] if trim_end > 0 else right[trim_start:]
                 trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
             else:
-                audio_1d = src["audio"]["waveform"].squeeze(0).numpy()
+                audio_1d = src["audio"]["waveform"][0, 0].numpy()
                 trimmed_audio = audio_1d[remove_start * (sr // fps):-remove_end * (sr // fps)] if remove_end > 0 else audio_1d[remove_start * (sr // fps):]
 
             final_audio.append(trimmed_audio)
@@ -172,7 +172,7 @@ def av_combine(
         else:
             audio_concat = np.concatenate(final_audio, axis=0)
         final_audio_dict = {
-            "waveform": torch.from_numpy(audio_concat).float(),
+            "waveform": torch.from_numpy(audio_concat).unsqueeze(0).float(),
             "sample_rate": sr,
         }
 

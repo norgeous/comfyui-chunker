@@ -28,7 +28,7 @@ def av_save(
     with av.open(f"{output_path}{FILE_EXTENSION}", mode='w') as container:
         if audio is not None:
             waveform = audio["waveform"]
-            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * 32767).astype(np.int16)
+            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
 
             audio_stream = container.add_stream(AUDIO_CODEC, rate=int(audio["sample_rate"]))
 

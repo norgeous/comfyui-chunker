@@ -106,7 +106,7 @@ class ChunkerCombine(io.ComfyNode):
             # profile="mp4",
             # alpha_mode="2ndStream",
             output_path=chunk_path,
-        )[0]
+        )
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
@@ -127,7 +127,7 @@ class ChunkerCombine(io.ComfyNode):
             fps=d["fps"],
             # profile="mp4",
             output_path=preview_path,
-        )[0]
+        )
         s["preview_chunks"].append(preview_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 

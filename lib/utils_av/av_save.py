@@ -17,7 +17,7 @@ def av_save(
     images: Optional[torch.Tensor] = None,
     audio: Optional[dict] = None,
     output_path: str = "output",
-    fps: int = 30,
+    fps: float = 30.0,
 ) -> str:
     if images is None and audio is None:
         raise ValueError("At least one of images or audio must be provided")

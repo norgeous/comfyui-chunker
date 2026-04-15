@@ -1,9 +1,10 @@
 import os
 from comfy_api.latest import io
 from ..lib.utils import log
-from ..lib.utils_av import save, load #, mux, mux2
+# from ..lib.utils_av import save, load #, mux, mux2
 # from ..lib.mux import mux
-from ..lib.utils_av_combine import combine, BlendMode
+# from ..lib.utils_av_combine import combine, BlendMode
+from ..lib.utils_av import av_save, av_load, av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds, get_next_save_path
@@ -96,14 +97,14 @@ class ChunkerCombine(io.ComfyNode):
         # save input images, masks and / or audio to lossless file
         ts = get_ts()
         log("Save chunk...", end="")
-        chunk_path = save(
+        chunk_path = av_save(
             images=images,
-            masks=masks,
+            # masks=masks,
             audio=audio,
             fps=d["fps"],
-            profile="mp4",
-            alpha_mode="2ndStream",
-            filename_prefix="video/chunker/tmp/chunk",
+            # profile="mp4",
+            # alpha_mode="2ndStream",
+            output_path="video/chunker/tmp/chunk",
         )[0]
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -117,13 +118,13 @@ class ChunkerCombine(io.ComfyNode):
         # Save preview
         ts = get_ts()
         log("Save preview...", end="")
-        preview_path = save(
+        preview_path = av_save(
             images=preview,
-            masks=None,
+            # masks=None,
             audio=audio,
             fps=d["fps"],
-            profile="mp4",
-            filename_prefix="video/chunker/tmp/preview",
+            # profile="mp4",
+            output_path="video/chunker/tmp/preview",
         )[0]
         s["preview_chunks"].append(preview_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -134,7 +135,7 @@ class ChunkerCombine(io.ComfyNode):
         if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]):
             os.remove(s["last_all_preview"]) 
         all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "mp4")
-        combine(
+        av_combine(
             paths=s["preview_chunks"],
             output_path=all_preview_path,
             overlap_frame_count=c["chunk_overlap"],
@@ -152,7 +153,7 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log("Mux all chunks...", end="")
             final_path = get_next_save_path("video/chunker/final", "mp4")[0]
-            combine(
+            av_combine(
                 paths=s["chunks"],
                 output_path=final_path,
                 overlap_frame_count=c["chunk_overlap"],
@@ -170,7 +171,7 @@ class ChunkerCombine(io.ComfyNode):
 
             ts = get_ts()
             log("Load final tensors...", end="")
-            out_images_torch, out_masks_torch, out_audio_dict, _fps = load(path=final_path, alpha_mode="2ndStream")
+            out_images_torch, out_audio_dict = av_load(path=final_path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
@@ -188,7 +189,7 @@ class ChunkerCombine(io.ComfyNode):
                 },
                 "output_label_values": {
                     "images": format_images(out_images_torch),
-                    "masks": format_masks(out_masks_torch),
+                    # "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
@@ -205,7 +206,7 @@ class ChunkerCombine(io.ComfyNode):
                 "ui": {"values": [ui_values]},
                 "result":(
                     out_images_torch,
-                    out_masks_torch,
+                    # out_masks_torch,
                     out_audio_dict,
                     float(d["fps"]), # it might be a Fraction or float, so cast to float
                 )

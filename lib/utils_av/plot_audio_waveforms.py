@@ -53,6 +53,7 @@ def main():
         'test-source/source3.mp4',
         'test-source/source2.mp4',
         'test-source/source1.mp4',
+        'test-source/source-long.mp4',
     ]
 
     output_dir = Path('audio-graphs')

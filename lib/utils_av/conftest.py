@@ -86,21 +86,21 @@ def source_dir():
 @pytest.fixture(scope="session")
 def source_videos(source_dir):
     sources = [
-        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15),
-        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15),
-        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15),
-        ("source4.mp4", (0, 255, 255), 1, 110, 0, False, 15, 200),
+        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15, 30),
+        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15, 30),
+        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15, 30),
+        ("source-long.mp4", (0, 255, 255), 1, 110, 0, False, 15, 200),
     ]
 
-    for filename, color, line_num, freq, pixel_y_offset, stereo, fps in sources:
+    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames in sources:
         path = os.path.join(source_dir, filename)
-        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps)
+        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames)
 
     return {
         "source1": "test-source/source1.mp4",
         "source2": "test-source/source2.mp4",
         "source3": "test-source/source3.mp4",
-        "source4": "test-source/source4.mp4",
+        "source-long": "test-source/source-long.mp4",
     }
 
 

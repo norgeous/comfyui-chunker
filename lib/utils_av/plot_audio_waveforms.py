@@ -8,7 +8,7 @@ from av_load import av_load
 plt.style.use('dark_background')
 
 
-def plot_audio_waveform(waveform, sample_rate, title, output_path):
+def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
     waveform = waveform[0]
     num_channels = waveform.shape[0]
     num_samples = waveform.shape[1]
@@ -29,7 +29,7 @@ def plot_audio_waveform(waveform, sample_rate, title, output_path):
         axes[i, 0].set_xticks(tick_locations)
         axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
         
-        interval = sample_rate / 15
+        interval = sample_rate / fps
         for sample_pos in np.arange(0, num_samples, interval):
             axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)
 
@@ -64,7 +64,7 @@ def main():
             continue
 
         print(f"Processing {mp4_path}")
-        _, audio, _ = av_load(mp4_path)
+        _, audio, fps = av_load(mp4_path)
 
         if audio is None:
             print(f"  No audio found in {mp4_path}")
@@ -76,7 +76,7 @@ def main():
         filename = Path(mp4_path).stem
         output_path = output_dir / f"{filename}_waveform.png"
 
-        plot_audio_waveform(waveform, sample_rate, f"Audio Waveform: {filename}", output_path)
+        plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {filename}", output_path)
         print(f"  Saved graph to {output_path}")
 
 

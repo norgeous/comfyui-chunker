@@ -13,8 +13,8 @@ def create_source_tensors(
     pixel_y_offset: int = 0,
     stereo: bool = False,
     video_frames: int = 30,
-    audio_sample_rate: int = 44100,
     audio_duration: float = 2.0,
+    audio_sample_rate: int = 44100,
     video_width: int = 512,
     video_height: int = 512,
 ):
@@ -61,8 +61,9 @@ def generate_source_videos(
     stereo: bool = False,
     fps: int = 15,
     video_frames: int = 30,
+    audio_duration: float = 2.0,
 ) -> None:
-    tensors = create_source_tensors(bg_color, line_num, freq, pixel_y_offset, stereo, video_frames)
+    tensors = create_source_tensors(bg_color, line_num, freq, pixel_y_offset, stereo, video_frames, audio_duration)
     av_save(
         images=tensors["images"],
         audio=tensors["audio"],
@@ -86,15 +87,15 @@ def source_dir():
 @pytest.fixture(scope="session")
 def source_videos(source_dir):
     sources = [
-        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15, 30),
-        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15, 30),
-        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15, 30),
-        ("source-long.mp4", (0, 255, 255), 1, 110, 0, False, 15, 200),
+        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15, 30, 2.0),
+        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15, 30, 2.0),
+        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15, 30, 2.0),
+        ("source-long.mp4", (0, 255, 255), 1, 10, 0, False, 15, 60, 4),
     ]
 
-    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames in sources:
+    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration in sources:
         path = os.path.join(source_dir, filename)
-        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames)
+        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
 
     return {
         "source1": "test-source/source1.mp4",

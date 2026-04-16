@@ -45,9 +45,9 @@ def create_source_tensors(
     sine_wave = np.sin(2 * np.pi * freq * t) * 0.5
     audio_tensor = torch.from_numpy(sine_wave).float()
     if stereo:
-        audio_tensor = audio_tensor.unsqueeze(0).repeat(2, 1)
+        audio_tensor = audio_tensor.unsqueeze(0).repeat(2, 1).unsqueeze(0)
     else:
-        audio_tensor = audio_tensor.unsqueeze(0)
+        audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(0)
 
     return {"images": images, "audio": {"waveform": audio_tensor, "sample_rate": audio_sample_rate}}
 

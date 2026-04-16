@@ -26,26 +26,10 @@ def av_save(
         output_path = output_path[:-len(FILE_EXTENSION)]
 
     with av.open(f"{output_path}{FILE_EXTENSION}", mode='w') as container:
-        if audio is not None:
-            waveform = audio["waveform"]
-            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
-
-            audio_stream = container.add_stream(AUDIO_CODEC, rate=int(audio["sample_rate"]))
-
-            is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
-            audio_stream.layout = 'stereo' if is_stereo else 'mono'
-            audio_stream.time_base = Fraction(1, audio["sample_rate"])
-            audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
-
-            if is_stereo:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray, format='s16p', layout='stereo')
-            else:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.reshape(1, -1), format='s16', layout='mono')
-
-            audio_frame.rate = audio["sample_rate"]
-            audio_frame.pts = 0
-            audio_frame.time_base = Fraction(1, audio["sample_rate"])
-
+        video_stream = None
+        audio_stream = None
+        audio_frame = None
+        
         if images is not None:
             H, W = images.shape[1], images.shape[2]
             count = images.shape[0]
@@ -56,8 +40,29 @@ def av_save(
             video_stream.options = {'preset': VIDEO_PRESET, 'crf': str(VIDEO_CRF)}
             video_stream.width = W
             video_stream.height = H
-            video_stream.time_base = Fraction(1, 1) / fps_fraction
+            video_stream.time_base = Fraction(1, int(fps))
 
+        if audio is not None:
+            waveform = audio["waveform"]
+            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
+
+            audio_stream = container.add_stream(AUDIO_CODEC, rate=int(audio["sample_rate"]))
+
+            is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
+            audio_stream.layout = 'stereo' if is_stereo else 'mono'
+            audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
+            audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
+
+            if is_stereo:
+                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray, format='s16p', layout='stereo')
+            else:
+                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.reshape(1, -1), format='s16', layout='mono')
+
+            audio_frame.rate = audio["sample_rate"]
+            audio_frame.pts = 0
+            audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))
+
+        if video_stream is not None:
             for i in range(count):
                 img = images[i]
                 if img.shape[2] == 4:
@@ -72,7 +77,7 @@ def av_save(
             for packet in video_stream.encode():
                 container.mux(packet)
 
-        if audio is not None:
+        if audio_stream is not None:
             for packet in audio_stream.encode(audio_frame):
                 container.mux(packet)
 

@@ -202,7 +202,8 @@ class ChunkerDivide(io.ComfyNode):
         # prepare chunk of audio from input
         if audio is not None:
             samples_per_frame = math.floor(audio["sample_rate"] / out_fps)
-            astart = start * samples_per_frame
+            samples_already_collected = out_audio[0]["waveform"].shape[-1] if len(out_audio) > 0 else 0
+            astart = (start * samples_per_frame) + samples_already_collected
             aend = end * samples_per_frame
             out_audio.append({
                 "waveform": audio["waveform"][:,:,astart:aend],
@@ -246,7 +247,6 @@ class ChunkerDivide(io.ComfyNode):
         # finalise out audio, concat together
         out_audio_dict = None
         if len(out_audio) > 0:
-            # pass
             out_audio_dict = concat_audios(out_audio)
 
         chunker_data = {

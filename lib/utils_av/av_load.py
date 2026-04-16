@@ -71,7 +71,10 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
         if audio_frames:
             audio_data = np.concatenate(audio_frames, axis=-1)
 
-            waveform = torch.from_numpy(audio_data.astype(np.float32) / np.iinfo(np.int16).max)
+            if np.issubdtype(audio_data.dtype, np.floating):
+                waveform = torch.from_numpy(audio_data.astype(np.float32))
+            else:
+                waveform = torch.from_numpy(audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max)
             # Add batch dimension: (channels, samples) → (1, channels, samples)
             # For mono: (samples,) → (1, samples) → (1, 1, samples)
             # For stereo: (2, samples) → (1, 2, samples)

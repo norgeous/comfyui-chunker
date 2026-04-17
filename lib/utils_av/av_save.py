@@ -54,9 +54,9 @@ def av_save(
             audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
 
             if is_stereo:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray, format='s16p', layout='stereo')
+                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='stereo')
             else:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.reshape(1, -1), format='s16', layout='mono')
+                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='mono')
 
             audio_frame.rate = audio["sample_rate"]
             audio_frame.pts = 0

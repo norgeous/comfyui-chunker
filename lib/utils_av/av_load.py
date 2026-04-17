@@ -53,37 +53,32 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
         audio_frames = []
         for frame in container.decode(audio_stream):
             arr = frame.to_ndarray()
-            is_planar = frame.format.is_planar
 
             if is_stereo:
-                if is_planar:
-                    # Planar stereo: already (2, num_samples)
-                    pass
-                else:
-                    # Packed stereo: (1, num_samples * 2) → (2, num_samples)
-                    arr = arr.reshape(2, -1)
+                flat = arr.flatten()
+                arr = np.stack([flat[::2], flat[1::2]], axis=0)[np.newaxis, :, :]
             else:
-                # Mono: always flatten (1, num_samples) → (num_samples,)
                 arr = arr.flatten()
 
             audio_frames.append(arr)
 
         if audio_frames:
-            audio_data = np.concatenate(audio_frames, axis=-1)
+            if is_stereo:
+                audio_data = np.concatenate(audio_frames, axis=2)
+            else:
+                audio_data = np.concatenate(audio_frames)
 
             if np.issubdtype(audio_data.dtype, np.floating):
                 waveform = torch.from_numpy(audio_data.astype(np.float32))
             else:
                 waveform = torch.from_numpy(audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max)
-            # Add batch dimension: (channels, samples) → (1, channels, samples)
-            # For mono: (samples,) → (1, samples) → (1, 1, samples)
-            # For stereo: (2, samples) → (1, 2, samples)
-            if waveform.dim() == 1:
-                # Mono audio: add channel dimension first
-                waveform = waveform.unsqueeze(0)  # (samples,) → (1, samples)
-            waveform = waveform.unsqueeze(0)  # Add batch dimension
-            # Apply slicing: (1, channels, samples) → (1, channels, start:end)
-            waveform = waveform[:, :, astart:aend]
+            if is_stereo:
+                waveform = waveform[:, :, astart:aend]
+            else:
+                if waveform.dim() == 1:
+                    waveform = waveform.unsqueeze(0)
+                waveform = waveform.unsqueeze(0)
+                waveform = waveform[:, :, astart:aend]
           
             audio = {
                 "waveform": waveform,

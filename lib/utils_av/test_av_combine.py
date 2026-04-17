@@ -15,7 +15,7 @@ def test_no_overlap(source_videos, output_dir):
 
     av_combine(videos, output_path, 0, BlendMode.LINEAR, BlendMode.EQUAL_POWER)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 90, f"Expected 90 frames, got {len(frames)}"
 
@@ -50,7 +50,7 @@ def test_older_only(source_videos, output_dir):
 
     av_combine(videos, output_path, 4, BlendMode.OLDER_ONLY, BlendMode.OLDER_ONLY)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -85,7 +85,7 @@ def test_linear_blend(source_videos, output_dir):
 
     av_combine(videos, output_path, 4, BlendMode.LINEAR, BlendMode.LINEAR)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -144,7 +144,7 @@ def test_ease_in_out(source_videos, output_dir):
 
     av_combine(videos, output_path, 4, BlendMode.EASE_IN_OUT, BlendMode.EASE_IN_OUT)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -203,7 +203,7 @@ def test_newer_only(source_videos, output_dir):
 
     av_combine(videos, output_path, 4, BlendMode.NEWER_ONLY, BlendMode.NEWER_ONLY)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -238,7 +238,7 @@ def test_equal_power(source_videos, output_dir):
 
     av_combine(videos, output_path, 4, BlendMode.EQUAL_POWER, BlendMode.EQUAL_POWER)
 
-    frames, audio_samples, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(output_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -285,3 +285,45 @@ def test_equal_power(source_videos, output_dir):
 
     audio_880 = analyze_audio_frequency(audio_samples[160:])
     assert 860 < audio_880 < 900, f"Audio end should be ~880Hz, got {audio_880}"
+
+
+def test_stereo_linear_blend(source_videos, output_dir):
+    videos = [
+        str(source_videos["source1_stereo"]),
+        str(source_videos["source2_stereo"]),
+        str(source_videos["source3_stereo"]),
+    ]
+    output_path = os.path.join(output_dir, "combine-3x30i-4o-stereo_linear.mp4")
+
+    av_combine(videos, output_path, 4, BlendMode.LINEAR, BlendMode.LINEAR)
+
+    frames, _, audio_left, audio_right, _ = get_frame_info(output_path)
+
+    assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
+
+    frames_array = np.array(frames)
+
+    avg_bg_1_26 = np.mean(frames_array[0:26, :, 300:], axis=(0, 1, 2))[:3]
+    assert abs(avg_bg_1_26[0] - 255) < 10 and avg_bg_1_26[1] < 10 and avg_bg_1_26[2] < 10, f"Frames 1-26 should be red"
+
+    avg_bg_31_52 = np.mean(frames_array[30:52, :, 300:], axis=(0, 1, 2))[:3]
+    assert avg_bg_31_52[0] < 10 and abs(avg_bg_31_52[1] - 255) < 10 and avg_bg_31_52[2] < 10, f"Frames 31-52 should be green"
+
+    avg_bg_57_82 = np.mean(frames_array[56:82, :, 300:], axis=(0, 1, 2))[:3]
+    assert avg_bg_57_82[0] < 10 and avg_bg_57_82[1] < 10 and abs(avg_bg_57_82[2] - 255) < 10, f"Frames 57-82 should be blue"
+
+    assert audio_left is not None and audio_right is not None, "Expected stereo audio output"
+
+    audio_220_left = analyze_audio_frequency(audio_left[0:2940 * 30])
+    audio_440_left = analyze_audio_frequency(audio_left[2940 * 30:2940 * 56])
+    audio_880_left = analyze_audio_frequency(audio_left[2940 * 56:])
+    assert 200 < audio_220_left < 240, f"Left channel start should be ~220Hz, got {audio_220_left}"
+    assert 420 < audio_440_left < 460, f"Left channel middle should be ~440Hz, got {audio_440_left}"
+    assert 860 < audio_880_left < 900, f"Left channel end should be ~880Hz, got {audio_880_left}"
+
+    audio_220_right = analyze_audio_frequency(audio_right[0:2940 * 30])
+    audio_440_right = analyze_audio_frequency(audio_right[2940 * 30:2940 * 56])
+    audio_880_right = analyze_audio_frequency(audio_right[2940 * 56:])
+    assert 200 < audio_220_right < 240, f"Right channel start should be ~220Hz, got {audio_220_right}"
+    assert 420 < audio_440_right < 460, f"Right channel middle should be ~440Hz, got {audio_440_right}"
+    assert 860 < audio_880_right < 900, f"Right channel end should be ~880Hz, got {audio_880_right}"

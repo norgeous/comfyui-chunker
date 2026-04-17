@@ -12,10 +12,6 @@ def concat_audio(audio1, audio2):
     waveform_2 = audio2["waveform"]
     sample_rate_1 = audio1["sample_rate"]
     sample_rate_2 = audio2["sample_rate"]
-    if waveform_1.shape[1] == 1:
-        waveform_1 = waveform_1.repeat(1, 2, 1) # Convert mono to stereo
-    if waveform_2.shape[1] == 1:
-        waveform_2 = waveform_2.repeat(1, 2, 1) # Convert mono to stereo
     waveform_1, waveform_2, output_sample_rate = match_audio_sample_rates(waveform_1, sample_rate_1, waveform_2, sample_rate_2)
     concatenated_audio = torch.cat((waveform_1, waveform_2), dim=2)
     return {

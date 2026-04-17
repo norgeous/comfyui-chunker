@@ -1,6 +1,4 @@
-from PIL import Image
 import torch
-import numpy as np
 from comfy.utils import common_upscale
 
 def monochrome_image(w, h, v=0.5):

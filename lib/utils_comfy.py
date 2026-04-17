@@ -22,16 +22,6 @@ def concat_audio(audio1, audio2):
 def concat_audios(audios):
     return reduce(lambda a, b: concat_audio(a, b), audios)
 
-def get_input_filenames():
-    files = []
-    input_dir = folder_paths.get_input_directory()
-    for f in os.listdir(input_dir):
-        if os.path.isfile(os.path.join(input_dir, f)):
-            file_parts = f.split('.')
-            if len(file_parts) > 1 and (file_parts[-1].lower() in ["mp4", "mov", "webm", "png", "jpeg", "jpg", "mp3"]):
-                files.append(f)
-    return sorted(files)
-
 def get_next_save_path(filename_prefix, extension):
     full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
         filename_prefix,

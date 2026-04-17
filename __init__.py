@@ -1,7 +1,5 @@
 from comfy_api.latest import ComfyExtension, io
 
-from .lib.endpoints import * # importing this registers endpoint(s)
-
 from .nodes.ChunkerDivide import ChunkerDivide
 from .nodes.ChunkerVACEToFirstLast import ChunkerVACEToFirstLast
 from .nodes.ChunkerCombine import ChunkerCombine

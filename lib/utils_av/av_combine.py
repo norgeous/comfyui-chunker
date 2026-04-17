@@ -174,7 +174,7 @@ def av_combine(
         if len(set(dims)) > 1:
             raise ValueError(f"Audio dimension mismatch: cannot combine arrays with different shapes {shapes}")
 
-        is_stereo = final_audio[0].shape[0] == 2
+        is_stereo = final_audio[0].ndim == 2 and final_audio[0].shape[0] == 2
         if is_stereo:
             audio_concat = np.concatenate(final_audio, axis=1)
         else:

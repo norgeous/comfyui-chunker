@@ -72,11 +72,12 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
                 waveform = torch.from_numpy(audio_data.astype(np.float32))
             else:
                 waveform = torch.from_numpy(audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max)
+
+            if not is_stereo and waveform.dim() == 1:
+                waveform = waveform.reshape(1, -1)
             if is_stereo:
                 waveform = waveform[:, :, astart:aend]
             else:
-                if waveform.dim() == 1:
-                    waveform = waveform.unsqueeze(0)
                 waveform = waveform.unsqueeze(0)
                 waveform = waveform[:, :, astart:aend]
           

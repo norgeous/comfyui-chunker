@@ -5,7 +5,7 @@ from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this
 from ..lib.utils_av import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
-from ..lib.utils_format import format_images, format_masks, format_audio, format_fps#, format_latents
+from ..lib.utils_format import format_images, format_masks, format_audio, format_fps
 from ..lib.utils_performance import get_ts
 from enum import Enum
 

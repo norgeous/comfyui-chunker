@@ -1,16 +1,12 @@
 import os
 from comfy_api.latest import io
 from ..lib.utils import log
-# from ..lib.utils_av import save, load #, mux, mux2
-# from ..lib.mux import mux
-# from ..lib.utils_av_combine import combine, BlendMode
 from ..lib.utils_av import av_save, av_load, av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds, get_next_save_path
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts, predict
-# from ..enum.options import OverlapBlendModes
 
 class ChunkerCombine(io.ComfyNode):
     @classmethod

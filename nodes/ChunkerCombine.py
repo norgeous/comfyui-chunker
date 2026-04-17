@@ -32,8 +32,8 @@ class ChunkerCombine(io.ComfyNode):
                     tooltip="Processed chunk of audio",
                 ),
                 io.Combo.Input("overlap_blend_mode",
-                    options=list(map(lambda member: member.name, BlendMode)),
-                    default=BlendMode.NEWER_ONLY.name,
+                    options=list(map(lambda member: member.value, BlendMode)),
+                    default=BlendMode.NEWER_ONLY.value,
                     tooltip="When combining and chunk_overlap is more than zero, select the overlaps from current or previous chunk",
                 ),
                 io.Boolean.Input("increment_seeds",
@@ -137,8 +137,8 @@ class ChunkerCombine(io.ComfyNode):
             paths=s["preview_chunks"],
             output_path=all_preview_path,
             overlap_frame_count=c["chunk_overlap"],
-            video_blend_mode=BlendMode[overlap_blend_mode],
-            audio_blend_mode=BlendMode[overlap_blend_mode],
+            video_blend_mode=BlendMode(overlap_blend_mode),
+            audio_blend_mode=BlendMode(overlap_blend_mode),
         )
         s["last_all_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -155,8 +155,8 @@ class ChunkerCombine(io.ComfyNode):
                 paths=s["chunks"],
                 output_path=final_path,
                 overlap_frame_count=c["chunk_overlap"],
-                video_blend_mode=BlendMode[overlap_blend_mode],
-                audio_blend_mode=BlendMode[overlap_blend_mode],
+                video_blend_mode=BlendMode(overlap_blend_mode),
+                audio_blend_mode=BlendMode(overlap_blend_mode),
             )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 

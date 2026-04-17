@@ -7,7 +7,13 @@ from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps#, format_latents
 from ..lib.utils_performance import get_ts
-from ..enum.options import DivideMode
+from enum import Enum
+
+class DivideMode(Enum):
+    DEFAULT = "default"
+    WAN = "wan"
+    WAN_VACE = "wan_vace"
+    LTX2 = "ltx2"
 
 class ChunkerDivide(io.ComfyNode):
     @classmethod
@@ -35,7 +41,7 @@ class ChunkerDivide(io.ComfyNode):
                     tooltip="FPS",
                 ),
                 io.Combo.Input("mode",
-                    options=list(map(lambda member: member.name, DivideMode)),
+                    options=list(map(lambda member: member.value, DivideMode)),
                     tooltip="Adjust chunk_length and total_length to match Wan's format (4n+1) or LTX's format.",
                 ),
                 io.Int.Input("chunk_length",

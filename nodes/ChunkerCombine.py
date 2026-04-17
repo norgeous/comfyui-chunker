@@ -153,7 +153,7 @@ class ChunkerCombine(io.ComfyNode):
         # if no more chunks needed, return early
         if is_done:
             ts = get_ts()
-            log("Mux all chunks...", end="")
+            log("Combine all chunks...", end="")
             final_path = get_next_save_path("video/chunker/final", "mp4")[0]
             av_combine(
                 paths=s["chunks"],

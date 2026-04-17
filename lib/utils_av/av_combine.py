@@ -177,11 +177,15 @@ def av_combine(
         is_stereo = final_audio[0].ndim == 2 and final_audio[0].shape[0] == 2
         if is_stereo:
             audio_concat = np.concatenate(final_audio, axis=1)
+            final_audio_dict = {
+                "waveform": torch.from_numpy(audio_concat).unsqueeze(0).float(),
+                "sample_rate": sr,
+            }
         else:
-            audio_concat = np.concatenate(final_audio, axis=0)
-        final_audio_dict = {
-            "waveform": torch.from_numpy(audio_concat).unsqueeze(0).float(),
-            "sample_rate": sr,
-        }
+            audio_concat = np.concatenate(final_audio, axis=0).reshape(1, -1)
+            final_audio_dict = {
+                "waveform": torch.from_numpy(audio_concat).float(),
+                "sample_rate": sr,
+            }
 
     return av_save(images=final_images, audio=final_audio_dict, output_path=output_path, fps=fps)

@@ -115,7 +115,7 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
 }
 
 const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="font-size:8px; text-align:left; /*display:none;*/">{}</pre>');
+  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="font-size:8px; text-align:left; display:none;">{}</pre>');
   const storeElement = element.querySelector("#data_store");
   const get = () => JSON.parse(storeElement.innerHTML);
   const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);

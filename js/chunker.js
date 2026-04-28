@@ -262,7 +262,7 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onExecutionStart", function () {
           updateLabels(this);
         });
-        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
+        chainCallback(nodeType.prototype, "onExecuted", async function (ui) {
           updateLabels(this, ui.values[0]);
           const now = Date.now();
           const {
@@ -272,26 +272,21 @@ app.registerExtension({
             ts_chunk_starts,
             ts_chunk_ends,
           } = ui.values[0];
-          
-          app.api.getQueue().then(data => {
-            if (data.Running[0]) {
-              const { create_time } = data.Running[0];
-              const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
-                const ts_chunk_end = ts_chunk_ends[index];
-                const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
-                return [...acc, delta];
-              }, []);
-              const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
-              const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
-              const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
-              this.store.set({
-                index,
-                chunk_count,
-                ts: now,
-                historical_deltas,
-                predicted_deltas,
-              });
-            }
+          const create_time = (await app.api.getQueue()).Running[0]?.create_time || (await app.api.getHistory())[0].create_time;
+          const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
+            const ts_chunk_end = ts_chunk_ends[index];
+            const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
+            return [...acc, delta];
+          }, []);
+          const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
+          const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
+          const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
+          this.store.set({
+            index,
+            chunk_count,
+            ts: now,
+            historical_deltas,
+            predicted_deltas,
           });
 
           if (video_path) {

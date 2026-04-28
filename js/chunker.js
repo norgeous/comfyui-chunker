@@ -115,7 +115,7 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
 }
 
 const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="font-size:8px; text-align:left;">{}</pre>');
+  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="font-size:8px; text-align:left; /*display:none;*/">{}</pre>');
   const storeElement = element.querySelector("#data_store");
   const get = () => JSON.parse(storeElement.innerHTML);
   const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);
@@ -137,14 +137,6 @@ app.registerExtension({
   name: "chunker",
 
   async setup(app) {
-    app.api.addEventListener("execution_cached", (data) => {
-      console.log("chunker execution_cached", app, data, Date.now());
-      document.querySelectorAll('#data_store').forEach(storeElement => {
-        const store = JSON.parse(storeElement.innerHTML);
-        store.cached_at = Date.now();
-        storeElement.innerHTML = JSON.stringify(store, null, 2);
-      });
-    });
     app.api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
@@ -201,11 +193,6 @@ app.registerExtension({
           element.style.color = "var(--descrip-text)";
 
           this.store = jsonDivStore(element);
-          this.store.set({
-            test: "best",
-            test2: app.api.getQueue(),
-          });
-
           setInterval(() => {
             // fix the dodgy video width
             const vid = element.querySelector("video");
@@ -282,30 +269,29 @@ app.registerExtension({
             index,
             chunk_count,
             video_path,
-            historical_deltas,
             ts_chunk_starts,
             ts_chunk_ends,
           } = ui.values[0];
-          let lastHistoricalTs = now;
-          const { cached_at } = this.store.get();
-          if (cached_at) {
-            historical_deltas = historical_deltas.reverse().map(delta => {
-              lastHistoricalTs -= delta;
-              if (lastHistoricalTs <= cached_at) return 'cached'; // now - cached_at;
-              return delta;
-            }).reverse();
-          }
-          const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
-          const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
-          const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
-          this.store.set({
-            index,
-            chunk_count,
-            ts: now,
-            historical_deltas,
-            predicted_deltas,
-            ts_chunk_starts,
-            ts_chunk_ends,
+          
+          app.api.getQueue().then(data => {
+            if (data.Running[0]) {
+              const { create_time } = data.Running[0];
+              const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
+                const ts_chunk_end = ts_chunk_ends[index];
+                const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
+                return [...acc, delta];
+              }, []);
+              const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
+              const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
+              const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
+              this.store.set({
+                index,
+                chunk_count,
+                ts: now,
+                historical_deltas,
+                predicted_deltas,
+              });
+            }
           });
 
           if (video_path) {

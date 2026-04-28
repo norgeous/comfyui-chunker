@@ -176,7 +176,6 @@ class ChunkerCombine(io.ComfyNode):
                 *s["ts_chunk_ends"],
                 ts_chunk_end,
             ]
-            historical_deltas = [e - s for s, e in zip(d["ts_chunk_starts"], s["ts_chunk_ends"])]
 
             ui_values = {
                 "input_label_values": {
@@ -193,8 +192,8 @@ class ChunkerCombine(io.ComfyNode):
                 "index": d["index"],
                 "chunk_count": c["chunk_count"],
                 "video_path": all_preview_frontend_data,
-                "historical_deltas": historical_deltas,
-                "predicted_deltas": [],
+                "ts_chunk_starts": d["ts_chunk_starts"],
+                "ts_chunk_ends": s["ts_chunk_ends"],
             }
 
             log(f"Finished all chunks {d["index"] + 1} of {c["chunk_count"]}!")
@@ -243,10 +242,6 @@ class ChunkerCombine(io.ComfyNode):
 
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # predict all chunk deltas in milliseconds
-        historical_deltas = [e - s for s, e in zip(d["ts_chunk_starts"], s["ts_chunk_ends"])]
-        predicted_deltas = predict(historical_deltas, c["chunk_count"] - d["index"] - 1)
-
         ui_values = {
             "input_label_values": {
                 "images": format_images(images),
@@ -262,13 +257,11 @@ class ChunkerCombine(io.ComfyNode):
             "index": d["index"],
             "chunk_count": c["chunk_count"],
             "video_path": all_preview_frontend_data,
-            "historical_deltas": historical_deltas,
-            "predicted_deltas": predicted_deltas,
             "ts_chunk_starts": d["ts_chunk_starts"],
             "ts_chunk_ends": s["ts_chunk_ends"],
         }
 
-        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]} ({format_milliseconds(historical_deltas[-1])})")
+        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}")
 
         return io.NodeOutput(
             new_combine.out(0), # images

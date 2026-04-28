@@ -17,7 +17,7 @@ class ChunkerCombine(io.ComfyNode):
             category="chunker",
             inputs=[
                 io.Custom("CHUNKER_DATA").Input("chunker_data",
-                    tooltip="Connect chunker_data from ChunkerDivide node to here"             
+                    tooltip="Connect chunker_data from ChunkerDivide node to here"
                 ),
                 io.Image.Input("images",
                     optional=True,
@@ -34,7 +34,7 @@ class ChunkerCombine(io.ComfyNode):
                 io.Combo.Input("overlap_blend_mode",
                     options=list(map(lambda member: member.value, BlendMode)),
                     default=BlendMode.NEWER_ONLY.value,
-                    tooltip="When combining and chunk_overlap is more than zero, select the overlaps from current or previous chunk",
+                    tooltip="When chunk_overlap is more than zero this setting determines how images and audio are blended",
                 ),
                 io.Boolean.Input("increment_seeds",
                     tooltip="Increment \"seed\" or \"noise_seed\" inputs in cloned nodes that have \"Sampler\" or \"Noise\" within the node type name",
@@ -81,7 +81,7 @@ class ChunkerCombine(io.ComfyNode):
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
-            "preview_chunks": [],
+            #"preview_chunks": [],
             "ts_chunk_ends": [],
             "last_all_preview": None,
         }
@@ -92,7 +92,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # save input images, masks and / or audio to lossless file
         ts = get_ts()
-        log("Save chunk...", end="")
+        log("Save temp chunk...", end="")
         chunk_path = get_next_save_path("video/chunker/tmp/chunk", "mp4")[0]
         chunk_path = av_save(
             images=images,
@@ -108,38 +108,38 @@ class ChunkerCombine(io.ComfyNode):
 
         # Make preview from inputs
         ts = get_ts()
-        log("Make preview...", end="")
-        preview = create_preview_video(images, masks, True, d, c)
+        log("Make preview images...", end="")
+        preview = create_preview_video(images, masks, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save preview
         ts = get_ts()
-        log("Save preview...", end="")
+        log("Save temp preview...", end="")
         preview_path = get_next_save_path("video/chunker/tmp/preview", "mp4")[0]
         preview_path = av_save(
             images=preview,
-            # masks=None,
             audio=audio,
             fps=d["fps"],
             # profile="mp4",
             output_path=preview_path,
         )
-        s["preview_chunks"].append(preview_path)
+        #s["preview_chunks"].append(preview_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # combine all preview chunks to a new file, excluding the overlaps
+        # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]):
-            os.remove(s["last_all_preview"]) 
         all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "mp4")
         av_combine(
-            paths=s["preview_chunks"],
+            #paths=s["preview_chunks"],
+            paths=[s["last_all_preview"], preview_path] if s["last_all_preview"] is not None else [preview_path],
             output_path=all_preview_path,
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),
             audio_blend_mode=BlendMode(overlap_blend_mode),
         )
+        if os.path.exists(preview_path): os.remove(preview_path)
+        if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]): os.remove(s["last_all_preview"])
         s["last_all_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
@@ -161,8 +161,9 @@ class ChunkerCombine(io.ComfyNode):
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts = get_ts()
-            log("Delete all temp chunks and preview chunks...", end="")
-            for path in [*s["chunks"], *s["preview_chunks"]]:
+            log("Delete all temp chunks...", end="")
+            #for path in [*s["chunks"], *s["preview_chunks"]]:
+            for path in s["chunks"]:
                 if os.path.exists(path):
                     os.remove(path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -269,7 +270,7 @@ class ChunkerCombine(io.ComfyNode):
         }
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]} ({format_milliseconds(historical_deltas[-1])})")
-        
+
         return io.NodeOutput(
             new_combine.out(0), # images
             new_combine.out(1), # masks

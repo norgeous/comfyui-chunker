@@ -130,18 +130,20 @@ def batch_draw_text(
         images_tensor = torch.from_numpy(images_np)
         return images_tensor
 
-def frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap):
+def frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap):
     chunk = chunk_index + 1
-    is_overlap = True if chunk_index > 0 and i < overlap else False
+    is_first_chunk = chunk_index == 0
+    is_last_chunk = chunk_index == chunk_count - 1
+    is_overlap = (not is_last_chunk and i >= chunk_length - overlap) or (not is_first_chunk and i < overlap)
     return (
         f"{str(previous_count + i + 1).zfill(len(str(total)))} / {total}", # frame_label
         f"{str(chunk).zfill(len(str(chunk_count)))} of {chunk_count}", # chunk_label
         is_overlap,
-        f"chunks {chunk - 1} + {chunk}", # overlap_label
     )
 
-def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, length, overlap, fps):
-    frame_label, chunk_label, is_overlap, overlap_label = frameIndexInfo(i, previous_count, chunk_index, chunk_count, total, overlap)
+# TODO: snake case
+def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, chunk_length, overlap, fps, overlap_blend_mode):
+    frame_label, chunk_label, is_overlap = frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap)
     configs = []
     em = h / 512
     configs.append(
@@ -154,7 +156,7 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
     )
     configs.append(
         {
-            "text": f"{w} x {h} @ {fps:.2f}FPS\nchunk_length: {length}\nchunk_overlap: {overlap}",
+            "text": f"{w} x {h} @ {fps:.2f}FPS\nchunk_length: {chunk_length}\nchunk_overlap: {overlap}\noverlap_blend_mode: {overlap_blend_mode}",
             "font_size": int(em * 16),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
@@ -171,26 +173,13 @@ def getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total, w, h, 
                 "horizontal_alignment": "left",
             },
         )
-        configs.append(
-            {
-                "text": overlap_label,
-                "y_shift": int(em * (28 + 4)),
-                "font_size": int(em * 18),
-                "fill_color_hex": "#FF0000",
-                "stroke_color_hex": "#FFFFFF",
-                "vertical_alignment": "top",
-                "horizontal_alignment": "left",
-            },
-        )
     return configs
 
-def overlay_debug(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length, fps):
+def overlay_debug_text(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length, fps, overlap_blend_mode):
     w = images.shape[2]
     h = images.shape[1]
-    images = batch_draw_text(
-        images,
-        [getOverlayConfigs(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap, fps) for i in range(0, len(images))],
-    )
+    config = [getOverlayConfig(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap, fps, overlap_blend_mode) for i in range(0, len(images))]
+    images = batch_draw_text(images, config)
     return images
 
 def combine_images_and_masks(images, masks):
@@ -201,19 +190,19 @@ def combine_images_and_masks(images, masks):
     if images is not None and imasks is not None: out = simple_blend(images, imasks)
     return out
 
-def create_preview_video(images, masks, show_debug, d, c):
+def create_preview_video(images, masks, d, c, overlap_blend_mode):
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
-    if show_debug:
-        preview_video_chunk = overlay_debug(
-            preview_video_chunk,
-            previous_count,
-            d["index"],
-            c["chunk_count"],
-            c["chunk_length"],
-            c["chunk_overlap"],
-            c["total_length"],
-            d["fps"],
-        )
+    preview_video_chunk = overlay_debug_text(
+        preview_video_chunk,
+        previous_count,
+        d["index"],
+        c["chunk_count"],
+        c["chunk_length"],
+        c["chunk_overlap"],
+        c["total_length"],
+        d["fps"],
+        overlap_blend_mode,
+    )
     return preview_video_chunk
 

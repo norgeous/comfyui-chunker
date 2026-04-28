@@ -104,9 +104,9 @@ class ChunkerDivide(io.ComfyNode):
             hidden=[io.Hidden.unique_id],
         )
 
-    @classmethod
-    def fingerprint_inputs(cls, **kwargs):
-        return str(get_ts()) # force run if cached, so that start timestamp always updates
+    #@classmethod
+    #def fingerprint_inputs(cls, **kwargs):
+    #    return str(get_ts()) # force run if cached, so that start timestamp always updates
 
     @classmethod
     def execute(

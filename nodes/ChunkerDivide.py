@@ -104,10 +104,6 @@ class ChunkerDivide(io.ComfyNode):
             hidden=[io.Hidden.unique_id],
         )
 
-    #@classmethod
-    #def fingerprint_inputs(cls, **kwargs):
-    #    return str(get_ts()) # force run if cached, so that start timestamp always updates
-
     @classmethod
     def execute(
         self,
@@ -144,7 +140,7 @@ class ChunkerDivide(io.ComfyNode):
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
 
-        # todo
+        # TODO
         if mode.startswith("ltx"):
             # force 8n+1 chunk_length. example: 1, 9, 17, 25, 33
             # fix total_length

@@ -64,6 +64,10 @@ class ChunkerCombine(io.ComfyNode):
         )
 
     @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+       return str(get_ts()) # force run if cached
+
+    @classmethod
     def execute(
         self,
         chunker_data,

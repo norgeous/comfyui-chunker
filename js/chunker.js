@@ -287,6 +287,11 @@ app.registerExtension({
             ts: now,
             historical_deltas,
             predicted_deltas,
+
+            // debug vars
+            create_time,
+            ts_chunk_starts,
+            ts_chunk_ends,
           });
 
           if (video_path) {

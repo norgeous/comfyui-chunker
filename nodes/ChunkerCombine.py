@@ -81,7 +81,6 @@ class ChunkerCombine(io.ComfyNode):
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
-            #"preview_chunks": [],
             "ts_chunk_ends": [],
             "last_all_preview": None,
         }
@@ -131,7 +130,6 @@ class ChunkerCombine(io.ComfyNode):
         log("Combine all previews...", end="")
         all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "mp4")
         av_combine(
-            #paths=s["preview_chunks"],
             paths=[s["last_all_preview"], preview_path] if s["last_all_preview"] is not None else [preview_path],
             output_path=all_preview_path,
             overlap_frame_count=c["chunk_overlap"],
@@ -162,7 +160,6 @@ class ChunkerCombine(io.ComfyNode):
 
             ts = get_ts()
             log("Delete all temp chunks...", end="")
-            #for path in [*s["chunks"], *s["preview_chunks"]]:
             for path in s["chunks"]:
                 if os.path.exists(path):
                     os.remove(path)
@@ -267,6 +264,8 @@ class ChunkerCombine(io.ComfyNode):
             "video_path": all_preview_frontend_data,
             "historical_deltas": historical_deltas,
             "predicted_deltas": predicted_deltas,
+            "ts_chunk_starts": d["ts_chunk_starts"],
+            "ts_chunk_ends": s["ts_chunk_ends"],
         }
 
         log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]} ({format_milliseconds(historical_deltas[-1])})")

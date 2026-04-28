@@ -209,8 +209,8 @@ app.registerExtension({
 
             const now = Date.now();
             const elapsedMillis = now - ts;
-            const etaNextMillis = predicted_deltas ? predicted_deltas[0] - elapsedMillis : 0;
-            const etaFinalMillis = predicted_deltas ? predicted_deltas.reduce((acc, delta) => acc + delta, 0) - elapsedMillis : 0;
+            const etaNextMillis = typeof predicted_deltas[0] === 'number' ? predicted_deltas[0] - elapsedMillis : 0;
+            const etaFinalMillis = predicted_deltas ? predicted_deltas.reduce((acc, delta) => typeof delta === 'number' ? acc + delta : 0, 0) - elapsedMillis : 0;
 
             const etaNext = formatMilliseconds(etaNextMillis, true, true);
             const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
@@ -226,7 +226,7 @@ app.registerExtension({
             `;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${predicted_deltas?.length ? timings : `Done in ${formatMilliseconds(historical_deltas.reduce((acc, delta) => acc + delta, 0))}`}
+              ${predicted_deltas?.length ? timings : `Done in ${formatMilliseconds(historical_deltas.reduce((acc, delta) => typeof delta === 'number'? acc + delta : acc, 0))}`}
               <div class="chunker-bar">
                 ${historical_deltas.map((delta, i) => {
                   const label = typeof delta === 'number' ? `${formatMilliseconds(delta)}` : delta;
@@ -235,7 +235,7 @@ app.registerExtension({
                 ${predicted_deltas?.map((delta, i) => {
                   const label = typeof delta === 'number' ? `${formatMilliseconds(delta)}` : delta;
                   if (i === 0) {
-                    const percent = Math.min(1, Math.max(0, (elapsedMillis) / delta)) * 100;
+                    const percent = typeof delta === 'number' ? Math.min(1, Math.max(0, (elapsedMillis) / delta)) * 100 : 50;
                     return `
                       <div
                         class="chunker-bar-section current"

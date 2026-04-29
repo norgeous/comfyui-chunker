@@ -137,6 +137,9 @@ app.registerExtension({
   name: "chunker",
 
   async setup(app) {
+    app.api.addEventListener("execution_start", () => {
+      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
+    });
     app.api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });

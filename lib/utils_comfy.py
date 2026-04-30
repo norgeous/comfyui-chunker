@@ -93,7 +93,31 @@ def collect_contained(node_id, upstream, contained):
             collect_contained(child_id, upstream, contained)
 
 
+
+
+
+def get_parent_ids(dynprompt, node_id):
+    parent_ids = []
+    node_info = dynprompt.get_node(node_id)
+    if "inputs" not in node_info: return
+    for k, v in node_info["inputs"].items():
+        if is_link(v):
+            parent_id = v[0]
+            parent_ids.append([parent_id, *get_parent_ids(dynprompt, parent_id)])
+    return parent_ids
+
+
+
+
+
+
 def comfyui_repeat_nodes(dynprompt, unique_id, start_node_id):
+    import json
+
+    ids = get_parent_ids(dynprompt, unique_id)
+    print()
+    print(json.dumps(ids, indent=4))
+
     graph = GraphBuilder()
 
     # Get the list of all nodes between the open and close nodes

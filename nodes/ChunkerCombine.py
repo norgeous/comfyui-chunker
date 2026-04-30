@@ -108,17 +108,18 @@ class ChunkerCombine(io.ComfyNode):
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # save input masks to lossless file
-        ts = get_ts()
-        log("Save temp chunk...", end="")
-        mask_path = get_next_save_path("video/chunker/tmp/mask", "mp4")[0]
-        mask_path = av_save(
-            images=masks,
-            audio=None,
-            fps=d["fps"],
-            output_path=mask_path,
-        )
-        s["chunks_mask"].append(mask_path)
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+        if masks is not None:
+            ts = get_ts()
+            log("Save temp chunk...", end="")
+            mask_path = get_next_save_path("video/chunker/tmp/mask", "mp4")[0]
+            mask_path = av_save(
+                images=masks,
+                audio=None,
+                fps=d["fps"],
+                output_path=mask_path,
+            )
+            s["chunks_mask"].append(mask_path)
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Make preview from inputs
         ts = get_ts()

@@ -33,7 +33,7 @@ def get_ids_by_partial_names(dynprompt, partial_names):
     prompt = dynprompt.ephemeral_prompt if len(dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
     return [id for partial in partial_names for id, info in prompt.items() if partial in info["class_type"]]
 
-def get_clone_ids(dynprompt, start_node_id, end_node_id, extra_include_partial_names=["Noise"]):
+def get_clone_ids(dynprompt, start_node_id, end_node_id, extra_include_partial_names):
     # get parent id chains for end node
     end_node_parent_id_chains = get_parent_id_chains(dynprompt, end_node_id)
 

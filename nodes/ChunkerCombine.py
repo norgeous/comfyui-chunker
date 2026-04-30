@@ -246,7 +246,10 @@ class ChunkerCombine(io.ComfyNode):
         # clone all the nodes between Chunker and ChunkerCombine
         ts = get_ts()
         clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id)
-        log(f"Cloning {len(clone_ids)} nodes for next chunk...", end="")
+        log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
+        id_labels = list(map(lambda id: int(self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
+        id_labels.sort()
+        print(", ".join(list(map(lambda id: f"#{id}", id_labels))), '...', end="")
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
         # update the store in the new_divide

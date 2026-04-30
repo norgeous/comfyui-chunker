@@ -170,15 +170,19 @@ class ChunkerCombine(io.ComfyNode):
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),
             )
-            final_masks_path = get_next_save_path("video/chunker/final-masks", "mp4")[0]
-            av_combine(
-                paths=s["chunks_mask"],
-                output_path=final_masks_path,
-                overlap_frame_count=c["chunk_overlap"],
-                video_blend_mode=BlendMode(overlap_blend_mode),
-                audio_blend_mode=BlendMode(overlap_blend_mode),
-            )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+            if len(s["chunks_mask"]) > 0:
+                log("Combine all masks...", end="")
+                final_masks_path = get_next_save_path("video/chunker/final-masks", "mp4")[0]
+                av_combine(
+                    paths=s["chunks_mask"],
+                    output_path=final_masks_path,
+                    overlap_frame_count=c["chunk_overlap"],
+                    video_blend_mode=BlendMode(overlap_blend_mode),
+                    audio_blend_mode=BlendMode(overlap_blend_mode),
+                )
+                print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts = get_ts()
             log("Delete all temp chunks...", end="")
@@ -187,11 +191,19 @@ class ChunkerCombine(io.ComfyNode):
                     os.remove(path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
+            out_images_torch, out_audio_dict = None, None
             ts = get_ts()
-            log("Load final tensors...", end="")
+            log("Load final image tensors...", end="")
             out_images_torch, out_audio_dict, _ = av_load(path=final_path)
-            out_masks_torch, _, _ = av_load(path=final_masks_path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+            out_masks_torch = None
+
+            if len(s["chunks_mask"]) > 0:
+                ts = get_ts()
+                log("Load final mask tensors...", end="")
+                out_masks_torch, _, _ = av_load(path=final_masks_path)
+                print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
             s["ts_chunk_ends"] = [

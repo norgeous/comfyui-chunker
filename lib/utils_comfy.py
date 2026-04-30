@@ -95,17 +95,30 @@ def collect_contained(node_id, upstream, contained):
 
 
 
-
 def get_parent_ids(dynprompt, node_id):
-    parent_ids = []
     node_info = dynprompt.get_node(node_id)
-    if "inputs" not in node_info: return
+    if "inputs" not in node_info: return []
+    parent_ids = []
     for k, v in node_info["inputs"].items():
         if is_link(v):
             parent_id = v[0]
-            parent_ids.append([parent_id, *get_parent_ids(dynprompt, parent_id)])
+            grandparent_ids = get_parent_ids(dynprompt, parent_id)
+            parent_ids.append([parent_id, *grandparent_ids])
     return parent_ids
 
+def extract_chains(node, chain=[]):
+    if isinstance(node, str): return [chain + [int(node)]]
+    node_val = int(node[0])
+    new_chain = chain + [node_val]
+    children = node[1:]
+    if not children: return [new_chain]
+    paths = []
+    for child in children: paths.extend(extract_chains(child, new_chain))
+    return paths
+
+def get_parent_id_chains(dynprompt, node_id):
+    chains = extract_chains([node_id, *get_parent_ids(dynprompt, node_id)])
+    return chains
 
 
 
@@ -114,7 +127,7 @@ def get_parent_ids(dynprompt, node_id):
 def comfyui_repeat_nodes(dynprompt, unique_id, start_node_id):
     import json
 
-    ids = get_parent_ids(dynprompt, unique_id)
+    ids = get_parent_id_chains(dynprompt, unique_id)
     print()
     print(json.dumps(ids, indent=4))
 

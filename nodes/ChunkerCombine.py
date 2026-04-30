@@ -260,15 +260,6 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_starts": d["ts_chunk_starts"],
         })
 
-        # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
-        # - KSampler
-        # - KSamplerAdvanced
-        # - RandomNoise (used by SamplerCustomAdvanced)
-        # - ClownsharKSampler
-        # this is to prevent same motion in each chunk (for Wan22 or LTX2)
-        if increment_seeds:
-            increment_all_seeds(graph, self.hidden.unique_id, d["index"] + 1)
-
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
         ts_chunk_end = get_ts()
@@ -279,6 +270,16 @@ class ChunkerCombine(io.ComfyNode):
         new_combine.set_input("store", s)
 
         print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+
+        # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
+        # - KSampler
+        # - KSamplerAdvanced
+        # - RandomNoise (used by SamplerCustomAdvanced)
+        # - ClownsharKSampler
+        # this is to prevent same motion in each chunk (for Wan22 or LTX2)
+        if increment_seeds:
+            increment_all_seeds(graph, self.hidden.unique_id)
 
         ui_values = {
             "input_label_values": {

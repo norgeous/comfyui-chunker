@@ -71,7 +71,7 @@ class ChunkerDivide(io.ComfyNode):
             ],
             outputs=[
                 io.Custom("CHUNKER_DATA").Output("chunker_data",
-                    tooltip="Connect \"chunker_data\" to the \"ChunkerCombine\" node"           
+                    tooltip="Connect \"chunker_data\" to the \"ChunkerCombine\" node"
                 ),
                 io.Image.Output("images",
                     tooltip="Chunk of images",

@@ -245,7 +245,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # clone all the nodes between Chunker and ChunkerCombine
         ts = get_ts()
-        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id)
+        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
         log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
         id_labels = list(map(lambda id: int(self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
         id_labels.sort()
@@ -263,7 +263,7 @@ class ChunkerCombine(io.ComfyNode):
         # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
         # - KSampler
         # - KSamplerAdvanced
-        # - RandomNoise (used by SamplerCustomAdvanced) TODO: not working
+        # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (for Wan22 or LTX2)
         if increment_seeds:

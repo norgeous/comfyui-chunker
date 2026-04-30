@@ -84,17 +84,22 @@ def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
     from pprint import pprint
     print()
 
-    print(f"comfyui_repeat_nodes ({start_node_id},{end_node_id})")
+    print(f"comfyui_repeat_nodes ({start_node_id}, {end_node_id})")
 
     # get parent id chains for end node
     end_node_parent_id_chains = get_parent_id_chains(dynprompt, end_node_id)
+    print("end_node_parent_id_chains")
+    pprint(end_node_parent_id_chains)
+
 
     # find every output type node (ie nodes that have a preview)
     output_node_ids = get_ids_all_output_nodes(dynprompt)
+    print("output_node_ids", output_node_ids)
 
     # get their parent id chains but only include chains that include the start node id
-    output_nodes_parent_id_chains = [chain for id in output_node_ids for chain in get_parent_id_chains(dynprompt, id) if start_node_id in chain]
+    output_nodes_parent_id_chains = [chain for id in output_node_ids for chain in get_parent_id_chains(dynprompt, id)] # if start_node_id in chain]
 
+    print("output_nodes_parent_id_chains")
     pprint(output_nodes_parent_id_chains)
 
     all_parent_id_chains = [*end_node_parent_id_chains,*output_nodes_parent_id_chains]
@@ -110,6 +115,7 @@ def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
     # flatten and uniqueify
     clone_ids = list(set(item for sublist in trimmed for item in sublist))
     
+    print("->")
     pprint(clone_ids)
 
     graph = GraphBuilder()
@@ -126,7 +132,6 @@ def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
                 node.set_input(k, parent.out(v[1]))
             else:
                 node.set_input(k, v)
-
     return graph
 
 def increment_all_seeds(graph, end_node_id, amt):

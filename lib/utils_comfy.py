@@ -103,15 +103,15 @@ def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
     # flatten and uniqueify
     clone_ids = list(set(item for sublist in trimmed for item in sublist))
     
-    from pprint import pprint
-    print("->")
-    pprint(clone_ids)
-
     graph = GraphBuilder()
+
+    # clone nodes
     for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
         node = graph.node(original_node["class_type"], "Recurse" if node_id == end_node_id else node_id)
         node.set_override_display_id(node_id)
+    
+    # connect cloned nodes
     for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
         node = graph.lookup_node("Recurse" if node_id == end_node_id else node_id)
@@ -121,6 +121,7 @@ def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
                 node.set_input(k, parent.out(v[1]))
             else:
                 node.set_input(k, v)
+
     return graph
 
 def increment_all_seeds(graph, end_node_id, amt):

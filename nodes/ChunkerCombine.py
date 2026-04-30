@@ -4,7 +4,8 @@ from ..lib.utils import log
 from ..lib.utils_av import av_save, av_load, av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.utils_image_text_overlay import create_preview_video
-from ..lib.utils_comfy import comfyui_repeat_nodes, increment_all_seeds, get_next_save_path
+from ..lib.utils_comfy import get_next_save_path
+from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, increment_all_seeds
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts, predict
 
@@ -242,11 +243,11 @@ class ChunkerCombine(io.ComfyNode):
                 )
             }
 
-        ts = get_ts()
-        log("Cloning nodes for next chunk...", end="")
-
         # clone all the nodes between Chunker and ChunkerCombine
-        graph = comfyui_repeat_nodes(self.hidden.dynprompt, self.hidden.unique_id, d["start_node_id"])
+        ts = get_ts()
+        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id)
+        log(f"Cloning {len(clone_ids)} nodes for next chunk...", end="")
+        graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
         # update the store in the new_divide
         new_divide = graph.lookup_node(d["start_node_id"])

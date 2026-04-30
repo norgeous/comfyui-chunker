@@ -39,7 +39,6 @@ def get_next_save_path(filename_prefix, extension):
     )
 
 def find_lora_full_path(name):
-    # print(name)
     lora_files = folder_paths.get_filename_list("loras")
     lora_name = None
     for lora_file in lora_files:
@@ -47,53 +46,7 @@ def find_lora_full_path(name):
             lora_name = lora_file
             break
     lora_path = folder_paths.get_full_path("loras", lora_name)
-    # print(lora_path)
     return lora_path
-
-# from https://github.com/yolain/ComfyUI-Easy-Use/blob/main/py/nodes/logic.py
-
-def explore_dependencies(node_id, dynprompt, upstream, parent_ids):
-    node_info = dynprompt.get_node(node_id)
-    if "inputs" not in node_info:
-        return
-
-    for k, v in node_info["inputs"].items():
-        if is_link(v):
-            parent_id = v[0]
-            display_id = dynprompt.get_display_node_id(parent_id)
-            display_node = dynprompt.get_node(display_id)
-            class_type = display_node["class_type"]
-            if class_type not in ["ChunkerCombine"]:
-                parent_ids.append(display_id)
-            if parent_id not in upstream:
-                upstream[parent_id] = []
-                explore_dependencies(parent_id, dynprompt, upstream, parent_ids)
-
-            upstream[parent_id].append(node_id)
-
-def explore_output_nodes(dynprompt, upstream, output_nodes, parent_ids):
-    for parent_id in upstream:
-        display_id = dynprompt.get_display_node_id(parent_id)
-        for output_id in output_nodes:
-            id = output_nodes[output_id][0]
-            if id in parent_ids and display_id == id and output_id not in upstream[parent_id]:
-                if '.' in parent_id:
-                    arr = parent_id.split('.')
-                    arr[len(arr)-1] = output_id
-                    upstream[parent_id].append('.'.join(arr))
-                else:
-                    upstream[parent_id].append(output_id)
-
-def collect_contained(node_id, upstream, contained):
-    if node_id not in upstream:
-        return
-    for child_id in upstream[node_id]:
-        if child_id not in contained:
-            contained[child_id] = True
-            collect_contained(child_id, upstream, contained)
-
-
-
 
 def get_parent_ids(dynprompt, node_id):
     node_info = dynprompt.get_node(node_id)
@@ -107,8 +60,8 @@ def get_parent_ids(dynprompt, node_id):
     return parent_ids
 
 def extract_chains(node, chain=[]):
-    if isinstance(node, str): return [chain + [int(node)]]
-    node_val = int(node[0])
+    if isinstance(node, str): return [chain + [node]]
+    node_val = node[0]
     new_chain = chain + [node_val]
     children = node[1:]
     if not children: return [new_chain]
@@ -117,57 +70,58 @@ def extract_chains(node, chain=[]):
     return paths
 
 def get_parent_id_chains(dynprompt, node_id):
-    chains = extract_chains([node_id, *get_parent_ids(dynprompt, node_id)])
-    return chains
+    return extract_chains([node_id, *get_parent_ids(dynprompt, node_id)])
 
+def get_ids_all_output_nodes(dynprompt):
+    prompt = dynprompt.get_original_prompt()
+    return [id for id, info in prompt.items() if getattr(ALL_NODE_CLASS_MAPPINGS.get(info.get("class_type")), 'OUTPUT_NODE', False) is True]
 
+def get_ids_by_partial_names(dynprompt, partial_names):
+    prompt = dynprompt.get_original_prompt()
+    return [id for partial in partial_names for id, info in prompt.items() if partial in info["class_type"]]
 
-
-
-def comfyui_repeat_nodes(dynprompt, unique_id, start_node_id):
-    import json
-
-    ids = get_parent_id_chains(dynprompt, unique_id)
+def comfyui_repeat_nodes(dynprompt, end_node_id, start_node_id):
+    from pprint import pprint
     print()
-    print(json.dumps(ids, indent=4))
+
+    print(f"comfyui_repeat_nodes ({start_node_id},{end_node_id})")
+
+    # get parent id chains for end node
+    end_node_parent_id_chains = get_parent_id_chains(dynprompt, end_node_id)
+
+    # find every output type node (ie nodes that have a preview)
+    output_node_ids = get_ids_all_output_nodes(dynprompt)
+
+    # get their parent id chains but only include chains that include the start node id
+    output_nodes_parent_id_chains = [chain for id in output_node_ids for chain in get_parent_id_chains(dynprompt, id) if start_node_id in chain]
+
+    pprint(output_nodes_parent_id_chains)
+
+    all_parent_id_chains = [*end_node_parent_id_chains,*output_nodes_parent_id_chains]
+    extra_node_ids = get_ids_by_partial_names(dynprompt, ["Noise"])
+    start_node_ids = [start_node_id, *extra_node_ids]
+    
+    # only include chains that include any start node id
+    filtered = [chain for chain in all_parent_id_chains if set(start_node_ids) & set(chain)]
+    
+    # remove nodes in each chain that are "before" the start node
+    trimmed = [c[:c.index(start_node_id)+1] if start_node_id in c else c for c in filtered]
+    
+    # flatten and uniqueify
+    clone_ids = list(set(item for sublist in trimmed for item in sublist))
+    
+    pprint(clone_ids)
 
     graph = GraphBuilder()
-
-    # Get the list of all nodes between the open and close nodes
-    upstream = {}
-    parent_ids = []
-    explore_dependencies(unique_id, dynprompt, upstream, parent_ids)
-    parent_ids = list(set(parent_ids))
-
-    # Get the list of all output nodes between the open and close nodes
-    prompts = dynprompt.get_original_prompt()
-    output_nodes = {}
-    for id in prompts:
-        node = prompts[id]
-        if "inputs" not in node:
-            continue
-        class_type = node["class_type"]
-        class_def = ALL_NODE_CLASS_MAPPINGS[class_type]
-        if hasattr(class_def, 'OUTPUT_NODE') and class_def.OUTPUT_NODE == True and class_type not in ["ChunkerCombine"]:
-            for k, v in node['inputs'].items():
-                if is_link(v):
-                    output_nodes[id] = v
-
-    explore_output_nodes(dynprompt, upstream, output_nodes, parent_ids)
-    contained = {}
-    collect_contained(start_node_id, upstream, contained)
-    contained[unique_id] = True
-    contained[start_node_id] = True
-
-    for node_id in contained:
+    for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
-        node = graph.node(original_node["class_type"], "Recurse" if node_id == unique_id else node_id)
+        node = graph.node(original_node["class_type"], "Recurse" if node_id == end_node_id else node_id)
         node.set_override_display_id(node_id)
-    for node_id in contained:
+    for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
-        node = graph.lookup_node("Recurse" if node_id == unique_id else node_id)
+        node = graph.lookup_node("Recurse" if node_id == end_node_id else node_id)
         for k, v in original_node["inputs"].items():
-            if is_link(v) and v[0] in contained:
+            if is_link(v) and v[0] in clone_ids:
                 parent = graph.lookup_node(v[0])
                 node.set_input(k, parent.out(v[1]))
             else:
@@ -175,8 +129,7 @@ def comfyui_repeat_nodes(dynprompt, unique_id, start_node_id):
 
     return graph
 
-def increment_all_seeds(graph, unique_id, amt):
-    # graph = GraphBuilder()
+def increment_all_seeds(graph, end_node_id, amt):
     partials = ["Sampler", "Noise"]
     prompt = graph.finalize()
     for id in prompt:
@@ -184,7 +137,7 @@ def increment_all_seeds(graph, unique_id, amt):
         class_type = node["class_type"]
         for partial in partials:
             if partial in class_type:
-                real_id = id.replace(f"{unique_id}.0.0.", "")
+                real_id = id.replace(f"{end_node_id}.0.0.", "")
                 node = graph.lookup_node(real_id)
 
                 # if node has a disconnected seed input

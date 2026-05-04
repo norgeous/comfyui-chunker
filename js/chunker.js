@@ -1,19 +1,6 @@
 import { app, ComfyApp } from '../../../scripts/app.js';
 import { api } from '../../../scripts/api.js'
 
-/*
-//from melmass
-function makeUUID() {
-  let dt = new Date().getTime()
-  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = ((dt + Math.random() * 16) % 16) | 0
-    dt = Math.floor(dt / 16)
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-  })
-  return uuid
-}
-*/
-
 // from kjnodes
 function chainCallback(object, property, callback) {
   if (object == undefined) {
@@ -130,8 +117,8 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
 }
 
 const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" class="chunker-data-store">{}</pre>');
-  const storeElement = element.querySelector("#data_store");
+  element.insertAdjacentHTML("beforeEnd", '<pre class="chunker-data-store">{}</pre>');
+  const storeElement = element.querySelector(".chunker-data-store");
   const get = () => JSON.parse(storeElement.innerHTML);
   const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);
   return { get, set };
@@ -199,8 +186,6 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          //this.uuid = makeUUID();
-          //element.id = `chunker-info-${this.uuid}`;
           element.className = "chunker-info"
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
           element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
@@ -301,11 +286,6 @@ app.registerExtension({
             ts: now,
             historical_deltas,
             predicted_deltas,
-
-            // debug vars
-            //create_time,
-            //ts_chunk_starts,
-            //ts_chunk_ends,
           });
 
           if (video_path) {

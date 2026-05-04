@@ -1,6 +1,7 @@
 import { app, ComfyApp } from '../../../scripts/app.js';
 import { api } from '../../../scripts/api.js'
 
+/*
 //from melmass
 function makeUUID() {
   let dt = new Date().getTime()
@@ -11,6 +12,7 @@ function makeUUID() {
   })
   return uuid
 }
+*/
 
 // from kjnodes
 function chainCallback(object, property, callback) {
@@ -42,6 +44,14 @@ document.body.insertAdjacentHTML("beforeEnd", `
   50%{background-position:100% 50%}
   100%{background-position:0% 50%}
 }
+.chunker-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--descrip-text);
+}
 .chunker-status {
   height: ${statusHeight}px;
   display: flex;
@@ -61,7 +71,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
 }
 .chunker-bar {
   display: flex;
-  gap: 1px;
+  gap: 2px;
   font-size: 3px;
 }
 .chunker-bar-section {
@@ -83,6 +93,11 @@ document.body.insertAdjacentHTML("beforeEnd", `
   background: var(--hdr-gradient);
   background-size: 400% 400%;
   animation: animatepos 30s infinite;
+}
+.chunker-data-store {
+  font-size:8px;
+  text-align:left;
+  display:none;
 }
 </style>
 `);
@@ -115,7 +130,7 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
 }
 
 const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" style="font-size:8px; text-align:left; display:none;">{}</pre>');
+  element.insertAdjacentHTML("beforeEnd", '<pre id="data_store" class="chunker-data-store">{}</pre>');
   const storeElement = element.querySelector("#data_store");
   const get = () => JSON.parse(storeElement.innerHTML);
   const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);
@@ -184,16 +199,12 @@ app.registerExtension({
 
           // create chunk info widget
           const element = document.createElement("div");
-          this.uuid = makeUUID();
-          element.id = `chunk-info-${this.uuid}`;
+          //this.uuid = makeUUID();
+          //element.id = `chunker-info-${this.uuid}`;
+          element.className = "chunker-info"
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted onloadstart="this.volume=0.5" />`);
-          element.style.display = "flex";
-          element.style.flexDirection = "column";
-          element.style.gap = "2px";
-          element.style.fontSize = "10px";
-          element.style.textAlign = "center";
-          element.style.color = "var(--descrip-text)";
+          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
+          element.querySelector(".chunker-video").volume = 0.5;
 
           this.store = jsonDivStore(element);
           setInterval(() => {
@@ -292,9 +303,9 @@ app.registerExtension({
             predicted_deltas,
 
             // debug vars
-            create_time,
-            ts_chunk_starts,
-            ts_chunk_ends,
+            //create_time,
+            //ts_chunk_starts,
+            //ts_chunk_ends,
           });
 
           if (video_path) {

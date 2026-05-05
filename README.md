@@ -1,6 +1,6 @@
 # comfyui-chunker
 
-Create longer Wan videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
+Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
 
 - RAM: Chunker saves previous generation in an mp4 file, this means less ram is used
 - 
@@ -29,7 +29,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 ### [chunker-sam3](workflows/chunker-sam3.json)
 
 - Create masks for long video (by prompt) in batches of 100 images, up to any length
-- Requires: [ComfyUI-SAM3](https://github.com/PozzettiAndrea/ComfyUI-SAM3)
 - Example input video: [example.mp4](https://www.pexels.com/video/hip-hop-dancer-2795752/) 1080x1920, 425 frames @ 25FPS
 - Output: ![video](.github/assets/chunker-sam3-output.mp4)
 
@@ -37,31 +36,15 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 
 - Output 1: ![video](.github/assets/chunker-wan21-vace-output1.mp4)
 
-### [chunker-mmaudio](workflows/chunker-mmaudio.json)
-
-- Create audio for long video in chunks of 8 seconds (200 frames)
-
 ### [chunker-wan22-svi-pro](workflows/chunker-wan22-svi-pro.json)
 
 - todo
 
 ## prep for release
 
-- Divide
-  - load_frames gets 4 when asking for 5
-
 - Combine
-  - bug: glitched video if "previous_chunk"? muxing issue?
-  - Combine setting: "overlap_blend": older_only, linear_blend, ease_in_out, newer_only
-  - set crf on intermediate mp4
-  - combined audio sounds glitchy? also not working? muxing issue where 1024 samples in each packet?
   - tqdm + comfy progressbar for video ops
-  - keep progress bar shown after final execution
-  - think about any way to show underlap in preview when blend mode "previous_chunk" / "older_only"
   - write tmp files to tmp dir and delete tmp files after needed
-  - seed
-    - KSampler with manual seed connected to values causes Combine to error when setting the value
-
 - remove extra nodes
 - Tidy unused code
 - revise readme and samples
@@ -76,12 +59,6 @@ https://github.com/user-attachments/assets/587530f3-1752-46dd-9156-9343fa2ab16d
 - delete tmp files after execution
 - trash this repo make a new one with one commit
 - publish to comfyui-manager via PR
-
-## Known limitations and issues
-
-- VACE sometimes rejects the size (esp. some smaller sizes)
-- Can't have 2x sequencial Divide + Combine in same workflow because random ComfyUI execution order means an "out of vram" error is likely
-- VAE Decode (tiled) can cause an error if the current chunk length is small, which may happen in the last chunk of a long video
 
 ## Future / Ideas
 

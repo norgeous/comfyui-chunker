@@ -156,7 +156,7 @@ def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, c
     )
     configs.append(
         {
-            "text": f"{w} x {h} @ {fps:.2f}FPS\naudio: {audio_layout}\nchunk_length: {chunk_length}\nchunk_overlap: {overlap}\noverlap_blend_mode: {overlap_blend_mode}",
+            "text": f"{w} x {h} @ {fps:.2f}FPS\n{audio_layout}\nchunk_length: {chunk_length}\nchunk_overlap: {overlap}\noverlap_blend_mode: {overlap_blend_mode}",
             "font_size": int(em * 16),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
@@ -194,8 +194,8 @@ def create_preview_video(images, masks, audio, d, c, overlap_blend_mode):
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
     audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
-    audio_layout = ["none", "mono", "stereo"][audio_channel_count]
-    if audio is not None: audio_layout = f"{audio_layout} @ {audio["sample_rate"]}Hz"
+    audio_layout = ["", "mono", "stereo"][audio_channel_count]
+    if audio is not None: audio_layout = f"{audio["sample_rate"]}Hz {audio_layout}"
     preview_video_chunk = overlay_debug_text(
         preview_video_chunk,
         previous_count,

@@ -54,8 +54,13 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             arr = frame.to_ndarray()
 
             if is_stereo:
-                flat = arr.flatten()
-                arr = np.stack([flat[::2], flat[1::2]], axis=0)[np.newaxis, :, :]
+                if arr.ndim == 1 or (arr.ndim == 2 and arr.shape[0] == 1):
+                    # Interleaved format (s16, etc.) - shape (samples*2,) or (1, samples*2)
+                    flat = arr.flatten()
+                    arr = np.stack([flat[::2], flat[1::2]], axis=0)[np.newaxis, :, :]
+                else:
+                    # Planar format (fltp) - shape (channels, samples)
+                    arr = arr[np.newaxis, :, :]
             else:
                 arr = arr.flatten()
 

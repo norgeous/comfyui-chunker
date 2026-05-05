@@ -1,7 +1,9 @@
 import os
 import pytest
+import torch
 from .av_load import av_load
-from .av_save import av_save
+from .av_save import av_save, Profile
+from .conftest import create_source_tensors
 
 
 def test_load_video_audio_stereo(source_videos):
@@ -30,26 +32,34 @@ def test_load_stereo_audio_shape(source_videos):
     assert audio["waveform"].shape == (1, 2, 88200), f"Expected (1, 2, 88200), got {audio['waveform'].shape}"
 
 
-def test_save_load_mono_roundtrip(output_dir):
-    audio = {
-        "waveform": __import__('torch').randn(1, 1, 44100),
-        "sample_rate": 44100,
-    }
+@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
+def test_save_load_mono_roundtrip(output_dir, profile):
+    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=False, audio_duration=1.0)
+    audio = tensors["audio"]
     path = os.path.join(output_dir, "roundtrip_mono")
-    av_save(audio=audio, output_path=path)
-    _, loaded, _ = av_load(f"{path}.mp4")
-    assert loaded["waveform"].shape == (1, 1, 44100)
+    saved_path = av_save(audio=audio, output_path=path, profile=profile)
+    _, loaded, _ = av_load(saved_path)
+    assert loaded["waveform"].shape[0] == 1
+    assert loaded["waveform"].shape[1] == 1
+    if profile == Profile.HQ:
+        assert loaded["waveform"].shape[2] == audio["waveform"].shape[2]
+    else:
+        assert abs(loaded["waveform"].shape[2] - audio["waveform"].shape[2]) < 1000
 
 
-def test_save_load_stereo_roundtrip(output_dir):
-    audio = {
-        "waveform": __import__('torch').randn(1, 2, 44100),
-        "sample_rate": 44100,
-    }
+@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
+def test_save_load_stereo_roundtrip(output_dir, profile):
+    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=True, audio_duration=1.0)
+    audio = tensors["audio"]
     path = os.path.join(output_dir, "roundtrip_stereo")
-    av_save(audio=audio, output_path=path)
-    _, loaded, _ = av_load(f"{path}.mp4")
-    assert loaded["waveform"].shape == (1, 2, 44100)
+    saved_path = av_save(audio=audio, output_path=path, profile=profile)
+    _, loaded, _ = av_load(saved_path)
+    assert loaded["waveform"].shape[0] == 1
+    assert loaded["waveform"].shape[1] == 2
+    if profile == Profile.HQ:
+        assert loaded["waveform"].shape[2] == audio["waveform"].shape[2]
+    else:
+        assert abs(loaded["waveform"].shape[2] - audio["waveform"].shape[2]) < 1000
 
 
 def test_load_nonexistent():

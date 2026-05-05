@@ -69,13 +69,8 @@ def av_save(
 
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
 
-            if profile == Profile.WEB and not is_stereo:
-                audio_ndarray = np.repeat(audio_ndarray[np.newaxis, :], 2, axis=0)
-                is_stereo = True
-
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
-            if profile == Profile.WEB:
-                audio_stream.options = {'strict': '-2'}
+            if profile == Profile.WEB: audio_stream.options = {'strict': '-2'}
 
             audio_stream.layout = 'stereo' if is_stereo else 'mono'
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))

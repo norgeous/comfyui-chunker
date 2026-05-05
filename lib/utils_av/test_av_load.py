@@ -3,7 +3,7 @@ import pytest
 import torch
 from .av_load import av_load
 from .av_save import av_save, Profile
-from .conftest import create_source_tensors
+from .conftest import create_source_tensors, analyze_audio_frequency
 
 
 def test_load_video_audio_stereo(source_videos):
@@ -34,7 +34,8 @@ def test_load_stereo_audio_shape(source_videos):
 
 @pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
 def test_save_load_mono_roundtrip(output_dir, profile):
-    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=False, audio_duration=1.0)
+    freq = 440
+    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=False, audio_duration=1.0)
     audio = tensors["audio"]
     path = os.path.join(output_dir, "roundtrip_mono")
     saved_path = av_save(audio=audio, output_path=path, profile=profile)
@@ -45,11 +46,15 @@ def test_save_load_mono_roundtrip(output_dir, profile):
         assert loaded["waveform"].shape[2] == audio["waveform"].shape[2]
     else:
         assert abs(loaded["waveform"].shape[2] - audio["waveform"].shape[2]) < 1000
+    samples = loaded["waveform"].squeeze().numpy()
+    detected_freq = analyze_audio_frequency(samples, loaded["sample_rate"])
+    assert abs(detected_freq - freq) < 10, f"Expected {freq}Hz, got {detected_freq}Hz"
 
 
 @pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
 def test_save_load_stereo_roundtrip(output_dir, profile):
-    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=True, audio_duration=1.0)
+    freq = 440
+    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=True, audio_duration=1.0)
     audio = tensors["audio"]
     path = os.path.join(output_dir, "roundtrip_stereo")
     saved_path = av_save(audio=audio, output_path=path, profile=profile)
@@ -60,6 +65,10 @@ def test_save_load_stereo_roundtrip(output_dir, profile):
         assert loaded["waveform"].shape[2] == audio["waveform"].shape[2]
     else:
         assert abs(loaded["waveform"].shape[2] - audio["waveform"].shape[2]) < 1000
+    for channel in range(loaded["waveform"].shape[1]):
+        samples = loaded["waveform"][0, channel].numpy()
+        detected_freq = analyze_audio_frequency(samples, loaded["sample_rate"])
+        assert abs(detected_freq - freq) < 10, f"Channel {channel}: Expected {freq}Hz, got {detected_freq}Hz"
 
 
 def test_load_nonexistent():

@@ -125,7 +125,7 @@ class ChunkerCombine(io.ComfyNode):
         # Make preview from inputs
         ts = get_ts()
         log("Make preview images...", end="")
-        preview = create_preview_video(images, masks, d, c, overlap_blend_mode)
+        preview = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save preview

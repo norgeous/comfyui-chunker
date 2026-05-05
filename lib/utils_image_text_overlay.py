@@ -142,7 +142,7 @@ def frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, to
     )
 
 # TODO: snake case
-def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, chunk_length, overlap, fps, overlap_blend_mode):
+def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, chunk_length, overlap, fps, overlap_blend_mode, audio_layout):
     frame_label, chunk_label, is_overlap = frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap)
     configs = []
     em = h / 512
@@ -156,7 +156,7 @@ def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, c
     )
     configs.append(
         {
-            "text": f"{w} x {h} @ {fps:.2f}FPS\nchunk_length: {chunk_length}\nchunk_overlap: {overlap}\noverlap_blend_mode: {overlap_blend_mode}",
+            "text": f"{w} x {h} @ {fps:.2f}FPS\naudio: {audio_layout}\nchunk_length: {chunk_length}\nchunk_overlap: {overlap}\noverlap_blend_mode: {overlap_blend_mode}",
             "font_size": int(em * 16),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
@@ -175,10 +175,10 @@ def getOverlayConfig(i, previous_count, chunk_index, chunk_count, total, w, h, c
         )
     return configs
 
-def overlay_debug_text(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length, fps, overlap_blend_mode):
+def overlay_debug_text(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length, fps, overlap_blend_mode, audio_layout):
     w = images.shape[2]
     h = images.shape[1]
-    config = [getOverlayConfig(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap, fps, overlap_blend_mode) for i in range(0, len(images))]
+    config = [getOverlayConfig(i, previous_count, chunk_index, chunk_count, total_length, w, h, chunk_length, chunk_overlap, fps, overlap_blend_mode, audio_layout) for i in range(0, len(images))]
     images = batch_draw_text(images, config)
     return images
 
@@ -190,9 +190,12 @@ def combine_images_and_masks(images, masks):
     if images is not None and imasks is not None: out = simple_blend(images, imasks)
     return out
 
-def create_preview_video(images, masks, d, c, overlap_blend_mode):
+def create_preview_video(images, masks, audio, d, c, overlap_blend_mode):
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
+    audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
+    audio_layout = ["none", "mono", "stereo"][audio_channel_count]
+    if audio is not None: audio_layout = f"{audio_layout} @ {audio["sample_rate"]}Hz"
     preview_video_chunk = overlay_debug_text(
         preview_video_chunk,
         previous_count,
@@ -203,6 +206,7 @@ def create_preview_video(images, masks, d, c, overlap_blend_mode):
         c["total_length"],
         d["fps"],
         overlap_blend_mode,
+        audio_layout,
     )
     return preview_video_chunk
 

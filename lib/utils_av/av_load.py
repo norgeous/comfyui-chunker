@@ -1,5 +1,4 @@
 from typing import Optional, Tuple
-
 import av
 import numpy as np
 import torch

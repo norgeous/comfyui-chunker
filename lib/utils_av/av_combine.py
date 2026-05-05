@@ -1,13 +1,10 @@
 import math
 from enum import Enum
 from typing import List
-
-import av
 import numpy as np
 import torch
-
 from .av_load import av_load
-from .av_save import av_save
+from .av_save import av_save, Profile
 
 
 class BlendMode(Enum):
@@ -67,6 +64,7 @@ def av_combine(
     overlap_frame_count: int = 10,
     video_blend_mode: BlendMode = BlendMode.LINEAR,
     audio_blend_mode: BlendMode = BlendMode.EQUAL_POWER,
+    profile: Profile = Profile.HQ,
 ) -> str:
     sources = []
     for path in paths:
@@ -188,4 +186,4 @@ def av_combine(
                 "sample_rate": sr,
             }
 
-    return av_save(images=final_images, audio=final_audio_dict, output_path=output_path, fps=fps)
+    return av_save(images=final_images, audio=final_audio_dict, output_path=output_path, fps=fps, profile=profile)

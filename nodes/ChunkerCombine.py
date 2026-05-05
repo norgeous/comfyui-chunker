@@ -1,13 +1,13 @@
 import os
 from comfy_api.latest import io
 from ..lib.utils import log
-from ..lib.utils_av import av_save, av_load, av_combine, BlendMode
+from ..lib.utils_av import av_save, av_load, av_combine, BlendMode, Profile
 from ..lib.utils_tensor import resize_mask, mask_to_image, image_to_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, increment_all_seeds
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
-from ..lib.utils_performance import get_ts, predict
+from ..lib.utils_performance import get_ts
 
 class ChunkerCombine(io.ComfyNode):
     @classmethod
@@ -143,13 +143,14 @@ class ChunkerCombine(io.ComfyNode):
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "mp4")
+        all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "webm")
         av_combine(
             paths=[s["last_all_preview"], preview_path] if s["last_all_preview"] is not None else [preview_path],
             output_path=all_preview_path,
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),
             audio_blend_mode=BlendMode(overlap_blend_mode),
+            profile=Profile.WEB,
         )
         if os.path.exists(preview_path): os.remove(preview_path)
         if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]): os.remove(s["last_all_preview"])

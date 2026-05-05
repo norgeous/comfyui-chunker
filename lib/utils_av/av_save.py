@@ -1,30 +1,53 @@
 from fractions import Fraction
+from enum import Enum
 from typing import Optional
 import av
 import numpy as np
 import torch
 
-FILE_EXTENSION = ".mp4"
-VIDEO_CODEC = "h264"
-VIDEO_PIXEL_FORMAT = "yuv420p"
-VIDEO_PRESET = "slow"
-VIDEO_CRF = 10
-INPUT_FRAME_FORMAT = "rgb24"
-AUDIO_CODEC = "pcm_s16le"
+
+class Profile(Enum):
+    HQ = "hq"
+    WEB = "web"
+
+
+PROFILE_SETTINGS = {
+    Profile.HQ: {
+        "file_extension": ".mp4",
+        "video_codec": "h264",
+        "video_pixel_format": "yuv420p",
+        "video_preset": "slow",
+        "video_crf": 10,
+        "input_frame_format": "rgb24",
+        "audio_codec": "pcm_s16le",
+    },
+    Profile.WEB: {
+        "file_extension": ".webm",
+        "video_codec": "vp9",
+        "video_pixel_format": "yuv420p",
+        "video_crf": 30,
+        "input_frame_format": "rgb24",
+        "audio_codec": "vorbis",
+    },
+}
+
 
 def av_save(
     images: Optional[torch.Tensor] = None,
     audio: Optional[dict] = None,
     output_path: str = "output",
     fps: float = 30.0,
+    profile: Profile = Profile.HQ,
 ) -> str:
     if images is None and audio is None:
         raise ValueError("At least one of images or audio must be provided")
 
-    if output_path.endswith(FILE_EXTENSION):
-        output_path = output_path[:-len(FILE_EXTENSION)]
+    settings = PROFILE_SETTINGS[profile]
 
-    with av.open(f"{output_path}{FILE_EXTENSION}", mode='w') as container:
+    if output_path.endswith(settings["file_extension"]):
+        output_path = output_path[:-len(settings["file_extension"])]
+
+    with av.open(f"{output_path}{settings['file_extension']}", mode='w') as container:
         video_stream = None
         audio_stream = None
         audio_frame = None
@@ -34,9 +57,13 @@ def av_save(
             count = images.shape[0]
 
             fps_fraction = Fraction(f"{fps:.6f}")
-            video_stream = container.add_stream(VIDEO_CODEC, rate=fps_fraction)
-            video_stream.pix_fmt = VIDEO_PIXEL_FORMAT
-            video_stream.options = {'preset': VIDEO_PRESET, 'crf': str(VIDEO_CRF)}
+            video_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
+            video_stream.pix_fmt = settings["video_pixel_format"]
+            video_options = {}
+            if "video_preset" in settings:
+                video_options["preset"] = settings["video_preset"]
+            video_options["crf"] = str(settings["video_crf"])
+            video_stream.options = video_options
             video_stream.width = W
             video_stream.height = H
             video_stream.time_base = Fraction(1, int(fps))
@@ -45,9 +72,16 @@ def av_save(
             waveform = audio["waveform"]
             audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
 
-            audio_stream = container.add_stream(AUDIO_CODEC, rate=int(audio["sample_rate"]))
-
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
+
+            if profile == Profile.WEB and not is_stereo:
+                audio_ndarray = np.repeat(audio_ndarray[np.newaxis, :], 2, axis=0)
+                is_stereo = True
+
+            audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
+            if profile == Profile.WEB:
+                audio_stream.options = {'strict': '-2'}
+
             audio_stream.layout = 'stereo' if is_stereo else 'mono'
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
             audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
@@ -67,8 +101,8 @@ def av_save(
                 if img.shape[2] == 4:
                     img = img[:, :, :3]
                 img = (img * 255).cpu().numpy().astype(np.uint8)
-                frame = av.VideoFrame.from_ndarray(img, format=INPUT_FRAME_FORMAT)
-                frame = frame.reformat(format=VIDEO_PIXEL_FORMAT)
+                frame = av.VideoFrame.from_ndarray(img, format=settings["input_frame_format"])
+                frame = frame.reformat(format=settings["video_pixel_format"])
                 frame.pts = i
                 for packet in video_stream.encode(frame):
                     container.mux(packet)
@@ -83,4 +117,4 @@ def av_save(
             for packet in audio_stream.encode():
                 container.mux(packet)
 
-    return f"{output_path}{FILE_EXTENSION}"
+    return f"{output_path}{settings['file_extension']}"

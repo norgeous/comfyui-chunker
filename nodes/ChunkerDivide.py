@@ -1,7 +1,7 @@
 import torch
 import math
 from comfy_api.latest import io
-from ..lib.utils import count, log, force_wan_length, fix_total_length, get_this_chunk_length
+from ..lib.utils import count, log, force_wan_length, force_ltx2_length, fix_total_length, get_this_chunk_length
 from ..lib.utils_av import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
@@ -140,12 +140,10 @@ class ChunkerDivide(io.ComfyNode):
             chunk_length = force_wan_length(chunk_length)
             total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
 
-        # TODO
         if mode.startswith("ltx"):
-            # force 8n+1 chunk_length. example: 1, 9, 17, 25, 33
-            # fix total_length
-            pass
-
+            chunk_length = force_ltx2_length(chunk_length)
+            total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
+            
         this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
 
         w = None

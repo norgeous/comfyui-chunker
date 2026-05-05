@@ -186,7 +186,7 @@ def combine_images_and_masks(images, masks):
     imasks = mask_to_image(masks) if masks is not None else None
     out = None
     if images is not None and imasks is None: out = images
-    if images is None and imasks is not None: out = masks
+    if images is None and imasks is not None: out = imasks
     if images is not None and imasks is not None: out = simple_blend(images, imasks)
     return out
 

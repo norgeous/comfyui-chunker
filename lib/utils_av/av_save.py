@@ -23,7 +23,7 @@ PROFILE_SETTINGS = {
     Profile.WEB: {
         "file_extension": ".webm",
         "video_codec": "vp9",
-        "video_pixel_format": "yuv420p",
+        "video_pixel_format": "yuva420p",
         "video_options": { "crf": "30" },
         "input_frame_format": "rgb24",
         "audio_codec": "vorbis",

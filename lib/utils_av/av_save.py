@@ -1,6 +1,5 @@
 from fractions import Fraction
 from typing import Optional
-
 import av
 import numpy as np
 import torch

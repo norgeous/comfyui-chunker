@@ -16,8 +16,7 @@ PROFILE_SETTINGS = {
         "file_extension": ".mp4",
         "video_codec": "h264",
         "video_pixel_format": "yuv420p",
-        "video_preset": "slow",
-        "video_crf": 10,
+        "video_options": { "preset": "slow", "crf": "10" },
         "input_frame_format": "rgb24",
         "audio_codec": "pcm_s16le",
     },
@@ -25,7 +24,7 @@ PROFILE_SETTINGS = {
         "file_extension": ".webm",
         "video_codec": "vp9",
         "video_pixel_format": "yuv420p",
-        "video_crf": 30,
+        "video_options": { "crf": "30" },
         "input_frame_format": "rgb24",
         "audio_codec": "vorbis",
     },
@@ -59,11 +58,7 @@ def av_save(
             fps_fraction = Fraction(f"{fps:.6f}")
             video_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
             video_stream.pix_fmt = settings["video_pixel_format"]
-            video_options = {}
-            if "video_preset" in settings:
-                video_options["preset"] = settings["video_preset"]
-            video_options["crf"] = str(settings["video_crf"])
-            video_stream.options = video_options
+            video_stream.options = settings["video_options"]
             video_stream.width = W
             video_stream.height = H
             video_stream.time_base = Fraction(1, int(fps))

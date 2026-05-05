@@ -2,7 +2,7 @@ import os
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import av_save, av_load, av_combine, BlendMode
-from ..lib.utils_tensor import resize_mask
+from ..lib.utils_tensor import resize_mask, mask_to_image, image_to_mask
 from ..lib.utils_image_text_overlay import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, increment_all_seeds
@@ -114,7 +114,7 @@ class ChunkerCombine(io.ComfyNode):
             log("Save temp chunk...", end="")
             mask_path = get_next_save_path("video/chunker/tmp/mask", "mp4")[0]
             mask_path = av_save(
-                images=masks,
+                images=mask_to_image(masks),
                 audio=None,
                 fps=d["fps"],
                 output_path=mask_path,
@@ -199,11 +199,11 @@ class ChunkerCombine(io.ComfyNode):
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             out_masks_torch = None
-
             if len(s["chunks_mask"]) > 0:
                 ts = get_ts()
                 log("Load final mask tensors...", end="")
                 out_masks_torch, _, _ = av_load(path=final_masks_path)
+                out_masks_torch = image_to_mask(out_masks_torch)
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
@@ -249,7 +249,7 @@ class ChunkerCombine(io.ComfyNode):
         log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
         id_labels = list(map(lambda id: int(self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
         id_labels.sort()
-        print(", ".join(list(map(lambda id: f"#{id}", id_labels))), '...', end="")
+        print(f"{', '.join(list(map(lambda id: f"#{id}", id_labels)))}...", end="")
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
         # update the store in the new_divide

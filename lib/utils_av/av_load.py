@@ -18,15 +18,16 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
         video_stream.thread_count = 0
         video_stream.thread_type = "AUTO"
         fps = int(video_stream.average_rate)
-           
+
         vstart = None
         vend = None
         if overlap_frame_count > 0:
             vend = overlap_frame_count
         if overlap_frame_count < 0:
             vstart = overlap_frame_count
-      
+
         frames = []
+
         for frame in container.decode(video_stream):
             arr = frame.to_ndarray(format="rgb24")
             arr = arr.astype(np.float32) / 255.0
@@ -86,7 +87,7 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             else:
                 waveform = waveform.unsqueeze(0)
                 waveform = waveform[:, :, astart:aend]
-          
+
             audio = {
                 "waveform": waveform,
                 "sample_rate": sample_rate,

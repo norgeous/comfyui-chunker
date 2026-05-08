@@ -4,7 +4,7 @@ from typing import Optional
 import av
 import numpy as np
 import torch
-
+import comfy.utils
 
 class Profile(Enum):
     HQ = "hq"
@@ -52,9 +52,7 @@ def av_save(
         audio_frame = None
 
         if images is not None:
-            H, W = images.shape[1], images.shape[2]
-            count = images.shape[0]
-
+            count, H, W = images.shape[0], images.shape[1], images.shape[2]
             fps_fraction = Fraction(f"{fps:.6f}")
             video_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
             video_stream.thread_count = 0
@@ -68,7 +66,6 @@ def av_save(
         if audio is not None:
             waveform = audio["waveform"]
             audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
-
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
 
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
@@ -88,6 +85,7 @@ def av_save(
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))
 
         if video_stream is not None:
+            pbar = comfy.utils.ProgressBar(count)
             for i in range(count):
                 img = images[i]
                 if img.shape[2] == 4:
@@ -98,6 +96,7 @@ def av_save(
                 frame.pts = i
                 for packet in video_stream.encode(frame):
                     container.mux(packet)
+                pbar.update(1)
 
             for packet in video_stream.encode():
                 container.mux(packet)

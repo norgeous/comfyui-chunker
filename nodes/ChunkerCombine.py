@@ -64,9 +64,9 @@ class ChunkerCombine(io.ComfyNode):
             enable_expand=True,
         )
 
-    @classmethod
-    def fingerprint_inputs(cls, **kwargs):
-       return str(get_ts()) # force run if cached
+    #@classmethod
+    #def fingerprint_inputs(cls, **kwargs):
+    #   return str(get_ts()) # force run if cached
 
     @classmethod
     def execute(
@@ -97,8 +97,8 @@ class ChunkerCombine(io.ComfyNode):
 
         # save input images and audio to lossless file
         ts = get_ts()
-        log("Save temp chunk...", end="")
-        chunk_path = get_next_save_path("video/chunker/tmp/chunk", "mp4")[0]
+        log("Save chunk...", end="")
+        chunk_path = get_next_save_path("chunker/chunk", "mp4")[0]
         chunk_path = av_save(
             images=images,
             audio=audio,
@@ -111,8 +111,8 @@ class ChunkerCombine(io.ComfyNode):
         # save input masks to lossless file
         if masks is not None:
             ts = get_ts()
-            log("Save temp chunk...", end="")
-            mask_path = get_next_save_path("video/chunker/tmp/mask", "mp4")[0]
+            log("Save masks...", end="")
+            mask_path = get_next_save_path("chunker/mask", "mp4")[0]
             mask_path = av_save(
                 images=mask_to_image(masks),
                 audio=None,
@@ -130,8 +130,8 @@ class ChunkerCombine(io.ComfyNode):
 
         # Save preview
         ts = get_ts()
-        log("Save temp preview...", end="")
-        preview_path = get_next_save_path("video/chunker/tmp/preview", "mp4")[0]
+        log("Save preview...", end="")
+        preview_path = get_next_save_path("chunker/preview", "mp4")[0]
         preview_path = av_save(
             images=preview,
             audio=audio,
@@ -143,7 +143,7 @@ class ChunkerCombine(io.ComfyNode):
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data = get_next_save_path("video/chunker/tmp/all-preview", "webm")
+        all_preview_path, all_preview_frontend_data = get_next_save_path("chunker/all-preview", "webm")
         av_combine(
             paths=[s["last_all_preview"], preview_path] if s["last_all_preview"] is not None else [preview_path],
             output_path=all_preview_path,
@@ -164,7 +164,7 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Combine all chunks...", end="")
-            final_path = get_next_save_path("video/chunker/final", "mp4")[0]
+            final_path = get_next_save_path("chunker/final", "mp4")[0]
             av_combine(
                 paths=s["chunks"],
                 output_path=final_path,
@@ -176,7 +176,7 @@ class ChunkerCombine(io.ComfyNode):
 
             if len(s["chunks_mask"]) > 0:
                 log("Combine all masks...", end="")
-                final_masks_path = get_next_save_path("video/chunker/final-masks", "mp4")[0]
+                final_masks_path = get_next_save_path("chunker/final-masks", "mp4")[0]
                 av_combine(
                     paths=s["chunks_mask"],
                     output_path=final_masks_path,
@@ -187,7 +187,7 @@ class ChunkerCombine(io.ComfyNode):
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts = get_ts()
-            log("Delete all temp chunks...", end="")
+            log("Delete all chunks...", end="")
             for path in [*s["chunks"], *s["chunks_mask"]]:
                 if os.path.exists(path):
                     os.remove(path)

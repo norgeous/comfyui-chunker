@@ -57,6 +57,8 @@ def av_save(
 
             fps_fraction = Fraction(f"{fps:.6f}")
             video_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
+            video_stream.thread_count = 0
+            video_stream.thread_type = "AUTO"
             video_stream.pix_fmt = settings["video_pixel_format"]
             video_stream.options = settings["video_options"]
             video_stream.width = W

@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 from av_load import av_load
 
@@ -22,13 +21,12 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
         axes[i, 0].set_xlabel('Samples')
         axes[i, 0].set_ylabel('Amplitude')
         axes[i, 0].set_title(f'Channel {i + 1}')
-        # axes[i, 0].set_ylim(-32768, 32767)
-        
+
         # Set x-axis ticks to multiples of sample_rate
         tick_locations = np.arange(0, num_samples + 1, sample_rate)
         axes[i, 0].set_xticks(tick_locations)
         axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
-        
+
         interval = sample_rate / fps
         for sample_pos in np.arange(0, num_samples, interval):
             axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)

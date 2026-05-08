@@ -15,6 +15,8 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
 
     if container.streams.video:
         video_stream = container.streams.video[0]
+        video_stream.thread_count = 0
+        video_stream.thread_type = "AUTO"
         fps = int(video_stream.average_rate)
            
         vstart = None

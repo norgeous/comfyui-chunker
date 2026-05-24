@@ -198,8 +198,8 @@ class ChunkerDivide(io.ComfyNode):
 
         # prepare chunk of images from input
         if images is not None:
-            if w is None: w = images.shape[2]
-            if h is None: h = images.shape[1]
+            if w is None: w = settings["dimension_adjuster"](images.shape[2])
+            if h is None: h = settings["dimension_adjuster"](images.shape[1])
             images_chunk = images[start + count(out_images):end]
             if (len(images_chunk) > 0): out_images.append(images_chunk)
 

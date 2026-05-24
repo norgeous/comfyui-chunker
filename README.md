@@ -38,6 +38,7 @@ Create longer videos by automatically taking the last few frames of the last gen
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
+  - execute a fully cached chunker give wrong ui
 - Combine
   - fix preview webm alpha -> show the real masking as alpha
 - Tidy unused code

@@ -38,9 +38,6 @@ Create longer videos by automatically taking the last few frames of the last gen
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
 - Combine
-  - tqdm + comfy progressbar for video ops?
-  - delete all tmp files after needed
-  - delete tmp files after execution
   - fix preview webm alpha -> show the real masking as alpha
 - Tidy unused code
 - revise readme and samples

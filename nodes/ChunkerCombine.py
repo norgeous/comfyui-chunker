@@ -1,4 +1,4 @@
-import os
+# import os
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import av_save, av_load, av_combine, BlendMode, Profile
@@ -148,8 +148,8 @@ class ChunkerCombine(io.ComfyNode):
             audio_blend_mode=BlendMode(overlap_blend_mode),
             profile=Profile.WEB,
         )
-        if os.path.exists(preview_path): os.remove(preview_path)
-        if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]): os.remove(s["last_all_preview"])
+        # if os.path.exists(preview_path): os.remove(preview_path)
+        # if s["last_all_preview"] is not None and os.path.exists(s["last_all_preview"]): os.remove(s["last_all_preview"])
         s["last_all_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
@@ -182,12 +182,12 @@ class ChunkerCombine(io.ComfyNode):
                 )
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-            ts = get_ts()
-            log("Delete all chunks...", end="")
-            for path in [*s["chunks"], *s["chunks_mask"]]:
-                if os.path.exists(path):
-                    os.remove(path)
-            print(f"done ({format_milliseconds(get_ts() - ts)})")
+            # ts = get_ts()
+            # log("Delete all chunks...", end="")
+            # for path in [*s["chunks"], *s["chunks_mask"]]:
+            #     if os.path.exists(path):
+            #         os.remove(path)
+            # print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             out_images_torch, out_audio_dict = None, None
             ts = get_ts()

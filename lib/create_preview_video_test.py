@@ -2,7 +2,7 @@ import os
 import torch
 from conftest import create_source_tensors
 from create_preview_video import create_preview_video
-from av_save import av_save
+from av_save import av_save, Profile
 
 
 def test_create_preview_video_with_images_masks_audio(output_dir):
@@ -27,6 +27,6 @@ def test_create_preview_video_with_images_masks_audio(output_dir):
     assert result.min() >= 0.0
     assert result.max() <= 1.0
 
-    output_path = os.path.join(output_dir, "preview_test.mp4")
-    av_save(images=result, audio=audio, output_path=output_path, fps=24.0)
+    output_path = os.path.join(output_dir, "preview_test.webm")
+    av_save(images=result, audio=audio, output_path=output_path, fps=24.0, profile=Profile.WEB)
     assert os.path.exists(output_path)

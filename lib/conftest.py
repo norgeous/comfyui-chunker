@@ -10,9 +10,9 @@ BASE_DIR = os.path.dirname(__file__)
 
 
 def create_source_tensors(
-    bg_color: tuple[int, int, int],
-    line_num: int,
-    freq: float,
+    bg_color: tuple[int, int, int] = (255, 0, 0),
+    line_num: int = 1,
+    freq: float = 440.0,
     pixel_y_offset: int = 0,
     stereo: bool = False,
     video_frames: int = 30,

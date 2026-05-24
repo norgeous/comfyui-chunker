@@ -1,6 +1,7 @@
 from utils_tensor import mask_to_image, simple_blend
 from image_text_overlay import batch_draw_text
 
+
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap):
     chunk = chunk_index + 1
     is_first_chunk = chunk_index == 0
@@ -11,6 +12,7 @@ def frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, to
         f"{str(chunk).zfill(len(str(chunk_count)))} of {chunk_count}", # chunk_label
         is_overlap,
     )
+
 
 def get_overlay_config(i, previous_count, chunk_index, chunk_count, total, w, h, chunk_length, overlap, fps, overlap_blend_mode, audio_layout):
     frame_label, chunk_label, is_overlap = frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap)
@@ -45,6 +47,7 @@ def get_overlay_config(i, previous_count, chunk_index, chunk_count, total, w, h,
         )
     return configs
 
+
 def overlay_debug_text(images, previous_count, chunk_index, chunk_count, chunk_length, chunk_overlap, total_length, fps, overlap_blend_mode, audio_layout):
     w = images.shape[2]
     h = images.shape[1]
@@ -60,6 +63,7 @@ def combine_images_and_masks(images, masks):
     if images is None and imasks is not None: out = imasks
     if images is not None and imasks is not None: out = simple_blend(images, imasks)
     return out
+
 
 def create_preview_video(images, masks, audio, d, c, overlap_blend_mode):
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))

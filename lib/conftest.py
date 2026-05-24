@@ -170,13 +170,13 @@ def pytest_sessionfinish(session, exitstatus):
     if not output_dir.exists():
         return
 
-    for mp4_path in sorted(output_dir.glob("*.mp4")):
-        _, audio, fps = av_load(str(mp4_path))
+    for video_path in sorted(output_dir.glob("*.mp4")) + sorted(output_dir.glob("*.webm")):
+        _, audio, fps = av_load(str(video_path))
         if audio is None:
             continue
         waveform = audio["waveform"]
         sample_rate = audio["sample_rate"]
-        name = mp4_path.stem
+        name = video_path.stem
         out = output_dir / f"{name}_waveform.png"
         plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {name}", str(out))
 

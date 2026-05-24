@@ -28,18 +28,10 @@ Create longer videos by automatically taking the last few frames of the last gen
 - Example input video: [example.mp4](https://www.pexels.com/video/hip-hop-dancer-2795752/) 1080x1920, 425 frames @ 25FPS
 - Output: ![video](.github/assets/chunker-sam3-output.mp4)
 
-### [chunker-wan21-vace](workflows/chunker-wan21-vace.json)
-
-- Output 1: ![video](.github/assets/chunker-wan21-vace-output1.mp4)
-
-### [chunker-wan22-svi-pro](workflows/chunker-wan22-svi-pro.json)
-
-- todo
-
 ## prep for release
 
 - Divide
-  - remove vace mode?
+  - show chunk_lengths in ui
 - Combine frontend
   - swapping internal comfyui workflow tab erases progress bar
   - "~0" on cached, should be "unknown"

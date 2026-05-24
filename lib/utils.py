@@ -17,7 +17,7 @@ def force_wan_length(value):
 def force_ltx2_length(value):
     return (math.ceil((value - 1) / 8) * 8) + 1
 
-def fix_total_length(total_length, chunk_length=49, chunk_overlap=2):
+def fix_total_length(total_length, chunk_length, chunk_overlap):
     if total_length <= chunk_length: return force_wan_length(total_length)
     adjusted_chunk_length = chunk_length - chunk_overlap
     full_length_chunk_count = (total_length) // adjusted_chunk_length

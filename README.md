@@ -40,15 +40,16 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Divide
   - remove vace mode?
-- Combine
+- Combine frontend
+  - swapping internal comfyui workflow tab erases progress bar
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
-  - tqdm + comfy progressbar for video ops
+  - video width fix not work in nodes 2.0
+- Combine
+  - tqdm + comfy progressbar for video ops?
   - delete all tmp files after needed
   - delete tmp files after execution
-  - swapping internal comfyui workflow tab erases progress bar
   - fix preview webm alpha -> show the real masking as alpha
-- remove extra nodes
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working

@@ -3,7 +3,7 @@ from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.utils_av import av_save, av_load, av_combine, BlendMode, Profile
 from ..lib.utils_tensor import resize_mask, mask_to_image, image_to_mask
-from ..lib.utils_create_preview_video.utils_image_text_overlay import create_preview_video
+from ..lib.utils_create_preview_video import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, increment_all_seeds
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds

@@ -10,23 +10,24 @@ from ..lib.utils_format import format_images, format_masks, format_audio, format
 from ..lib.utils_performance import get_ts
 from enum import Enum
 
+
 class DivideMode(Enum):
     DEFAULT = "default"
     WAN = "wan"
     LTX2 = "ltx2"
 
 mode_settings = {
-    "default": {
+    DivideMode.DEFAULT: {
         "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
     },
-    "wan": {
+    DivideMode.WAN: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
     },
-    "ltx2": {
+    DivideMode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
@@ -143,7 +144,7 @@ class ChunkerDivide(io.ComfyNode):
             "ts_chunk_starts": [],
         }
 
-        settings = mode_settings[mode]
+        settings = mode_settings[DivideMode(mode)]
 
         out_fps = fps
         if out_fps is None: out_fps = settings["fps"]

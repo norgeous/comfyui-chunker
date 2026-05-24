@@ -274,7 +274,7 @@ class ChunkerCombine(io.ComfyNode):
         # - KSamplerAdvanced
         # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
-        # this is to prevent same motion in each chunk (for Wan22 or LTX2)
+        # this is to prevent same motion in each chunk (when using Wan or LTX)
         if increment_seeds:
             increment_all_seeds(graph, self.hidden.unique_id)
 

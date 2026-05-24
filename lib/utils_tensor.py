@@ -1,11 +1,11 @@
 import torch
 from comfy.utils import common_upscale
 
-def monochrome_image(w, h, v=0.5):
-    return torch.full((1, h, w, 3), v, dtype=torch.float32)
+# def monochrome_image(w, h, v=0.5):
+#     return torch.full((1, h, w, 3), v, dtype=torch.float32)
 
-def monochrome_mask(w, h, v=1.0):
-    return torch.full((1, h, w), v, dtype=torch.float32)
+# def monochrome_mask(w, h, v=1.0):
+#     return torch.full((1, h, w), v, dtype=torch.float32)
 
 def mask_to_image(mask):
     if mask is None: return None

@@ -1,10 +1,10 @@
 import torch
 import math
 from comfy_api.latest import io
-from ..lib.utils import count, log, force_wan_length, force_ltx2_length, fix_total_length, get_this_chunk_length
+from ..lib.utils import count, log, plan_chunks#, fix_total_length, get_this_chunk_length
 from ..lib.utils_av import av_load
 from ..lib.utils_comfy import concat_audios
-from ..lib.utils_tensor import monochrome_image, monochrome_mask, resize_image, resize_mask
+from ..lib.utils_tensor import resize_image, resize_mask
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps
 from ..lib.utils_performance import get_ts
 from enum import Enum
@@ -12,8 +12,25 @@ from enum import Enum
 class DivideMode(Enum):
     DEFAULT = "default"
     WAN = "wan"
-    WAN_VACE = "wan_vace"
     LTX2 = "ltx2"
+
+mode_settings = {
+    "default": {
+        "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
+        "length_adjuster": lambda length: length, # n
+        "fps": 30.0,
+    },
+    "wan": {
+        "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
+        "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
+        "fps": 16.0,
+    },
+    "ltx2": {
+        "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
+        "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
+        "fps": 25.0,
+    },
+}
 
 class ChunkerDivide(io.ComfyNode):
     @classmethod
@@ -125,10 +142,10 @@ class ChunkerDivide(io.ComfyNode):
             "ts_chunk_starts": [],
         }
 
+        settings = mode_settings[mode]
+
         out_fps = fps
-        if out_fps is None and mode.startswith("wan"): out_fps = 16.0
-        if out_fps is None and mode.startswith("ltx"): out_fps = 25.0
-        if out_fps is None: out_fps = 30.0
+        if out_fps is None: out_fps = settings["fps"]
 
         if total_length == 0:
             total_length = max(
@@ -136,15 +153,12 @@ class ChunkerDivide(io.ComfyNode):
                 len(masks) if masks is not None else 0,
             )
 
-        if mode.startswith("wan"):
-            chunk_length = force_wan_length(chunk_length)
-            total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
+        chunk_length = settings["length_adjuster"](chunk_length)
+        chunk_lengths, total_length = plan_chunks(chunk_length, chunk_overlap, total_length)
+        this_chunk_length = chunk_lengths[s["index"]]
 
-        if mode.startswith("ltx"):
-            chunk_length = force_ltx2_length(chunk_length)
-            total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
-            
-        this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
+        # total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
+        # this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
 
         w = None
         h = None
@@ -173,20 +187,12 @@ class ChunkerDivide(io.ComfyNode):
                 path=s["last_chunk_path"],
                 overlap_frame_count=-chunk_overlap,
             )
-            overlap_masks = None
+            overlap_masks = None # TODO: load masks
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]
-            if overlap_images is not None:
-                out_images.append(overlap_images)
-                if mode == "wan_vace":
-                    # preserve overlap images with black masks
-                    black_mask = monochrome_mask(w, h, 0)
-                    out_masks.append(torch.cat([black_mask] * len(overlap_images)))
-            if overlap_masks is not None:
-                if mode != "wan_vace":
-                    out_masks.append(overlap_masks)
+            if overlap_images is not None: out_images.append(overlap_images)
+            if overlap_masks is not None: out_masks.append(overlap_masks)
             if overlap_audio_dict is not None: out_audio.append(overlap_audio_dict)
-
 
         # prepare chunk of images from input
         if images is not None:
@@ -212,23 +218,6 @@ class ChunkerDivide(io.ComfyNode):
 
         if w is None: w = 512
         if h is None: h = 512
-
-        # for wan vace
-        if mode == "wan_vace":
-            # if more images than masks, add same amount of black masks to masks
-            if count(out_images) > count(out_masks):
-                black_mask = monochrome_mask(w, h, 0)
-                out_masks.append(torch.cat([black_mask] * (count(out_images) - count(out_masks))))
-
-            # if not enough images to fill chunk, add some grey images
-            if count(out_images) < this_chunk_length:
-                grey_image = monochrome_image(w, h, 0.5)
-                out_images.append(torch.cat([grey_image] * (this_chunk_length - count(out_images))))
-
-            # if not enough masks to fill chunk, add some white masks
-            if count(out_masks) < this_chunk_length:
-                white_mask = monochrome_mask(w, h, 1.0)
-                out_masks.append(torch.cat([white_mask] * (this_chunk_length - count(out_masks))))
 
         # finalise out images, resize and concat together
         out_images_torch = None

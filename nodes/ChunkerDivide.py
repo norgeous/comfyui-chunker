@@ -2,8 +2,8 @@ import torch
 import math
 from comfy_api.latest import io
 from ..lib.utils import count, log
-from ..lib.utils_plan_chunks import plan_chunks
-from ..lib.utils_av import av_load
+from ..lib.utils_plan_chunks.plan_chunks import plan_chunks
+from ..lib.utils_av.av_load import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import resize_image, resize_mask
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps

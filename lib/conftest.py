@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import pytest
 import numpy as np
 import torch
@@ -7,7 +6,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from utils_av.av_save import av_save
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = os.path.dirname(__file__)
 
 
 def create_source_tensors(
@@ -168,33 +167,36 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
 def pytest_sessionfinish(session, exitstatus):
     from utils_av.av_load import av_load
 
-    output_dir = BASE_DIR / "test-output"
-    if not output_dir.exists():
+    output_dir = os.path.join(BASE_DIR, "test-output")
+    if not os.path.exists(output_dir):
         return
 
-    for video_path in sorted(output_dir.glob("*.mp4")) + sorted(output_dir.glob("*.webm")):
-        _, audio, fps = av_load(str(video_path))
+    for filename in sorted(os.listdir(output_dir)):
+        if not (filename.endswith(".mp4") or filename.endswith(".webm")):
+            continue
+        video_path = os.path.join(output_dir, filename)
+        _, audio, fps = av_load(video_path)
         if audio is None:
             continue
         waveform = audio["waveform"]
         sample_rate = audio["sample_rate"]
-        name = video_path.stem
-        out = output_dir / f"{name}_waveform.png"
-        plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {name}", str(out))
+        name = os.path.splitext(filename)[0]
+        out = os.path.join(output_dir, f"{name}_waveform.png")
+        plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {name}", out)
 
 
 @pytest.fixture(scope="session")
 def output_dir():
-    path = BASE_DIR / "test-output"
-    path.mkdir(exist_ok=True)
-    return str(path)
+    path = os.path.join(BASE_DIR, "test-output")
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 @pytest.fixture(scope="session")
 def source_dir():
-    path = BASE_DIR / "test-source"
-    path.mkdir(exist_ok=True)
-    return str(path)
+    path = os.path.join(BASE_DIR, "test-source")
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 @pytest.fixture(scope="session")

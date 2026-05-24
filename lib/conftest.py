@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
-from utils_av.av_save import av_save
+from av_save import av_save
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -165,7 +165,7 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    from utils_av.av_load import av_load
+    from av_load import av_load
 
     output_dir = os.path.join(BASE_DIR, "test-output")
     if not os.path.exists(output_dir):

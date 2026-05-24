@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import os
-from utils_av.av_combine import av_combine, BlendMode
+from av_combine import av_combine, BlendMode
 from conftest import get_frame_info, analyze_audio_frequency
 
 

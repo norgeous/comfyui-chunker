@@ -1,5 +1,5 @@
-from ..utils_tensor import mask_to_image, simple_blend
-from .image_text_overlay import batch_draw_text
+from utils_tensor import mask_to_image, simple_blend
+from image_text_overlay import batch_draw_text
 
 def frameIndexInfo(i, previous_count, chunk_index, chunk_count, chunk_length, total, overlap):
     chunk = chunk_index + 1

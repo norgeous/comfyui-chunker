@@ -40,11 +40,12 @@ Create longer videos by automatically taking the last few frames of the last gen
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker give wrong ui
 - Combine
-  - fix preview webm alpha -> show the real masking as alpha
+  - fix preview webm alpha -> show the real masking as alpha, but keep the overlayed text
+  - show chunk progresion in pbar as we finishing node execution?
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working
-- finalise a few workflows with previews
+- finalise a few workflows with previews - just sam3 for now?
 - comb for todos and address all?
 - comb for ' and swap to "
 - test everything

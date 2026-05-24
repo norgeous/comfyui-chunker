@@ -34,7 +34,7 @@ Create longer videos by automatically taking the last few frames of the last gen
   - its not currently loading the masks from overlap
   - show chunk_lengths in ui?
 - Combine frontend
-  - swapping internal comfyui workflow tab erases progress bar
+  - swapping internal comfyui workflow tab erases progress bar and preview video
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0

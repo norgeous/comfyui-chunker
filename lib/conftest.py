@@ -55,7 +55,7 @@ def create_source_tensors(
     return {"images": images, "audio": {"waveform": audio_tensor, "sample_rate": audio_sample_rate}}
 
 
-def generate_source_videos(
+def generate_source_video(
     output_path: str,
     bg_color: tuple[int, int, int],
     line_num: int,
@@ -213,7 +213,7 @@ def source_videos(source_dir):
 
     for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration in sources:
         path = os.path.join(source_dir, filename)
-        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
+        generate_source_video(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
 
     return {
         "source1": os.path.join(source_dir, "source1.mp4"),

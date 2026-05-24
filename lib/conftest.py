@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 import pytest
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from utils_av.av_save import av_save
 
@@ -131,6 +133,52 @@ def analyze_audio_frequency(samples, sample_rate=44100):
     peak_freq = freqs[peak_idx]
 
     return peak_freq
+
+
+def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
+    plt.style.use('dark_background')
+    waveform = waveform[0]
+    num_channels = waveform.shape[0]
+    num_samples = waveform.shape[1]
+
+    width = min(40, max(12, num_samples / 5000))
+    fig, axes = plt.subplots(num_channels, 1, figsize=(width, 4 * num_channels), squeeze=False)
+    fig.suptitle(title, fontsize=14)
+
+    for i in range(num_channels):
+        axes[i, 0].plot(np.arange(num_samples), waveform[i].numpy(), linewidth=0.3)
+        axes[i, 0].set_xlabel('Samples')
+        axes[i, 0].set_ylabel('Amplitude')
+        axes[i, 0].set_title(f'Channel {i + 1}')
+
+        tick_locations = np.arange(0, num_samples + 1, sample_rate)
+        axes[i, 0].set_xticks(tick_locations)
+        axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
+
+        interval = sample_rate / fps
+        for sample_pos in np.arange(0, num_samples, interval):
+            axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)
+
+    plt.savefig(output_path, dpi=600, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    from utils_av.av_load import av_load
+
+    output_dir = Path("test-output")
+    if not output_dir.exists():
+        return
+
+    for mp4_path in sorted(output_dir.glob("*.mp4")):
+        _, audio, fps = av_load(str(mp4_path))
+        if audio is None:
+            continue
+        waveform = audio["waveform"]
+        sample_rate = audio["sample_rate"]
+        name = mp4_path.stem
+        out = output_dir / f"{name}_waveform.png"
+        plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {name}", str(out))
 
 
 @pytest.fixture(scope="session")

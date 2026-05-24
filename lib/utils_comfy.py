@@ -1,4 +1,3 @@
-from pathlib import Path
 import os
 import folder_paths
 from functools import reduce
@@ -36,12 +35,3 @@ def get_next_save_path(filename_prefix, extension):
         },
     )
 
-def find_lora_full_path(name):
-    lora_files = folder_paths.get_filename_list("loras")
-    lora_name = None
-    for lora_file in lora_files:
-        if Path(lora_file).name.startswith(name) or lora_file.startswith(name):
-            lora_name = lora_file
-            break
-    lora_path = folder_paths.get_full_path("loras", lora_name)
-    return lora_path

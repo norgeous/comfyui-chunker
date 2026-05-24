@@ -30,6 +30,9 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 ## prep for release
 
+- Combine
+  - fix preview webm alpha -> show the real masking as alpha, but keep the overlayed text
+  - show chunk progresion in pbar as we finishing node execution?
 - Divide
   - its not currently loading the masks from overlap
   - show chunk_lengths in ui?
@@ -39,9 +42,6 @@ Create longer videos by automatically taking the last few frames of the last gen
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui
-- Combine
-  - fix preview webm alpha -> show the real masking as alpha, but keep the overlayed text
-  - show chunk progresion in pbar as we finishing node execution?
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working

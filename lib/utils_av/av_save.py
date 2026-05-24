@@ -19,6 +19,7 @@ PROFILE_SETTINGS = {
         "video_options": { "preset": "slow", "crf": "10" },
         "input_frame_format": "rgb24",
         "audio_codec": "pcm_s16le",
+        "audio_options": {},
     },
     Profile.WEB: {
         "file_extension": ".webm",
@@ -27,6 +28,7 @@ PROFILE_SETTINGS = {
         "video_options": { "crf": "30" },
         "input_frame_format": "rgb24",
         "audio_codec": "vorbis",
+        "audio_options": {"strict": "-2"},
     },
 }
 
@@ -69,7 +71,7 @@ def av_save(
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
 
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
-            if profile == Profile.WEB: audio_stream.options = {'strict': '-2'}
+            audio_stream.options = settings["audio_options"]
 
             audio_stream.layout = 'stereo' if is_stereo else 'mono'
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))

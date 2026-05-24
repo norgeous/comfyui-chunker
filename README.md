@@ -32,7 +32,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Divide
   - its not currently loading the masks from overlap
-  - show chunk_lengths in ui
+  - show chunk_lengths in ui?
 - Combine frontend
   - swapping internal comfyui workflow tab erases progress bar
   - "~0" on cached, should be "unknown"

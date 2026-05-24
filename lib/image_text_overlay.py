@@ -23,61 +23,52 @@ def draw_text(
     x_shift=0,
     y_shift=0,
     line_spacing=0,
-    use_cache=False,
 ):
-    _loaded_font = ImageFont.load_default(font_size)
-    _full_text = None
-    _x = None
-    _y = None
-
-    # Prepare to draw on the image
     draw = ImageDraw.Draw(image)
 
     # Process text for multiline support and fit within image dimensions
     words = text.replace("\n", "\n ").split(" ")
-    if _full_text is None or use_cache is False:
-        text_lines, line = [], ""
-        for word in words:
-            extra_line = "\n" in word
-            word = word.strip()
-            if (
-                draw.textlength(line + word, font=_loaded_font)
-                < image.width - 2 * padding
-            ):
-                line += word + " "
-            else:
-                text_lines.append(line.strip())
-                line = word + " "
-            if extra_line:
-                text_lines.append(line.strip())
-                line = ""
-        text_lines.append(line.strip())
-        _full_text = "\n".join(text_lines)
+    text_lines, line = [], ""
+    for word in words:
+        extra_line = "\n" in word
+        word = word.strip()
+        if (
+            draw.textlength(line + word, font=ImageFont.load_default(font_size))
+            < image.width - 2 * padding
+        ):
+            line += word + " "
+        else:
+            text_lines.append(line.strip())
+            line = word + " "
+        if extra_line:
+            text_lines.append(line.strip())
+            line = ""
+    text_lines.append(line.strip())
+    _full_text = "\n".join(text_lines)
 
     # Calculate text position based on alignment and position adjustments
-    if _x is None or _y is None or use_cache is False:
-        left, top, right, bottom = draw.multiline_textbbox(
-            (0, 0),
-            _full_text,
-            font=_loaded_font,
-            stroke_width=int(font_size * stroke_thickness * 0.5),
-            align=horizontal_alignment,
-            spacing=line_spacing,
-        )
-        if horizontal_alignment == "left":
-            _x = padding
-        elif horizontal_alignment == "center":
-            _x = (image.width - (right - left)) / 2
-        elif horizontal_alignment == "right":
-            _x = image.width - (right - left) - padding
-        _x += x_shift
-        if vertical_alignment == "middle":
-            _y = (image.height - (bottom - top)) / 2
-        elif vertical_alignment == "top":
-            _y = padding
-        elif vertical_alignment == "bottom":
-            _y = image.height - (bottom - top) - padding
-        _y += y_shift
+    left, top, right, bottom = draw.multiline_textbbox(
+        (0, 0),
+        _full_text,
+        font=ImageFont.load_default(font_size),
+        stroke_width=int(font_size * stroke_thickness * 0.5),
+        align=horizontal_alignment,
+        spacing=line_spacing,
+    )
+    if horizontal_alignment == "left":
+        _x = padding
+    elif horizontal_alignment == "center":
+        _x = (image.width - (right - left)) / 2
+    elif horizontal_alignment == "right":
+        _x = image.width - (right - left) - padding
+    _x += x_shift
+    if vertical_alignment == "middle":
+        _y = (image.height - (bottom - top)) / 2
+    elif vertical_alignment == "top":
+        _y = padding
+    elif vertical_alignment == "bottom":
+        _y = image.height - (bottom - top) - padding
+    _y += y_shift
 
     # Draw the processed text onto the image
     draw.text(
@@ -111,7 +102,7 @@ def batch_draw_text(
         # Batch of images
         image_np = image.cpu().numpy()
         images = [Image.fromarray((img * 255).astype(np.uint8)) for img in image_np]
-        images_out, use_cache = [], False
+        images_out = []
 
         # for each img in images
         for i, img in enumerate(images):
@@ -121,10 +112,8 @@ def batch_draw_text(
                 img = draw_text(
                     img,
                     **config,
-                    #use_cache,
                 )
             images_out.append(np.array(img).astype(np.float32) / 255.0)
-            # use_cache = True
         images_np = np.stack(images_out)
         images_tensor = torch.from_numpy(images_np)
         return images_tensor

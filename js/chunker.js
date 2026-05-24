@@ -167,18 +167,6 @@ app.registerExtension({
         });
       },
 
-      "ChunkerVACEToFirstLast": () => {
-        chainCallback(nodeType.prototype, "onConnectInput", function () {
-          updateLabels(this);
-        });
-        // chainCallback(nodeType.prototype, "onExecutionStart", function () {
-        //   updateLabels(this);
-        // });
-        chainCallback(nodeType.prototype, "onExecuted", function (ui) {
-          updateLabels(this, ui.values[0]);
-        });
-      },
-
       "ChunkerCombine": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           // hide store input

@@ -1,6 +1,6 @@
 import math
 
-def plan_chunks(length_adjuster, chunk_length: int, chunk_overlap: int, total_length: int) -> tuple[list[int], int, int]:
+def plan_chunks(length_adjuster, chunk_length: int, chunk_overlap: int, total_length: int) -> tuple[int, int, list[int]]:
     adjusted_chunk_length = length_adjuster(chunk_length)
     stride = adjusted_chunk_length - chunk_overlap
     full_chunk_count = max(0, math.ceil((total_length - adjusted_chunk_length) / stride))

@@ -53,12 +53,12 @@ def create_source_tensors(
         audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(0)
     audio = {"waveform": audio_tensor, "sample_rate": audio_sample_rate}
 
-    radius_per_frame = torch.linspace(10, 100, video_frames)
+    radius_per_frame = torch.linspace(50, 100, video_frames)
     y = torch.arange(video_height)
     x = torch.arange(video_width)
     yy, xx = torch.meshgrid(y, x, indexing='ij')
-    center_y = video_height - 100
-    center_x = video_width - 100
+    center_y = video_height // 2
+    center_x = video_width // 2
     dist_sq = (yy - center_y) ** 2 + (xx - center_x) ** 2
     masks_list = []
     for r in radius_per_frame:

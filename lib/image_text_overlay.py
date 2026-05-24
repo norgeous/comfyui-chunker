@@ -77,7 +77,7 @@ def draw_text(
         fill=hex_to_rgb(fill_color_hex),
         stroke_fill=hex_to_rgb(stroke_color_hex),
         stroke_width=int(font_size * stroke_thickness * 0.5),
-        font=_loaded_font,
+        font=ImageFont.load_default(font_size),
         align=horizontal_alignment,
         spacing=line_spacing,
     )

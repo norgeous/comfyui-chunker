@@ -221,7 +221,7 @@ class ChunkerCombine(io.ComfyNode):
                 "ts_chunk_ends": s["ts_chunk_ends"],
             }
 
-            log(f"Finished all chunks {d["index"] + 1} of {c["chunk_count"]}!")
+            log(f"Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
             return {
                 "ui": {"values": [ui_values]},
@@ -239,7 +239,7 @@ class ChunkerCombine(io.ComfyNode):
         log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
         id_labels = list(map(lambda id: int(self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
         id_labels.sort()
-        print(f"{', '.join(list(map(lambda id: f"#{id}", id_labels)))}...", end="")
+        print(f"{', '.join(list(map(lambda id: f'#{id}', id_labels)))}...", end="")
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
         # update the store in the new_divide
@@ -290,7 +290,7 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_ends": s["ts_chunk_ends"],
         }
 
-        log(f"Finished chunk {d["index"] + 1} of {c["chunk_count"]}")
+        log(f"Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
             new_combine.out(0), # images

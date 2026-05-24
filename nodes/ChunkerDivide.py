@@ -178,7 +178,7 @@ class ChunkerDivide(io.ComfyNode):
             "chunk_count": chunk_count,
         }
 
-        log(f"Starting chunk {s["index"] + 1} of {c["chunk_count"]}...")
+        log(f"Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
 
         out_images = []
         out_masks = []

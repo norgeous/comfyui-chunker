@@ -66,7 +66,7 @@ def create_preview_video(images, masks, audio, d, c, overlap_blend_mode):
     preview_video_chunk = combine_images_and_masks(images, masks)
     audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
     audio_layout = ["", "mono", "stereo"][audio_channel_count]
-    if audio is not None: audio_layout = f"{audio["sample_rate"]}Hz {audio_layout}"
+    if audio is not None: audio_layout = f"{audio['sample_rate']}Hz {audio_layout}"
     preview_video_chunk = overlay_debug_text(
         preview_video_chunk,
         previous_count,

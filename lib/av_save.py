@@ -71,19 +71,12 @@ def av_save(
             waveform = audio["waveform"]
             audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
-
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
             audio_stream.options = settings["audio_options"]
-
             audio_stream.layout = 'stereo' if is_stereo else 'mono'
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
             audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
-
-            if is_stereo:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='stereo')
-            else:
-                audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='mono')
-
+            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='stereo' if is_stereo else 'mono')
             audio_frame.rate = audio["sample_rate"]
             audio_frame.pts = 0
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))

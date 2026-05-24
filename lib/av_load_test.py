@@ -35,8 +35,7 @@ def test_load_stereo_audio_shape(source_videos):
 @pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
 def test_save_load_mono_roundtrip(output_dir, profile):
     freq = 440
-    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=False, audio_duration=1.0)
-    audio = tensors["audio"]
+    images, masks, audio = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=False, audio_duration=1.0)
     path = os.path.join(output_dir, "roundtrip_mono")
     saved_path = av_save(audio=audio, output_path=path, profile=profile)
     _, loaded, _ = av_load(saved_path)
@@ -54,8 +53,7 @@ def test_save_load_mono_roundtrip(output_dir, profile):
 @pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
 def test_save_load_stereo_roundtrip(output_dir, profile):
     freq = 440
-    tensors = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=True, audio_duration=1.0)
-    audio = tensors["audio"]
+    images, masks, audio = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=freq, stereo=True, audio_duration=1.0)
     path = os.path.join(output_dir, "roundtrip_stereo")
     saved_path = av_save(audio=audio, output_path=path, profile=profile)
     _, loaded, _ = av_load(saved_path)

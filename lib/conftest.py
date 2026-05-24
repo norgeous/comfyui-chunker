@@ -53,7 +53,20 @@ def create_source_tensors(
         audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(0)
     audio = {"waveform": audio_tensor, "sample_rate": audio_sample_rate}
 
-    return {"images": images, "audio": audio}
+    radius_per_frame = torch.linspace(10, 100, video_frames)
+    y = torch.arange(video_height)
+    x = torch.arange(video_width)
+    yy, xx = torch.meshgrid(y, x, indexing='ij')
+    center_y = video_height - 100
+    center_x = video_width - 100
+    dist_sq = (yy - center_y) ** 2 + (xx - center_x) ** 2
+    masks_list = []
+    for r in radius_per_frame:
+        mask = (dist_sq <= r ** 2).float()
+        masks_list.append(mask)
+    masks = torch.stack(masks_list)
+
+    return images, masks, audio
 
 
 def generate_source_video(
@@ -67,10 +80,10 @@ def generate_source_video(
     video_frames: int = 30,
     audio_duration: float = 2.0,
 ) -> None:
-    tensors = create_source_tensors(bg_color, line_num, freq, pixel_y_offset, stereo, video_frames, audio_duration)
+    images, masks, audio = create_source_tensors(bg_color, line_num, freq, pixel_y_offset, stereo, video_frames, audio_duration)
     av_save(
-        images=tensors["images"],
-        audio=tensors["audio"],
+        images=images,
+        audio=audio,
         output_path=output_path,
         fps=fps,
     )

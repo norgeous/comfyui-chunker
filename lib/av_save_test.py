@@ -6,17 +6,20 @@ from av_save import av_save, Profile
 
 @pytest.fixture
 def tensors_video_only():
-    return create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440)
+    images, masks, audio = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440)
+    return {"images": images, "masks": masks, "audio": audio}
 
 
 @pytest.fixture
 def tensors_audio_mono():
-    return create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=False)
+    images, masks, audio = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=False)
+    return {"images": images, "masks": masks, "audio": audio}
 
 
 @pytest.fixture
 def tensors_audio_stereo():
-    return create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=True)
+    images, masks, audio = create_source_tensors(bg_color=(255, 0, 0), line_num=1, freq=440, stereo=True)
+    return {"images": images, "masks": masks, "audio": audio}
 
 
 def test_video_only(output_dir, tensors_video_only):

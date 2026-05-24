@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw, ImageFont
 from utils_av.av_save import av_save
 
+BASE_DIR = Path(__file__).parent
+
 
 def create_source_tensors(
     bg_color: tuple[int, int, int],
@@ -166,7 +168,7 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
 def pytest_sessionfinish(session, exitstatus):
     from utils_av.av_load import av_load
 
-    output_dir = Path("test-output")
+    output_dir = BASE_DIR / "test-output"
     if not output_dir.exists():
         return
 
@@ -183,14 +185,16 @@ def pytest_sessionfinish(session, exitstatus):
 
 @pytest.fixture(scope="session")
 def output_dir():
-    os.makedirs("test-output", exist_ok=True)
-    return "test-output"
+    path = BASE_DIR / "test-output"
+    path.mkdir(exist_ok=True)
+    return str(path)
 
 
 @pytest.fixture(scope="session")
 def source_dir():
-    os.makedirs("test-source", exist_ok=True)
-    return "test-source"
+    path = BASE_DIR / "test-source"
+    path.mkdir(exist_ok=True)
+    return str(path)
 
 
 @pytest.fixture(scope="session")
@@ -210,11 +214,11 @@ def source_videos(source_dir):
         generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
 
     return {
-        "source1": "test-source/source1.mp4",
-        "source2": "test-source/source2.mp4",
-        "source3": "test-source/source3.mp4",
-        "source-long": "test-source/source-long.mp4",
-        "source1_stereo": "test-source/source1_stereo.mp4",
-        "source2_stereo": "test-source/source2_stereo.mp4",
-        "source3_stereo": "test-source/source3_stereo.mp4",
+        "source1": os.path.join(source_dir, "source1.mp4"),
+        "source2": os.path.join(source_dir, "source2.mp4"),
+        "source3": os.path.join(source_dir, "source3.mp4"),
+        "source-long": os.path.join(source_dir, "source-long.mp4"),
+        "source1_stereo": os.path.join(source_dir, "source1_stereo.mp4"),
+        "source2_stereo": os.path.join(source_dir, "source2_stereo.mp4"),
+        "source3_stereo": os.path.join(source_dir, "source3_stereo.mp4"),
     }

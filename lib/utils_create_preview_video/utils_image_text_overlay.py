@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-from .utils_tensor import mask_to_image, simple_blend
+from ..utils_tensor import mask_to_image, simple_blend
 
 # mostly from https://github.com/munkyfoot/ComfyUI-TextOverlay/blob/main/nodes.py
 

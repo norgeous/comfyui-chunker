@@ -1,7 +1,7 @@
 import os
 import pytest
-from conftest import create_source_tensors
-from av_save import av_save, Profile
+from lib.conftest import create_source_tensors
+from lib.av_save import av_save, Profile
 
 
 @pytest.fixture

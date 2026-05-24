@@ -1,7 +1,7 @@
 import os
-from conftest import create_source_tensors
-from create_preview_video import create_preview_video
-from av_save import av_save, Profile
+from lib.conftest import create_source_tensors
+from lib.create_preview_video import create_preview_video
+from lib.av_save import av_save, Profile
 
 
 def test_create_preview_video_with_images_masks_audio(output_dir):

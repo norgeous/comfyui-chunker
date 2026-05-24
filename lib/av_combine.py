@@ -3,8 +3,8 @@ from enum import Enum
 from typing import List
 import numpy as np
 import torch
-from av_load import av_load
-from av_save import av_save, Profile
+from .av_load import av_load
+from .av_save import av_save, Profile
 
 
 class BlendMode(Enum):

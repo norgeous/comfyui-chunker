@@ -1,7 +1,3 @@
-import sys, os
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
-
 from comfy_api.latest import ComfyExtension, io
 
 from .nodes.ChunkerDivide import ChunkerDivide

@@ -1,6 +1,6 @@
 import math
 
-from plan_chunks import plan_chunks
+from lib.plan_chunks import plan_chunks
 
 
 def test_default():

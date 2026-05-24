@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-from .av_save import av_save
+from utils_av.av_save import av_save
 
 
 def create_source_tensors(
@@ -72,45 +72,6 @@ def generate_source_videos(
     )
 
 
-@pytest.fixture(scope="session")
-def output_dir():
-    os.makedirs("test-output", exist_ok=True)
-    return "test-output"
-
-
-@pytest.fixture(scope="session")
-def source_dir():
-    os.makedirs("test-source", exist_ok=True)
-    return "test-source"
-
-
-@pytest.fixture(scope="session")
-def source_videos(source_dir):
-    sources = [
-        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15, 30, 2.0),
-        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15, 30, 2.0),
-        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15, 30, 2.0),
-        ("source-long.mp4", (0, 255, 255), 1, 10, 0, False, 15, 60, 4),
-        ("source1_stereo.mp4", (255, 0, 0), 1, 220, 0, True, 15, 30, 2.0),
-        ("source2_stereo.mp4", (0, 255, 0), 2, 440, 10, True, 15, 30, 2.0),
-        ("source3_stereo.mp4", (0, 0, 255), 3, 880, 20, True, 15, 30, 2.0),
-    ]
-
-    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration in sources:
-        path = os.path.join(source_dir, filename)
-        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
-
-    return {
-        "source1": "test-source/source1.mp4",
-        "source2": "test-source/source2.mp4",
-        "source3": "test-source/source3.mp4",
-        "source-long": "test-source/source-long.mp4",
-        "source1_stereo": "test-source/source1_stereo.mp4",
-        "source2_stereo": "test-source/source2_stereo.mp4",
-        "source3_stereo": "test-source/source3_stereo.mp4",
-    }
-
-
 def get_frame_info(video_path):
     import av
     container = av.open(video_path)
@@ -170,3 +131,42 @@ def analyze_audio_frequency(samples, sample_rate=44100):
     peak_freq = freqs[peak_idx]
 
     return peak_freq
+
+
+@pytest.fixture(scope="session")
+def output_dir():
+    os.makedirs("test-output", exist_ok=True)
+    return "test-output"
+
+
+@pytest.fixture(scope="session")
+def source_dir():
+    os.makedirs("test-source", exist_ok=True)
+    return "test-source"
+
+
+@pytest.fixture(scope="session")
+def source_videos(source_dir):
+    sources = [
+        ("source1.mp4", (255, 0, 0), 1, 220, 0, False, 15, 30, 2.0),
+        ("source2.mp4", (0, 255, 0), 2, 440, 10, False, 15, 30, 2.0),
+        ("source3.mp4", (0, 0, 255), 3, 880, 20, False, 15, 30, 2.0),
+        ("source-long.mp4", (0, 255, 255), 1, 10, 0, False, 15, 60, 4),
+        ("source1_stereo.mp4", (255, 0, 0), 1, 220, 0, True, 15, 30, 2.0),
+        ("source2_stereo.mp4", (0, 255, 0), 2, 440, 10, True, 15, 30, 2.0),
+        ("source3_stereo.mp4", (0, 0, 255), 3, 880, 20, True, 15, 30, 2.0),
+    ]
+
+    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration in sources:
+        path = os.path.join(source_dir, filename)
+        generate_source_videos(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
+
+    return {
+        "source1": "test-source/source1.mp4",
+        "source2": "test-source/source2.mp4",
+        "source3": "test-source/source3.mp4",
+        "source-long": "test-source/source-long.mp4",
+        "source1_stereo": "test-source/source1_stereo.mp4",
+        "source2_stereo": "test-source/source2_stereo.mp4",
+        "source3_stereo": "test-source/source3_stereo.mp4",
+    }

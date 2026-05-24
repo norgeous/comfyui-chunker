@@ -1,9 +1,9 @@
 import os
 import pytest
 import torch
-from .av_load import av_load
-from .av_save import av_save, Profile
-from .conftest import create_source_tensors, analyze_audio_frequency
+from utils_av.av_load import av_load
+from utils_av.av_save import av_save, Profile
+from conftest import create_source_tensors, analyze_audio_frequency
 
 
 def test_load_video_audio_stereo(source_videos):

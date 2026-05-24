@@ -1,3 +1,7 @@
+import sys, os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
+
 from comfy_api.latest import ComfyExtension, io
 
 from .nodes.ChunkerDivide import ChunkerDivide
@@ -16,4 +20,4 @@ async def comfy_entrypoint() -> ComfyExtension:
 
 WEB_DIRECTORY = "./js"
 
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
+

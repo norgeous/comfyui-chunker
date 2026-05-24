@@ -51,8 +51,9 @@ def create_source_tensors(
         audio_tensor = audio_tensor.unsqueeze(0).repeat(2, 1).unsqueeze(0)
     else:
         audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(0)
+    audio = {"waveform": audio_tensor, "sample_rate": audio_sample_rate}
 
-    return {"images": images, "audio": {"waveform": audio_tensor, "sample_rate": audio_sample_rate}}
+    return {"images": images, "audio": audio}
 
 
 def generate_source_video(

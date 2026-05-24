@@ -1,7 +1,8 @@
 import torch
 import math
 from comfy_api.latest import io
-from ..lib.utils import count, log, plan_chunks#, fix_total_length, get_this_chunk_length
+from ..lib.utils import count, log
+from ..lib.utils_plan_chunks import plan_chunks
 from ..lib.utils_av import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import resize_image, resize_mask
@@ -153,12 +154,13 @@ class ChunkerDivide(io.ComfyNode):
                 len(masks) if masks is not None else 0,
             )
 
-        chunk_length = settings["length_adjuster"](chunk_length)
-        chunk_lengths, total_length = plan_chunks(chunk_length, chunk_overlap, total_length)
+        chunk_length, total_length, chunk_lengths = plan_chunks(
+            settings["length_adjuster"],
+            chunk_length,
+            chunk_overlap,
+            total_length,
+        )
         this_chunk_length = chunk_lengths[s["index"]]
-
-        # total_length = fix_total_length(total_length, chunk_length, chunk_overlap)
-        # this_chunk_length = get_this_chunk_length(s["index"], chunk_length, chunk_overlap, total_length)
 
         w = None
         h = None

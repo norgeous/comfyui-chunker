@@ -20,6 +20,7 @@ PROFILE_SETTINGS = {
         "input_frame_format": "rgb24",
         "audio_codec": "pcm_s16le",
         "audio_options": {},
+        # "masks_as": "alpha",
     },
     Profile.WEB: {
         "file_extension": ".webm",
@@ -29,6 +30,7 @@ PROFILE_SETTINGS = {
         "input_frame_format": "rgb24",
         "audio_codec": "vorbis",
         "audio_options": {"strict": "-2"},
+        # "masks_as": "stream2",
     },
 }
 

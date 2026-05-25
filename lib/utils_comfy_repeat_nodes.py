@@ -16,7 +16,9 @@ def get_parent_ids(dynprompt, node_id):
     return parent_ids
 
 
-def extract_chains(node, chain=[]):
+def extract_chains(node, chain=None):
+    if chain is None:
+        chain = []
     if isinstance(node, str):
         return [chain + [node]]
     node_val = node[0]
@@ -34,7 +36,7 @@ def get_parent_id_chains(dynprompt, node_id):
     return extract_chains([node_id, *get_parent_ids(dynprompt, node_id)])
 
 
-def get_ids_all_output_nodes(dynprompt):
+def get_all_output_node_ids(dynprompt):
     prompt = dynprompt.ephemeral_prompt if len(
         dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
     return [
@@ -62,7 +64,7 @@ def get_clone_ids(
     end_node_parent_id_chains = get_parent_id_chains(dynprompt, end_node_id)
 
     # find every output type node (ie nodes that have a preview)
-    output_node_ids = get_ids_all_output_nodes(dynprompt)
+    output_node_ids = get_all_output_node_ids(dynprompt)
 
     # get their parent id chains but only include chains that include the
     # start node id and not the end node id

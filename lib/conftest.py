@@ -24,7 +24,7 @@ def create_source_tensors(
     try:
         font = ImageFont.truetype(
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
-    except BaseException:
+    except Exception:
         font = ImageFont.load_default()
 
     pil_frames = []

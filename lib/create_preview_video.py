@@ -1,10 +1,9 @@
 import torch
-from .utils_tensor import mask_to_image
 from .image_text_overlay import batch_draw_text
 from .utils_tensor import mask_to_image, simple_blend
 
 
-def frameIndexInfo(
+def frame_index_info(
         i,
         previous_count,
         chunk_index,
@@ -41,7 +40,7 @@ def get_overlay_config(
         fps,
         overlap_blend_mode,
         audio_layout):
-    frame_label, chunk_label, is_overlap = frameIndexInfo(
+    frame_label, chunk_label, is_overlap = frame_index_info(
         i, previous_count, chunk_index, chunk_count,
         chunk_length, total, overlap,
     )
@@ -114,18 +113,6 @@ def overlay_debug_text(
             len(images))]
     images = batch_draw_text(images, config)
     return images
-
-
-def combine_images_and_masks_old(images, masks):
-    imasks = mask_to_image(masks) if masks is not None else None
-    out = None
-    if images is not None and imasks is None:
-        out = images
-    if images is None and imasks is not None:
-        out = imasks
-    if images is not None and imasks is not None:
-        out = simple_blend(images, imasks)
-    return out
 
 
 def combine_images_and_masks(images, masks):

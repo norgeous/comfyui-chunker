@@ -95,7 +95,16 @@ def av_save(
             for i in range(count):
                 img = images[i]
                 img_np = (img * 255).cpu().numpy().astype(np.uint8)
-                input_format = "rgba" if img_np.shape[2] == 4 else "rgb24"
+
+                if mask_stream is not None and "a" in settings["video_pixel_format"]:
+                    mask_np = (masks[i].squeeze() * 255).cpu().numpy().astype(np.uint8)
+                    if mask_np.ndim == 2:
+                        mask_np = mask_np[..., np.newaxis]
+                    img_np = np.concatenate([img_np[..., :3], mask_np], axis=-1)
+                    input_format = "rgba"
+                else:
+                    input_format = "rgba" if img_np.shape[2] == 4 else "rgb24"
+
                 frame = av.VideoFrame.from_ndarray(img_np, format=input_format)
                 frame = frame.reformat(format=settings["video_pixel_format"])
                 frame.pts = i

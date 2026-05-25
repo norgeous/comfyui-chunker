@@ -116,9 +116,10 @@ class ChunkerCombine(io.ComfyNode):
         ts = get_ts()
         log("Save preview...", end="")
         preview_path = get_next_save_path("chunker-preview", "webm")[0]
+        preview_masks = preview[:, :, :, 3] if preview.shape[3] == 4 else None
         preview_path = av_save(
             images=preview,
-            masks=masks,
+            masks=preview_masks,
             audio=audio,
             fps=d["fps"],
             output_path=preview_path,

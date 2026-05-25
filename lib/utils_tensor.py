@@ -17,7 +17,8 @@ def mask_to_image(mask: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
 def image_to_mask(image: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
     if image is None:
         return None
-    mask = image[:, :, :, 0] # keep first 3 dimensions, choose index 0 (red) for new channel
+    # keep first 3 dimensions, choose index 0 (red) for new channel
+    mask = image[:, :, :, 0]
     return mask
 
 

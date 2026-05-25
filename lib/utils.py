@@ -1,12 +1,13 @@
 from functools import reduce
-from typing import Any, List
+from typing import Any
+import torch
 
 
 def log(*args: Any, **kwargs: Any) -> None:
     print(f"\U0001F36B  Chunker:", *args, **kwargs)
 
 
-def count(items: List[Any]) -> int:
+def count(items: list[torch.Tensor]) -> int:
     if len(items) == 0:
         return 0
     if len(items) == 1:

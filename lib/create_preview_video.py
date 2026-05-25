@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 import torch
 from .image_text_overlay import batch_draw_text
 from .utils_tensor import mask_to_image, simple_blend
@@ -40,7 +40,7 @@ def get_overlay_config(
     fps: float,
     overlap_blend_mode: str,
     audio_layout: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict]:
     frame_label, chunk_label, is_overlap = frame_index_info(
         i, previous_count, chunk_index, chunk_count,
         chunk_length, total, overlap,
@@ -142,9 +142,9 @@ def combine_images_and_masks(
 def create_preview_video(
     images: Optional[torch.Tensor],
     masks: Optional[torch.Tensor],
-    audio: Optional[Dict[str, Any]],
-    d: Dict[str, Any],
-    c: Dict[str, Any],
+    audio: Optional[dict],
+    d: dict,
+    c: dict,
     overlap_blend_mode: str,
 ) -> torch.Tensor:
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))

@@ -1,11 +1,12 @@
-from typing import Any, Optional
+from typing import Optional
+import torch
 
 
-def format_images(images: Optional[Any]) -> str:
+def format_images(images: Optional[torch.Tensor]) -> str:
     return len(images) if images is not None else "0"
 
 
-def format_masks(masks: Optional[Any]) -> str:
+def format_masks(masks: Optional[torch.Tensor]) -> str:
     return len(masks) if masks is not None else "0"
 
 

@@ -1,12 +1,14 @@
 import os
-from typing import Dict, List, Tuple, Any
+from typing import List, Tuple, TypedDict
 import folder_paths
 from functools import reduce
 from comfy_extras.nodes_audio import match_audio_sample_rates
 import torch
 
 
-AudioDict = Dict[str, Any]
+class AudioDict(TypedDict):
+    waveform: torch.Tensor
+    sample_rate: int
 
 
 def concat_audio(audio1: AudioDict, audio2: AudioDict) -> AudioDict:
@@ -28,7 +30,7 @@ def concat_audios(audios: List[AudioDict]) -> AudioDict:
 
 
 def get_next_save_path(filename_prefix: str,
-                       extension: str) -> Tuple[str, Dict[str, Any]]:
+                       extension: str) -> Tuple[str, dict]:
     full_output_folder, filename, counter, subfolder, filename_prefix = (
         folder_paths.get_save_image_path(
             filename_prefix, folder_paths.get_temp_directory(),

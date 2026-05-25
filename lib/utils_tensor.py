@@ -1,7 +1,9 @@
+from typing import Optional
 import torch
 from comfy.utils import common_upscale
 
-def mask_to_image(mask):
+
+def mask_to_image(mask: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
     if mask is None:
         return None
     image = (
@@ -12,15 +14,16 @@ def mask_to_image(mask):
     return image
 
 
-def image_to_mask(image):
+def image_to_mask(image: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
     if image is None:
         return None
-    # keep first 3 dimensions, choose index 0 (red) for new channel
-    mask = image[:, :, :, 0]
+    mask = image[:, :, :, 0] # keep first 3 dimensions, choose index 0 (red) for new channel
     return mask
 
 
-def resize_image(image, width, height):
+def resize_image(image: Optional[torch.Tensor],
+                 width: int,
+                 height: int) -> Optional[torch.Tensor]:
     if image is None:
         return None
     if image.shape[1] == height and image.shape[2] == width:
@@ -34,13 +37,16 @@ def resize_image(image, width, height):
     return resized_image
 
 
-def resize_mask(mask, width, height):
+def resize_mask(mask: Optional[torch.Tensor],
+                width: int,
+                height: int) -> Optional[torch.Tensor]:
     imask = mask_to_image(mask)
     resized_imask = resize_image(imask, width, height)
     return image_to_mask(resized_imask)
 
 
-def simple_blend(image1, image2, blend_factor=0.5):
+def simple_blend(image1: torch.Tensor, image2: torch.Tensor,
+                 blend_factor: float = 0.5) -> torch.Tensor:
     blended_image = image1 * (1 - blend_factor) + image2 * blend_factor
     blended_image = torch.clamp(blended_image, 0, 1)
     return blended_image

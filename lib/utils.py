@@ -1,11 +1,12 @@
 from functools import reduce
+from typing import Any, List
 
 
-def log(*args, **kwargs):
+def log(*args: Any, **kwargs: Any) -> None:
     print(f"\U0001F36B  Chunker:", *args, **kwargs)
 
 
-def count(items):
+def count(items: List[Any]) -> int:
     if len(items) == 0:
         return 0
     if len(items) == 1:

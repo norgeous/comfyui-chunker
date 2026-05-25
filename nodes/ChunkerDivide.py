@@ -257,9 +257,6 @@ class ChunkerDivide(io.ComfyNode):
             out_images_resized = list(
                 map(lambda tensor: resize_image(tensor, w, h), out_images))
             out_images_torch = torch.cat(out_images_resized)
-            assert len(
-                out_images_torch.shape) == 4, f"images are not rank 4 {
-                out_images_torch.shape}, expected BHWC"
 
         # finalise out masks, resize and concat together
         out_masks_torch = None
@@ -267,9 +264,6 @@ class ChunkerDivide(io.ComfyNode):
             out_masks_resized = list(
                 map(lambda tensor: resize_mask(tensor, w, h), out_masks))
             out_masks_torch = torch.cat(out_masks_resized)
-            assert len(
-                out_masks_torch.shape) == 3, f"masks are not rank 3 {
-                out_masks_torch.shape}, expected BHW"
 
         # finalise out audio, concat together
         out_audio_dict = None

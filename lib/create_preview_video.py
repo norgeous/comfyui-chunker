@@ -1,16 +1,18 @@
+from typing import Any, Dict, List, Optional, Tuple
 import torch
 from .image_text_overlay import batch_draw_text
 from .utils_tensor import mask_to_image, simple_blend
 
 
 def frame_index_info(
-        i,
-        previous_count,
-        chunk_index,
-        chunk_count,
-        chunk_length,
-        total,
-        overlap):
+    i: int,
+    previous_count: int,
+    chunk_index: int,
+    chunk_count: int,
+    chunk_length: int,
+    total: int,
+    overlap: int,
+) -> Tuple[str, str, bool]:
     chunk = chunk_index + 1
     is_first_chunk = chunk_index == 0
     is_last_chunk = chunk_index == chunk_count - 1
@@ -19,27 +21,26 @@ def frame_index_info(
         overlap) or (
         not is_first_chunk and i < overlap)
     return (
-        # frame_label
         f"{str(previous_count + i + 1).zfill(len(str(total)))} / {total}",
-        # chunk_label
         f"{str(chunk).zfill(len(str(chunk_count)))} of {chunk_count}",
         is_overlap,
     )
 
 
 def get_overlay_config(
-        i,
-        previous_count,
-        chunk_index,
-        chunk_count,
-        total,
-        w,
-        h,
-        chunk_length,
-        overlap,
-        fps,
-        overlap_blend_mode,
-        audio_layout):
+    i: int,
+    previous_count: int,
+    chunk_index: int,
+    chunk_count: int,
+    total: int,
+    w: int,
+    h: int,
+    chunk_length: int,
+    overlap: int,
+    fps: float,
+    overlap_blend_mode: str,
+    audio_layout: str,
+) -> List[Dict[str, Any]]:
     frame_label, chunk_label, is_overlap = frame_index_info(
         i, previous_count, chunk_index, chunk_count,
         chunk_length, total, overlap,
@@ -83,16 +84,17 @@ def get_overlay_config(
 
 
 def overlay_debug_text(
-        images,
-        previous_count,
-        chunk_index,
-        chunk_count,
-        chunk_length,
-        chunk_overlap,
-        total_length,
-        fps,
-        overlap_blend_mode,
-        audio_layout):
+    images: torch.Tensor,
+    previous_count: int,
+    chunk_index: int,
+    chunk_count: int,
+    chunk_length: int,
+    chunk_overlap: int,
+    total_length: int,
+    fps: float,
+    overlap_blend_mode: str,
+    audio_layout: str,
+) -> torch.Tensor:
     w = images.shape[2]
     h = images.shape[1]
     config = [
@@ -115,7 +117,10 @@ def overlay_debug_text(
     return images
 
 
-def combine_images_and_masks(images, masks):
+def combine_images_and_masks(
+        images: Optional[torch.Tensor],
+        masks: Optional[torch.Tensor],
+) -> Optional[torch.Tensor]:
     if images is not None and masks is not None:
         alpha = masks.unsqueeze(-1)
         return torch.cat([images, alpha], dim=-1)
@@ -134,7 +139,14 @@ def combine_images_and_masks(images, masks):
     return None
 
 
-def create_preview_video(images, masks, audio, d, c, overlap_blend_mode):
+def create_preview_video(
+    images: Optional[torch.Tensor],
+    masks: Optional[torch.Tensor],
+    audio: Optional[Dict[str, Any]],
+    d: Dict[str, Any],
+    c: Dict[str, Any],
+    overlap_blend_mode: str,
+) -> torch.Tensor:
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
     audio_channel_count = (

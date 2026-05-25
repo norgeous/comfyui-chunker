@@ -30,17 +30,16 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 ## prep for release
 
-- Combine
-  - show chunk progresion in pbar as we finishing node execution?
-- Divide
-  - its not currently loading the masks from overlap
-  - show chunk_lengths in ui?
 - Combine frontend
   - swapping internal comfyui workflow tab erases progress bar and preview video
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui
+- Combine
+  - show chunk progresion in pbar as we finishing node execution?
+- Divide
+  - show chunk_lengths in ui?
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working

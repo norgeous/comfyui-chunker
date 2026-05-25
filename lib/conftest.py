@@ -22,8 +22,9 @@ def create_source_tensors(
     video_height: int = 512,
 ):
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
-    except:
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
+    except BaseException:
         font = ImageFont.load_default()
 
     pil_frames = []
@@ -34,10 +35,12 @@ def create_source_tensors(
         draw.rectangle([0, 0, 299, 29], fill=(0, 0, 0))
 
         pixel_x = frame_num * 10
-        draw.rectangle([pixel_x, pixel_y_offset, pixel_x + 9, pixel_y_offset + 9], fill=(255, 255, 255))
+        draw.rectangle([pixel_x, pixel_y_offset, pixel_x + 9,
+                       pixel_y_offset + 9], fill=(255, 255, 255))
 
         y_pos = 50 + (line_num - 1) * 80
-        draw.text((50, y_pos), f"{frame_num + 1:02d}", fill=(255, 255, 255), font=font)
+        draw.text((50, y_pos), f"{frame_num + 1:02d}",
+                  fill=(255, 255, 255), font=font)
 
         pil_frames.append(np.array(img))
 
@@ -80,7 +83,10 @@ def generate_source_video(
     video_frames: int = 30,
     audio_duration: float = 2.0,
 ) -> None:
-    images, masks, audio = create_source_tensors(bg_color, line_num, freq, pixel_y_offset, stereo, video_frames, audio_duration)
+    images, masks, audio = create_source_tensors(
+        bg_color, line_num, freq, pixel_y_offset, stereo,
+        video_frames, audio_duration,
+    )
     av_save(
         images=images,
         audio=audio,
@@ -161,7 +167,9 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
     x = np.arange(0, num_samples, step)
 
     width = min(20, max(6, num_samples / 20000))
-    fig, axes = plt.subplots(num_channels, 1, figsize=(width, 4 * num_channels), squeeze=False)
+    fig, axes = plt.subplots(
+        num_channels, 1, figsize=(
+            width, 4 * num_channels), squeeze=False)
     fig.suptitle(title, fontsize=14)
 
     for i in range(num_channels):
@@ -175,7 +183,8 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
         axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
 
         for sample_pos in np.arange(0, num_samples, sample_rate / fps):
-            axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)
+            axes[i, 0].axvline(x=sample_pos, color='red',
+                               linestyle='--', alpha=0.5)
 
     plt.savefig(output_path, dpi=100, bbox_inches='tight', pad_inches=0)
     plt.close()
@@ -199,7 +208,12 @@ def pytest_sessionfinish(session, exitstatus):
         sample_rate = audio["sample_rate"]
         name = os.path.splitext(filename)[0]
         out = os.path.join(output_dir, f"{name}_waveform.png")
-        plot_audio_waveform(waveform, sample_rate, fps, f"Audio Waveform: {name}", out)
+        plot_audio_waveform(
+            waveform,
+            sample_rate,
+            fps,
+            f"Audio Waveform: {name}",
+            out)
 
 
 @pytest.fixture(scope="session")
@@ -228,9 +242,19 @@ def source_videos(source_dir):
         ("source3_stereo.mp4", (0, 0, 255), 3, 880, 20, True, 15, 30, 2.0),
     ]
 
-    for filename, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration in sources:
+    for (filename, color, line_num, freq, pixel_y_offset, stereo, fps,
+         video_frames, audio_duration) in sources:
         path = os.path.join(source_dir, filename)
-        generate_source_video(path, color, line_num, freq, pixel_y_offset, stereo, fps, video_frames, audio_duration)
+        generate_source_video(
+            path,
+            color,
+            line_num,
+            freq,
+            pixel_y_offset,
+            stereo,
+            fps,
+            video_frames,
+            audio_duration)
 
     return {
         "source1": os.path.join(source_dir, "source1.mp4"),

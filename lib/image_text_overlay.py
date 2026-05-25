@@ -2,13 +2,16 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-# mostly from https://github.com/munkyfoot/ComfyUI-TextOverlay/blob/main/nodes.py
+# mostly from
+# https://github.com/munkyfoot/ComfyUI-TextOverlay/blob/main/nodes.py
+
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
     if len(hex_color) == 3:
         hex_color = hex_color * 2
-    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return tuple(int(hex_color[i: i + 2], 16) for i in (0, 2, 4))
+
 
 def draw_text(
     image,
@@ -33,7 +36,9 @@ def draw_text(
         extra_line = "\n" in word
         word = word.strip()
         if (
-            draw.textlength(line + word, font=ImageFont.load_default(font_size))
+            draw.textlength(
+                line + word, font=ImageFont.load_default(font_size)
+            )
             < image.width - 2 * padding
         ):
             line += word + " "
@@ -83,6 +88,7 @@ def draw_text(
     )
     return image
 
+
 def batch_draw_text(
     image,
     configs,
@@ -95,13 +101,16 @@ def batch_draw_text(
             image,
             **configs[0],
         )
-        image_tensor_out = torch.tensor(np.array(image).astype(np.float32) / 255.0)
+        image_tensor_out = torch.tensor(
+            np.array(image).astype(
+                np.float32) / 255.0)
         image_tensor_out = torch.unsqueeze(image_tensor_out, 0)
         return image_tensor_out
     else:
         # Batch of images
         image_np = image.cpu().numpy()
-        images = [Image.fromarray((img * 255).astype(np.uint8)) for img in image_np]
+        images = [Image.fromarray((img * 255).astype(np.uint8))
+                  for img in image_np]
         images_out = []
 
         # for each img in images

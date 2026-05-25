@@ -1,19 +1,26 @@
 def format_images(images):
     return len(images) if images is not None else "0"
 
+
 def format_masks(masks):
     return len(masks) if masks is not None else "0"
 
+
 def format_audio(audio):
-    if audio is None: return "0s"
+    if audio is None:
+        return "0s"
     return f"{audio['waveform'].shape[2] / audio['sample_rate']:.3f}s"
 
+
 def format_fps(fps):
-    if fps is None: return "0"
+    if fps is None:
+        return "0"
     return f"{fps:.2f}"
 
+
 def format_milliseconds(ms):
-    if ms == 0: return "0"
+    if ms == 0:
+        return "0"
     divisors = [1, 1000, 60, 60, 24, 7, 52]
     units = ['ms', 's', 'm', 'h', 'd', 'w', 'y']
     results = []
@@ -24,7 +31,7 @@ def format_milliseconds(ms):
     results.append(quotient)
     rresults = list(reversed(results))
     runits = list(reversed(units))
-    first = next(i for i,v in enumerate(rresults) if v > 0)
-    last = len(results) - next(i for i,v in enumerate(results) if v > 0)
+    first = next(i for i, v in enumerate(rresults) if v > 0)
+    last = len(results) - next(i for i, v in enumerate(results) if v > 0)
     out = [f"{rresults[i]}{runits[i]}" for i in range(first, last)]
     return ''.join(out[0:2])

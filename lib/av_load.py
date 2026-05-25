@@ -5,7 +5,11 @@ import torch
 import math
 
 
-def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], int]:
+def av_load(path: str,
+            overlap_frame_count: int = 0) -> Tuple[Optional[torch.Tensor],
+                                                   Optional[torch.Tensor],
+                                                   Optional[dict],
+                                                   int]:
     container = av.open(path)
     container.seek(0)
 
@@ -77,9 +81,11 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
 
             if is_stereo:
                 if arr.ndim == 1 or (arr.ndim == 2 and arr.shape[0] == 1):
-                    # Interleaved format (s16, etc.) - shape (samples*2,) or (1, samples*2)
+                    # Interleaved format (s16, etc.) - shape (samples*2,) or
+                    # (1, samples*2)
                     flat = arr.flatten()
-                    arr = np.stack([flat[::2], flat[1::2]], axis=0)[np.newaxis, :, :]
+                    arr = np.stack([flat[::2], flat[1::2]], axis=0)[
+                        np.newaxis, :, :]
                 else:
                     # Planar format (fltp) - shape (channels, samples)
                     arr = arr[np.newaxis, :, :]
@@ -97,7 +103,11 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             if np.issubdtype(audio_data.dtype, np.floating):
                 waveform = torch.from_numpy(audio_data.astype(np.float32))
             else:
-                waveform = torch.from_numpy(audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max)
+                waveform = torch.from_numpy(
+                    audio_data.astype(
+                        np.float32) /
+                    np.iinfo(
+                        audio_data.dtype).max)
 
             if not is_stereo and waveform.dim() == 1:
                 waveform = waveform.reshape(1, -1)
@@ -114,4 +124,3 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
 
     container.close()
     return images, masks, audio, fps
-

@@ -11,9 +11,8 @@ class Chunker(ComfyExtension):
             ChunkerCombine,
         ]
 
+
 async def comfy_entrypoint() -> ComfyExtension:
     return Chunker()
 
 WEB_DIRECTORY = "./js"
-
-

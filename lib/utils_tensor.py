@@ -44,10 +44,3 @@ def resize_mask(mask: Optional[torch.Tensor],
     imask = mask_to_image(mask)
     resized_imask = resize_image(imask, width, height)
     return image_to_mask(resized_imask)
-
-
-def simple_blend(image1: torch.Tensor, image2: torch.Tensor,
-                 blend_factor: float = 0.5) -> torch.Tensor:
-    blended_image = image1 * (1 - blend_factor) + image2 * blend_factor
-    blended_image = torch.clamp(blended_image, 0, 1)
-    return blended_image

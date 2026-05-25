@@ -83,7 +83,7 @@ def generate_source_video(
     video_frames: int = 30,
     audio_duration: float = 2.0,
 ) -> None:
-    images, masks, audio = create_source_tensors(
+    images, _masks, audio = create_source_tensors(
         bg_color, line_num, freq, pixel_y_offset, stereo,
         video_frames, audio_duration,
     )

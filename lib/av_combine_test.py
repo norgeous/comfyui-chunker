@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 import os
 from lib.av_combine import av_combine, BlendMode

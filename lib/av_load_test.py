@@ -1,6 +1,5 @@
 import os
 import pytest
-import torch
 from lib.av_load import av_load
 from lib.av_save import av_save, Profile
 from lib.conftest import create_source_tensors, analyze_audio_frequency

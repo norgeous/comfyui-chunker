@@ -3,7 +3,7 @@ from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
 from ..lib.av_load import av_load
 from ..lib.av_combine import av_combine, BlendMode
-from ..lib.utils_tensor import resize_mask, mask_to_image, image_to_mask
+from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import (

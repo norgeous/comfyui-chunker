@@ -1,7 +1,7 @@
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 import torch
 from .image_text_overlay import batch_draw_text
-from .utils_tensor import mask_to_image, simple_blend
+from .utils_tensor import mask_to_image
 
 
 def frame_index_info(

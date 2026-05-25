@@ -8,7 +8,7 @@ def get_parent_ids(dynprompt, node_id):
     if "inputs" not in node_info:
         return []
     parent_ids = []
-    for k, v in node_info["inputs"].items():
+    for _k, v in node_info["inputs"].items():
         if is_link(v):
             parent_id = v[0]
             grandparent_ids = get_parent_ids(dynprompt, parent_id)

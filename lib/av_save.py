@@ -17,7 +17,6 @@ PROFILE_SETTINGS = {
         "video_codec": "h264",
         "video_pixel_format": "yuv420p",
         "video_options": {"preset": "slow", "crf": "10"},
-        "input_frame_format": "rgb24",
         "audio_codec": "pcm_s16le",
         "audio_options": {},
     },
@@ -26,7 +25,6 @@ PROFILE_SETTINGS = {
         "video_codec": "vp9",
         "video_pixel_format": "yuva420p",
         "video_options": {"crf": "30"},
-        "input_frame_format": "rgb24",
         "audio_codec": "vorbis",
         "audio_options": {"strict": "-2"},
     },
@@ -96,10 +94,9 @@ def av_save(
             pbar = comfy.utils.ProgressBar(count)
             for i in range(count):
                 img = images[i]
-                if img.shape[2] == 4:
-                    img = img[:, :, :3]
-                img = (img * 255).cpu().numpy().astype(np.uint8)
-                frame = av.VideoFrame.from_ndarray(img, format=settings["input_frame_format"])
+                img_np = (img * 255).cpu().numpy().astype(np.uint8)
+                input_format = "rgba" if img_np.shape[2] == 4 else "rgb24"
+                frame = av.VideoFrame.from_ndarray(img_np, format=input_format)
                 frame = frame.reformat(format=settings["video_pixel_format"])
                 frame.pts = i
                 for packet in video_stream.encode(frame):

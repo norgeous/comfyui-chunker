@@ -189,7 +189,7 @@ def pytest_sessionfinish(session, exitstatus):
         if not (filename.endswith(".mp4") or filename.endswith(".webm")):
             continue
         video_path = os.path.join(output_dir, filename)
-        _, audio, fps = av_load(video_path)
+        _, _, audio, fps = av_load(video_path)
         if audio is None:
             continue
         waveform = audio["waveform"]

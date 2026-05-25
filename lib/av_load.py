@@ -5,11 +5,12 @@ import torch
 import math
 
 
-def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[dict], int]:
+def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], int]:
     container = av.open(path)
     container.seek(0)
 
     images = None
+    masks = None
     audio = None
     fps = 30
 
@@ -35,6 +36,24 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
 
         if frames:
             images = torch.stack(frames)[vstart:vend]
+
+    container.seek(0)
+
+    if len(container.streams.video) > 1 and images is not None:
+        mask_stream = container.streams.video[1]
+        mask_stream.thread_count = 0
+        mask_stream.thread_type = "AUTO"
+
+        mask_frames = []
+        for frame in container.decode(mask_stream):
+            arr = frame.to_ndarray(format="gray")
+            arr = arr.astype(np.float32) / 255.0
+            mask_frames.append(torch.from_numpy(arr))
+
+        if mask_frames:
+            masks = torch.stack(mask_frames)[vstart:vend]
+
+        container.seek(0)
 
     container.seek(0)
 
@@ -94,5 +113,5 @@ def av_load(path: str, overlap_frame_count:int = 0) -> Tuple[Optional[torch.Tens
             }
 
     container.close()
-    return images, audio, fps
+    return images, masks, audio, fps
 

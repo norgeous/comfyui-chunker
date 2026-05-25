@@ -99,6 +99,7 @@ class ChunkerCombine(io.ComfyNode):
         chunk_path = get_next_save_path("chunker/chunk", "mp4")[0]
         chunk_path = av_save(
             images=images,
+            masks=masks,
             audio=audio,
             fps=d["fps"],
             output_path=chunk_path,
@@ -185,14 +186,14 @@ class ChunkerCombine(io.ComfyNode):
             out_images_torch, out_audio_dict = None, None
             ts = get_ts()
             log("Load final image tensors...", end="")
-            out_images_torch, out_audio_dict, _ = av_load(path=final_path)
+            out_images_torch, _, out_audio_dict, _ = av_load(path=final_path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             out_masks_torch = None
             if len(s["chunks_mask"]) > 0:
                 ts = get_ts()
                 log("Load final mask tensors...", end="")
-                out_masks_torch, _, _ = av_load(path=final_masks_path)
+                out_masks_torch, _, _, _ = av_load(path=final_masks_path)
                 out_masks_torch = image_to_mask(out_masks_torch)
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
 

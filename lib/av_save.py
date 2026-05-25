@@ -20,7 +20,6 @@ PROFILE_SETTINGS = {
         "input_frame_format": "rgb24",
         "audio_codec": "pcm_s16le",
         "audio_options": {},
-        # "masks_as": "alpha",
     },
     Profile.WEB: {
         "file_extension": ".webm",
@@ -30,13 +29,13 @@ PROFILE_SETTINGS = {
         "input_frame_format": "rgb24",
         "audio_codec": "vorbis",
         "audio_options": {"strict": "-2"},
-        # "masks_as": "stream2",
     },
 }
 
 
 def av_save(
     images: Optional[torch.Tensor] = None,
+    masks: Optional[torch.Tensor] = None,
     audio: Optional[dict] = None,
     output_path: str = "output",
     fps: float = 30.0,
@@ -52,6 +51,7 @@ def av_save(
 
     with av.open(f"{output_path}{settings['file_extension']}", mode='w') as container:
         video_stream = None
+        mask_stream = None
         audio_stream = None
         audio_frame = None
 
@@ -66,6 +66,17 @@ def av_save(
             video_stream.width = W
             video_stream.height = H
             video_stream.time_base = Fraction(1, int(fps))
+
+        if masks is not None:
+            fps_fraction = Fraction(f"{fps:.6f}")
+            mask_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
+            mask_stream.thread_count = 0
+            mask_stream.thread_type = "AUTO"
+            mask_stream.pix_fmt = "yuv420p"
+            mask_stream.options = settings["video_options"]
+            mask_stream.width = W
+            mask_stream.height = H
+            mask_stream.time_base = Fraction(1, int(fps))
 
         if audio is not None:
             waveform = audio["waveform"]
@@ -93,10 +104,23 @@ def av_save(
                 frame.pts = i
                 for packet in video_stream.encode(frame):
                     container.mux(packet)
+
+                if mask_stream is not None:
+                    mask_np = (masks[i].squeeze() * 255).cpu().numpy().astype(np.uint8)
+                    mask_frame = av.VideoFrame.from_ndarray(mask_np, format="gray")
+                    mask_frame = mask_frame.reformat(format="yuv420p")
+                    mask_frame.pts = i
+                    for packet in mask_stream.encode(mask_frame):
+                        container.mux(packet)
+
                 pbar.update(1)
 
             for packet in video_stream.encode():
                 container.mux(packet)
+
+            if mask_stream is not None:
+                for packet in mask_stream.encode():
+                    container.mux(packet)
 
         if audio_stream is not None:
             for packet in audio_stream.encode(audio_frame):

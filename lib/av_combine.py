@@ -68,8 +68,8 @@ def av_combine(
 ) -> str:
     sources = []
     for path in paths:
-        images, audio, fps = av_load(path)
-        sources.append({"images": images, "audio": audio, "fps": fps})
+        images, masks, audio, fps = av_load(path)
+        sources.append({"images": images, "masks": masks, "audio": audio, "fps": fps})
 
     if len(sources) == 0:
         raise ValueError("No sources provided")
@@ -82,12 +82,18 @@ def av_combine(
         b = sources[i + 1]
 
         overlap_frames = []
+        overlap_masks = []
         overlap_audio = None
 
         if overlap_frame_count > 0 and a["images"] is not None and b["images"] is not None:
             end_frames = a["images"][-overlap_frame_count:]
             start_frames = b["images"][:overlap_frame_count]
             overlap_frames = create_overlap_frames(end_frames, start_frames, overlap_frame_count, video_blend_mode)
+
+        if overlap_frame_count > 0 and a["masks"] is not None and b["masks"] is not None:
+            end_masks = a["masks"][-overlap_frame_count:]
+            start_masks = b["masks"][:overlap_frame_count]
+            overlap_masks = create_overlap_frames(end_masks, start_masks, overlap_frame_count, video_blend_mode)
 
         if a["audio"] is not None and b["audio"] is not None:
             is_stereo = a["audio"]["waveform"].shape[1] == 2
@@ -120,9 +126,10 @@ def av_combine(
             else:
                 overlap_audio = None
 
-        overlaps.append({"frames": overlap_frames, "audio": overlap_audio})
+        overlaps.append({"frames": overlap_frames, "masks": overlap_masks, "audio": overlap_audio})
 
     final_frames = []
+    final_masks = []
     final_audio = []
 
     for idx, src in enumerate(sources):
@@ -135,6 +142,13 @@ def av_combine(
             else:
                 trimmed = src["images"]
             final_frames.append(trimmed)
+
+        if src["masks"] is not None:
+            if remove_start > 0 or remove_end > 0:
+                trimmed = src["masks"][remove_start:-remove_end] if remove_end > 0 else src["masks"][remove_start:]
+            else:
+                trimmed = src["masks"]
+            final_masks.append(trimmed)
 
         if src["audio"] is not None:
             sr = src["audio"]["sample_rate"]
@@ -158,10 +172,13 @@ def av_combine(
         if idx < len(overlaps):
             if overlaps[idx]["frames"] is not None and len(overlaps[idx]["frames"]) > 0:
                 final_frames.append(overlaps[idx]["frames"])
+            if overlaps[idx]["masks"] is not None and len(overlaps[idx]["masks"]) > 0:
+                final_masks.append(overlaps[idx]["masks"])
             if overlaps[idx]["audio"] is not None:
                 final_audio.append(overlaps[idx]["audio"])
 
     final_images = torch.cat(final_frames, dim=0) if final_frames else None
+    final_masks_tensor = torch.cat(final_masks, dim=0) if final_masks else None
 
     final_audio_dict = None
     if final_audio:
@@ -186,4 +203,4 @@ def av_combine(
                 "sample_rate": sr,
             }
 
-    return av_save(images=final_images, audio=final_audio_dict, output_path=output_path, fps=fps, profile=profile)
+    return av_save(images=final_images, masks=final_masks_tensor, audio=final_audio_dict, output_path=output_path, fps=fps, profile=profile)

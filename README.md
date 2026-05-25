@@ -31,7 +31,6 @@ Create longer videos by automatically taking the last few frames of the last gen
 ## prep for release
 
 - Combine
-  - fix preview webm alpha -> show the real masking as alpha, but keep the overlayed text
   - show chunk progresion in pbar as we finishing node execution?
 - Divide
   - its not currently loading the masks from overlap

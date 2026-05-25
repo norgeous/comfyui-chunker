@@ -96,7 +96,7 @@ def av_save(
                 img = images[i]
                 img_np = (img * 255).cpu().numpy().astype(np.uint8)
 
-                if mask_stream is not None and "a" in settings["video_pixel_format"]:
+                if mask_stream is not None and profile == Profile.WEB:
                     mask_np = (masks[i].squeeze() * 255).cpu().numpy().astype(np.uint8)
                     if mask_np.ndim == 2:
                         mask_np = mask_np[..., np.newaxis]

@@ -156,12 +156,16 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
     num_channels = waveform.shape[0]
     num_samples = waveform.shape[1]
 
-    width = min(40, max(12, num_samples / 5000))
+    target_points = 5000
+    step = max(1, num_samples // target_points)
+    x = np.arange(0, num_samples, step)
+
+    width = min(20, max(6, num_samples / 20000))
     fig, axes = plt.subplots(num_channels, 1, figsize=(width, 4 * num_channels), squeeze=False)
     fig.suptitle(title, fontsize=14)
 
     for i in range(num_channels):
-        axes[i, 0].plot(np.arange(num_samples), waveform[i].numpy(), linewidth=0.3)
+        axes[i, 0].plot(x, waveform[i].numpy()[::step], linewidth=0.5)
         axes[i, 0].set_xlabel('Samples')
         axes[i, 0].set_ylabel('Amplitude')
         axes[i, 0].set_title(f'Channel {i + 1}')
@@ -170,11 +174,10 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
         axes[i, 0].set_xticks(tick_locations)
         axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
 
-        interval = sample_rate / fps
-        for sample_pos in np.arange(0, num_samples, interval):
+        for sample_pos in np.arange(0, num_samples, sample_rate / fps):
             axes[i, 0].axvline(x=sample_pos, color='red', linestyle='--', alpha=0.5)
 
-    plt.savefig(output_path, dpi=600, bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_path, dpi=100, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 

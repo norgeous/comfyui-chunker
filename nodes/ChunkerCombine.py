@@ -84,7 +84,6 @@ class ChunkerCombine(io.ComfyNode):
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
-            "chunks_mask": [],
             "ts_chunk_ends": [],
             "last_all_preview": None,
         }
@@ -96,7 +95,7 @@ class ChunkerCombine(io.ComfyNode):
         # save input images and audio to lossless file
         ts = get_ts()
         log("Save chunk...", end="")
-        chunk_path = get_next_save_path("chunker/chunk", "mp4")[0]
+        chunk_path = get_next_save_path("chunker-chunk", "mp4")[0]
         chunk_path = av_save(
             images=images,
             masks=masks,
@@ -107,20 +106,6 @@ class ChunkerCombine(io.ComfyNode):
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # save input masks to lossless file
-        if masks is not None:
-            ts = get_ts()
-            log("Save masks...", end="")
-            mask_path = get_next_save_path("chunker/mask", "mp4")[0]
-            mask_path = av_save(
-                images=mask_to_image(masks),
-                audio=None,
-                fps=d["fps"],
-                output_path=mask_path,
-            )
-            s["chunks_mask"].append(mask_path)
-            print(f"done ({format_milliseconds(get_ts() - ts)})")
-
         # Make preview from inputs
         ts = get_ts()
         log("Make preview images...", end="")
@@ -130,19 +115,21 @@ class ChunkerCombine(io.ComfyNode):
         # Save preview
         ts = get_ts()
         log("Save preview...", end="")
-        preview_path = get_next_save_path("chunker/preview", "mp4")[0]
+        preview_path = get_next_save_path("chunker-preview", "webm")[0]
         preview_path = av_save(
             images=preview,
+            masks=masks,
             audio=audio,
             fps=d["fps"],
             output_path=preview_path,
+            profile=Profile.WEB,
         )
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data = get_next_save_path("chunker/all-preview", "webm")
+        all_preview_path, all_preview_frontend_data = get_next_save_path("chunker-preview-all", "webm")
         av_combine(
             paths=[s["last_all_preview"], preview_path] if s["last_all_preview"] is not None else [preview_path],
             output_path=all_preview_path,
@@ -161,7 +148,7 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Combine all chunks...", end="")
-            final_path = get_next_save_path("chunker/final", "mp4")[0]
+            final_path = get_next_save_path("chunker-chunk-all", "mp4")[0]
             av_combine(
                 paths=s["chunks"],
                 output_path=final_path,
@@ -171,31 +158,11 @@ class ChunkerCombine(io.ComfyNode):
             )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-            if len(s["chunks_mask"]) > 0:
-                log("Combine all masks...", end="")
-                final_masks_path = get_next_save_path("chunker/final-masks", "mp4")[0]
-                av_combine(
-                    paths=s["chunks_mask"],
-                    output_path=final_masks_path,
-                    overlap_frame_count=c["chunk_overlap"],
-                    video_blend_mode=BlendMode(overlap_blend_mode),
-                    audio_blend_mode=BlendMode(overlap_blend_mode),
-                )
-                print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-            out_images_torch, out_audio_dict = None, None
+            out_images_torch, out_masks_torch, out_audio_dict = None, None, None
             ts = get_ts()
-            log("Load final image tensors...", end="")
-            out_images_torch, _, out_audio_dict, _ = av_load(path=final_path)
+            log("Load final tensors...", end="")
+            out_images_torch, out_masks_torch, out_audio_dict, _ = av_load(path=final_path)
             print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-            out_masks_torch = None
-            if len(s["chunks_mask"]) > 0:
-                ts = get_ts()
-                log("Load final mask tensors...", end="")
-                out_masks_torch, _, _, _ = av_load(path=final_masks_path)
-                out_masks_torch = image_to_mask(out_masks_torch)
-                print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             ts_chunk_end = get_ts()
             s["ts_chunk_ends"] = [
@@ -234,7 +201,7 @@ class ChunkerCombine(io.ComfyNode):
                 )
             }
 
-        # clone all the nodes between Chunker and ChunkerCombine
+        # clone all the nodes between ChunkerDivide and ChunkerCombine
         ts = get_ts()
         clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
         log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
@@ -262,15 +229,13 @@ class ChunkerCombine(io.ComfyNode):
 
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-
         # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
         # - KSampler
         # - KSamplerAdvanced
         # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (when using Wan or LTX)
-        if increment_seeds:
-            increment_all_seeds(graph, self.hidden.unique_id)
+        if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id)
 
         ui_values = {
             "input_label_values": {

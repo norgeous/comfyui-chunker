@@ -37,7 +37,9 @@ Create longer videos by automatically taking the last few frames of the last gen
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui
 - Combine
+  - second chunk pbar is glitchy?
   - show chunk progresion in pbar as we finishing node execution?
+  - dont repeat pbar 0 to 100 x4 times?
 - Divide
   - show chunk_lengths in ui?
 - Tidy unused code

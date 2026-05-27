@@ -180,7 +180,7 @@ app.registerExtension({
           element.querySelector(".chunker-video").volume = 0.5;
 
           this.store = jsonDivStore(element);
-          setInterval(() => {
+          this.chunkerInterval = setInterval(() => {
             // fix the dodgy video width
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
@@ -274,6 +274,7 @@ app.registerExtension({
             ts: now,
             historical_deltas,
             predicted_deltas,
+            video_path,
           });
 
           if (video_path) {
@@ -283,6 +284,32 @@ app.registerExtension({
             videoParams.set("cache_buster", Math.random());
             videoTag.src = `/api/view?${videoParams.toString()}`;
           }
+        });
+        chainCallback(nodeType.prototype, "onSerialize", function (data) {
+          if (this.store) {
+            data.chunkerStore = this.store.get();
+          }
+        });
+        chainCallback(nodeType.prototype, "onConfigure", function (data) {
+          if (data.chunkerStore && Object.keys(data.chunkerStore).length > 1) {
+            if (this.store) {
+              this.store.set(data.chunkerStore);
+            }
+            if (data.chunkerStore.video_path) {
+              const infoContainer = this.widgets?.find(({ type }) => type === "ChunkInfoWidget")?.element;
+              if (infoContainer) {
+                const videoTag = infoContainer.querySelector("video");
+                if (videoTag) {
+                  const videoParams = new URLSearchParams(data.chunkerStore.video_path);
+                  videoParams.set("cache_buster", Math.random());
+                  videoTag.src = `/api/view?${videoParams.toString()}`;
+                }
+              }
+            }
+          }
+        });
+        chainCallback(nodeType.prototype, "onRemoved", function () {
+          if (this.chunkerInterval) clearInterval(this.chunkerInterval);
         });
       },
 

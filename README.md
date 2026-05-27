@@ -32,6 +32,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Combine frontend
   - swapping internal comfyui workflow tab erases progress bar and preview video
+    - setInterval init multiple times =[
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0

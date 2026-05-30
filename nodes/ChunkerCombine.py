@@ -339,7 +339,10 @@ class ChunkerCombine(io.ComfyNode):
 
 
 
+        log(f"clone_ids: {clone_ids}")
+        
         seed_nodes = get_ids_by_partial_names_in_graph(graph, ["Sampler", "Noise"])
+        log(f"seed_nodes: {seed_nodes}")
         for id in seed_nodes:
             real_id = id.replace(f"{self.hidden.unique_id}.0.0.", "")
             original_id = self.hidden.dynprompt.get_display_node_id(real_id)

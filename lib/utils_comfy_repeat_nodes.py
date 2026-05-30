@@ -100,16 +100,13 @@ def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
     # clone nodes
     for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
-        node = graph.node(
-            original_node["class_type"],
-            "Recurse" if node_id == end_node_id else node_id)
+        node = graph.node(original_node["class_type"], "Recurse" if node_id == end_node_id else node_id)
         node.set_override_display_id(node_id)
 
     # connect cloned nodes
     for node_id in clone_ids:
         original_node = dynprompt.get_node(node_id)
-        node = graph.lookup_node(
-            "Recurse" if node_id == end_node_id else node_id)
+        node = graph.lookup_node("Recurse" if node_id == end_node_id else node_id)
         for k, v in original_node["inputs"].items():
             if is_link(v) and v[0] in clone_ids:
                 parent = graph.lookup_node(v[0])

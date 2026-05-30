@@ -237,10 +237,12 @@ def av_combine(
                 "sample_rate": sr,
             }
 
-    return av_save(
+    av_save(
         images=final_images,
         masks=final_masks_tensor,
         audio=final_audio_dict,
         output_path=output_path,
         fps=fps,
         profile=profile)
+
+    return (final_images, final_masks_tensor, final_audio_dict)

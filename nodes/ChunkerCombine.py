@@ -1,15 +1,12 @@
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
-from ..lib.av_load import av_load
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
-from ..lib.utils_comfy_repeat_nodes import (
-    get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, find_nodes_by_partial_name, increment_all_seeds)
-from ..lib.utils_format import (
-    format_images, format_masks, format_audio, format_fps, format_milliseconds)
+from ..lib.utils_comfy_repeat_nodes import (get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names_in_graph, get_ids_by_partial_names, increment_all_seeds)
+from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_milliseconds)
 from ..lib.utils_performance import get_ts
 
 
@@ -277,28 +274,54 @@ class ChunkerCombine(io.ComfyNode):
         #seed_nodes = find_nodes_by_partial_name(graph, self.hidden.unique_id, self.hidden.dynprompt)
         #log(seed_nodes)
 
-        all_seed_nodes = get_ids_by_partial_names(self.hidden.dynprompt, ["Sampler", "Noise"])
-        seed_nodes = [id for id in all_seed_nodes if id in clone_ids]
-        log(seed_nodes)
+        # all_seed_nodes = get_ids_by_partial_names(self.hidden.dynprompt, ["Sampler", "Noise"])
+        # seed_nodes = [id for id in all_seed_nodes if id in clone_ids]
+        # log(seed_nodes)
 
-        for id in seed_nodes:
-            class_type = self.hidden.dynprompt.get_node(id)["class_type"]
-            #original_id = self.hidden.dynprompt.get_display_node_id(id)
-            #log(f'Incrementing {class_type} #{original_id}')
-            log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
-            log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{id}')
+        # for id in seed_nodes:
+        #     class_type = self.hidden.dynprompt.get_node(id)["class_type"]
+        #     #original_id = self.hidden.dynprompt.get_display_node_id(id)
+        #     #log(f'Incrementing {class_type} #{original_id}')
+        #     log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
+        #     log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{id}')
 
-            #self.hidden.dynprompt.get_display_node_id(id)
+        #     #self.hidden.dynprompt.get_display_node_id(id)
             
-            try:
-                print(id)
-                node = graph.lookup_node(id)
-                print(node)
-            except:
-                print(f"An exception occurred in lookup_node {id}") 
-            '''
+        #     try:
+        #         print(id)
+        #         node = graph.lookup_node(id)
+        #         print(node)
+        #     except:
+        #         print(f"An exception occurred in lookup_node {id}") 
+        #     '''
+        #     node = graph.lookup_node(id)
+        #     log(node)
+
+        #     # if node has a disconnected seed input
+        #     seed = node.get_input("seed")
+        #     if isinstance(seed, int):
+        #         new_seed = seed + 1
+        #         log(f"Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
+        #         node.set_input("seed", new_seed)
+
+        #     # if node has a disconnected noise_seed input
+        #     noise_seed = node.get_input("noise_seed")
+        #     if isinstance(noise_seed, int):
+        #         new_noise_seed = noise_seed + 1
+        #         log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
+        #         node.set_input("noise_seed", new_noise_seed)
+        #     '''
+
+        seed_nodes = get_ids_by_partial_names_in_graph(graph, ["Sampler", "Noise"])
+        for id in seed_nodes:
+            real_id = id.replace(f"{self.hidden.unique_id}.0.0.", "")
+            node = graph.lookup_node(real_id)
+            original_id = self.hidden.dynprompt.get_display_node_id(real_id)
             node = graph.lookup_node(id)
-            log(node)
+
+            log(f"NEW id: {id}")
+            log(f"NEW real_id: {real_id}")
+            log(f"NEW original_id: {original_id}")
 
             # if node has a disconnected seed input
             seed = node.get_input("seed")
@@ -313,10 +336,9 @@ class ChunkerCombine(io.ComfyNode):
                 new_noise_seed = noise_seed + 1
                 log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
                 node.set_input("noise_seed", new_noise_seed)
-            '''
+        
 
-
-        if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
+        #if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
 
 
 

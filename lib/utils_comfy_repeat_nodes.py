@@ -49,10 +49,8 @@ def get_all_output_node_ids(dynprompt):
 
 
 def get_ids_by_partial_names(dynprompt, partial_names):
-    prompt = dynprompt.ephemeral_prompt if len(
-        dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
-    return [id for partial in partial_names for id,
-            info in prompt.items() if partial in info["class_type"]]
+    prompt = dynprompt.ephemeral_prompt if len(dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
+    return [id for partial in partial_names for id, info in prompt.items() if partial in info["class_type"]]
 
 
 def get_clone_ids(
@@ -95,7 +93,7 @@ def get_clone_ids(
 
     return clone_ids
 
-
+# TODO: is end_node_id really needed?
 def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
     graph = GraphBuilder()
 
@@ -122,13 +120,13 @@ def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
     return graph
 
 
-def find_nodes_by_partial_name(graph, end_node_id, dynprompt, partials=["Sampler", "Noise"]):
+def get_ids_by_partial_names_in_graph(graph, partial_names):
     found = []
     prompt = graph.finalize()
     for id in prompt:
         node = prompt[id]
         class_type = node["class_type"]
-        for partial in partials:
+        for partial in partial_names:
             if partial in class_type:
                 found.append(id)
     return found

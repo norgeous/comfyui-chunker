@@ -122,7 +122,19 @@ def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
     return graph
 
 
-def increment_all_seeds(graph, end_node_id):
+def find_nodes_by_partial_name(graph, end_node_id, dynprompt, partials=["Sampler", "Noise"]):
+    found = []
+    prompt = graph.finalize()
+    for id in prompt:
+        node = prompt[id]
+        class_type = node["class_type"]
+        for partial in partials:
+            if partial in class_type:
+                found.append(id)
+    return found
+
+
+def increment_all_seeds(graph, end_node_id, dynprompt):
     partials = ["Sampler", "Noise"]
     prompt = graph.finalize()
     for id in prompt:
@@ -132,19 +144,20 @@ def increment_all_seeds(graph, end_node_id):
             if partial in class_type:
                 real_id = id.replace(f"{end_node_id}.0.0.", "")
                 node = graph.lookup_node(real_id)
+                original_id = dynprompt.get_display_node_id(real_id)
 
                 # if node has a disconnected seed input
                 seed = node.get_input("seed")
                 if isinstance(seed, int):
                     new_seed = seed + 1
-                    log("new_seed", new_seed)
+                    log(f"Increment seed in {class_type} #{original_id}; {seed} -> {new_seed}")
                     node.set_input("seed", new_seed)
 
                 # if node has a disconnected noise_seed input
                 noise_seed = node.get_input("noise_seed")
                 if isinstance(noise_seed, int):
                     new_noise_seed = noise_seed + 1
-                    log("new_noise_seed", new_noise_seed)
+                    log(f"Increment noise_seed in {class_type} #{original_id}; {noise_seed} -> {new_noise_seed}")
                     node.set_input("noise_seed", new_noise_seed)
 
                 break

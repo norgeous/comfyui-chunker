@@ -7,7 +7,7 @@ from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
 from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import (
-    get_clone_ids, comfyui_repeat_nodes, increment_all_seeds)
+    get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, find_nodes_by_partial_name, increment_all_seeds)
 from ..lib.utils_format import (
     format_images, format_masks, format_audio, format_fps, format_milliseconds)
 from ..lib.utils_performance import get_ts
@@ -169,7 +169,7 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log("Combine all chunks...", end="")
             final_path = get_next_save_path("chunker-chunk-all", "mp4")[0]
-            av_combine(
+            out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                 paths=s["chunks"],
                 output_path=final_path,
                 overlap_frame_count=c["chunk_overlap"],
@@ -178,18 +178,9 @@ class ChunkerCombine(io.ComfyNode):
             )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-            out_images_torch, out_masks_torch, out_audio_dict = (
-                None, None, None)
-            ts = get_ts()
-            log("Load final tensors...", end="")
-            out_images_torch, out_masks_torch, out_audio_dict, _ = av_load(
-                path=final_path)
-            print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-            ts_chunk_end = get_ts()
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],
-                ts_chunk_end,
+                get_ts(),
             ]
 
             ui_values = {
@@ -225,45 +216,37 @@ class ChunkerCombine(io.ComfyNode):
             }
 
         # clone all the nodes between ChunkerDivide and ChunkerCombine
-        ts = get_ts()
-        clone_ids = get_clone_ids(
-            self.hidden.dynprompt,
-            d["start_node_id"],
-            self.hidden.unique_id,
-            ["Noise"] if increment_seeds else [])
-        log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
-        id_labels = list(
-            map(lambda id: int(
-                self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
-        id_labels.sort()
-        print(
-            f"{', '.join(list(map(lambda id: f'#{id}', id_labels)))}...",
-            end="")
-        graph = comfyui_repeat_nodes(
-            self.hidden.dynprompt,
-            clone_ids,
-            self.hidden.unique_id)
+        #ts = get_ts()
+        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
+
+        #log(f"Cloning {len(clone_ids)} nodes for next chunk; ", end="")
+        #id_labels = list(map(lambda id: int(self.hidden.dynprompt.get_display_node_id(id)), clone_ids))
+        #id_labels.sort()
+        #print(f"{', '.join(list(map(lambda id: f'#{id}', id_labels)))}...", end="")
+
+        clone_ids.sort()
+        for id in clone_ids: log(f'Cloning {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
+
+        graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
         # update the store in the new_divide
         new_divide = graph.lookup_node(d["start_node_id"])
         new_divide.set_input("store", {
             "index": d["index"] + 1,
             # filename of last chunk saved
-            "last_chunk_path": (
-                s["chunks"][-1] if len(s["chunks"]) > 0 else None),
+            "last_chunk_path": (s["chunks"][-1] if len(s["chunks"]) > 0 else None),
             "ts_chunk_starts": d["ts_chunk_starts"],
         })
 
         # update the store in the new_combine (this node)
         new_combine = graph.lookup_node("Recurse")
-        ts_chunk_end = get_ts()
         s["ts_chunk_ends"] = [
             *s["ts_chunk_ends"],
-            ts_chunk_end,
+            get_ts(),
         ]
         new_combine.set_input("store", s)
 
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+        #################print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Increment seed in cloned nodes with "Sampler" or "Noise"
         # in the node type name, such as;
@@ -272,8 +255,44 @@ class ChunkerCombine(io.ComfyNode):
         # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (when using Wan or LTX)
-        if increment_seeds:
-            increment_all_seeds(graph, self.hidden.unique_id)
+
+        #seed_nodes = find_nodes_by_partial_name(graph, self.hidden.unique_id, self.hidden.dynprompt)
+        #log(seed_nodes)
+
+        all_seed_nodes = get_ids_by_partial_names(self.hidden.dynprompt, ["Sampler", "Noise"])
+        seed_nodes = [id for id in all_seed_nodes if id in clone_ids]
+        log(seed_nodes)
+
+        for id in seed_nodes:
+            class_type = self.hidden.dynprompt.get_node(id)["class_type"]
+            #original_id = self.hidden.dynprompt.get_display_node_id(id)
+            #log(f'Incrementing {class_type} #{original_id}')
+            log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
+            log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{id}')
+
+            #self.hidden.dynprompt.get_display_node_id(id)
+
+            '''
+            node = graph.lookup_node(id)
+            log(node)
+
+            # if node has a disconnected seed input
+            seed = node.get_input("seed")
+            if isinstance(seed, int):
+                new_seed = seed + 1
+                log(f"Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
+                node.set_input("seed", new_seed)
+
+            # if node has a disconnected noise_seed input
+            noise_seed = node.get_input("noise_seed")
+            if isinstance(noise_seed, int):
+                new_noise_seed = noise_seed + 1
+                log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
+                node.set_input("noise_seed", new_noise_seed)
+            '''
+
+
+        #if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
 
         ui_values = {
             "input_label_values": {

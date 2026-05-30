@@ -271,6 +271,19 @@ class ChunkerCombine(io.ComfyNode):
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (when using Wan or LTX)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
         #seed_nodes = find_nodes_by_partial_name(graph, self.hidden.unique_id, self.hidden.dynprompt)
         #log(seed_nodes)
 
@@ -312,31 +325,56 @@ class ChunkerCombine(io.ComfyNode):
         #         node.set_input("noise_seed", new_noise_seed)
         #     '''
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         seed_nodes = get_ids_by_partial_names_in_graph(graph, ["Sampler", "Noise"])
         for id in seed_nodes:
             real_id = id.replace(f"{self.hidden.unique_id}.0.0.", "")
-            node = graph.lookup_node(real_id)
             original_id = self.hidden.dynprompt.get_display_node_id(real_id)
-            node = graph.lookup_node(id)
+            node = graph.lookup_node(real_id)
 
             log(f"NEW id: {id}")
-            log(f"NEW real_id: {real_id}")
             log(f"NEW original_id: {original_id}")
+            log(f"NEW real_id: {real_id}")
 
             # if node has a disconnected seed input
             seed = node.get_input("seed")
             if isinstance(seed, int):
                 new_seed = seed + 1
-                log(f"Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
+                log(f"Increment seed in {node['class_type']}#{original_id}; {seed} -> {new_seed}")
                 node.set_input("seed", new_seed)
 
             # if node has a disconnected noise_seed input
             noise_seed = node.get_input("noise_seed")
             if isinstance(noise_seed, int):
                 new_noise_seed = noise_seed + 1
-                log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
+                log(f"Increment noise_seed in {node['class_type']}#{original_id}; {noise_seed} -> {new_noise_seed}")
                 node.set_input("noise_seed", new_noise_seed)
         
+
+
+
+
+
+
+
+
+
+
+
+
 
         #if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
 

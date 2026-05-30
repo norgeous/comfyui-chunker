@@ -295,7 +295,7 @@ class ChunkerCombine(io.ComfyNode):
                 node = graph.lookup_node(id)
                 print(node)
             except:
-                print("An exception occurred in lookup_node") 
+                print(f"An exception occurred in lookup_node {id}") 
             '''
             node = graph.lookup_node(id)
             log(node)

@@ -246,7 +246,25 @@ class ChunkerCombine(io.ComfyNode):
         ]
         new_combine.set_input("store", s)
 
-        #################print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         # Increment seed in cloned nodes with "Sampler" or "Noise"
         # in the node type name, such as;
@@ -271,7 +289,13 @@ class ChunkerCombine(io.ComfyNode):
             log(f'Incrementing {self.hidden.dynprompt.get_node(id)["class_type"]}#{id}')
 
             #self.hidden.dynprompt.get_display_node_id(id)
-
+            
+            try:
+                print(id)
+                node = graph.lookup_node(id)
+                print(node)
+            except:
+                print("An exception occurred in lookup_node") 
             '''
             node = graph.lookup_node(id)
             log(node)
@@ -292,7 +316,22 @@ class ChunkerCombine(io.ComfyNode):
             '''
 
 
-        #if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
+        if increment_seeds: increment_all_seeds(graph, self.hidden.unique_id, self.hidden.dynprompt)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         ui_values = {
             "input_label_values": {

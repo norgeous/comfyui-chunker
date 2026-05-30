@@ -146,18 +146,22 @@ def increment_all_seeds(graph, end_node_id, dynprompt):
                 node = graph.lookup_node(real_id)
                 original_id = dynprompt.get_display_node_id(real_id)
 
+                log(f"OLD id: {id}")
+                log(f"OLD real_id: {real_id}")
+                log(f"OLD original_id: {original_id}")
+
                 # if node has a disconnected seed input
                 seed = node.get_input("seed")
                 if isinstance(seed, int):
                     new_seed = seed + 1
-                    log(f"Increment seed in {class_type} #{original_id}; {seed} -> {new_seed}")
+                    log(f"OLD Increment seed in {class_type} #{original_id}; {seed} -> {new_seed}")
                     node.set_input("seed", new_seed)
 
                 # if node has a disconnected noise_seed input
                 noise_seed = node.get_input("noise_seed")
                 if isinstance(noise_seed, int):
                     new_noise_seed = noise_seed + 1
-                    log(f"Increment noise_seed in {class_type} #{original_id}; {noise_seed} -> {new_noise_seed}")
+                    log(f"OLD Increment noise_seed in {class_type} #{original_id}; {noise_seed} -> {new_noise_seed}")
                     node.set_input("noise_seed", new_noise_seed)
 
                 break

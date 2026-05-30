@@ -346,8 +346,8 @@ class ChunkerCombine(io.ComfyNode):
             node = graph.lookup_node(real_id)
 
             log(f"NEW id: {id}")
-            log(f"NEW original_id: {original_id}")
             log(f"NEW real_id: {real_id}")
+            log(f"NEW original_id: {original_id}")
 
             # if node has a disconnected seed input
             seed = node.get_input("seed")

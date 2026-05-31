@@ -29,8 +29,7 @@ def concat_audios(audios: List[AudioDict]) -> AudioDict:
     return reduce(lambda a, b: concat_audio(a, b), audios)
 
 
-def get_next_save_path(filename_prefix: str,
-                       extension: str) -> Tuple[str, dict]:
+def get_next_save_path(filename_prefix: str, extension: str) -> Tuple[str, dict]:
     full_output_folder, filename, counter, subfolder, filename_prefix = (
         folder_paths.get_save_image_path(
             filename_prefix, folder_paths.get_temp_directory(),

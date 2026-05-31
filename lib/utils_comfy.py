@@ -38,11 +38,12 @@ def get_next_save_path(filename_prefix: str,
     )
     file = f"{filename}_{counter:05}_.{extension}"
     full_path = os.path.join(full_output_folder, file)
+    frontend_data = {
+        "filename": file,
+        "subfolder": subfolder,
+        "type": "temp",
+    }
     return (
         full_path,
-        {
-            "filename": file,
-            "subfolder": subfolder,
-            "type": "temp",
-        },
+        frontend_data,
     )

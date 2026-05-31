@@ -68,6 +68,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  &.cached { background: #57ab1e; }
   &.complete { background: #bada55; }
   &.current { background: linear-gradient(90deg, #bada55 0%, #bada55 50%, grey 50%, grey 100%); }
   &.pending { background: grey; }
@@ -115,6 +116,8 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   const value = out.slice(0, 2).join('');
   return value
 }
+
+
 
 const jsonDivStore = (element) => {
   element.insertAdjacentHTML("beforeEnd", '<pre class="chunker-data-store">{}</pre>');
@@ -202,7 +205,8 @@ app.registerExtension({
             const etaNext = formatMilliseconds(etaNextMillis, true, true);
             const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
             const dueDate = new Date(now + etaFinalMillis);
-            const due = `${String(dueDate.getHours()).padStart(2, '0')}${Math.round(now / 1000) % 2 === 0 ? ':' : ' '}${String(dueDate.getMinutes()).padStart(2, '0')}`
+            const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
+            const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
 
             const timings = `

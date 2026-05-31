@@ -205,14 +205,7 @@ app.registerExtension({
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            // const { index, chunk_count, historical_deltas, predicted_deltas, ts } = this.store.get();
             const { lastExecutionTs, bar } = this.store.get();
-
-            // if (!historical_deltas) {
-            //   element.querySelector(".chunker-status").innerHTML = `Awaiting data...`;
-            //   return
-            // }
-
             const now = Date.now();
             const elapsedMillis = now - lastExecutionTs;
             const delta = bar.find(({ type }) => type === 'current')?.value;
@@ -236,12 +229,12 @@ app.registerExtension({
             `;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${chunksCompleted !== bar.length ? timings : `Done in ${formatMilliseconds(totalMillis)}`}
+              ${chunksCompleted === bar.length ? `Done in ${formatMilliseconds(totalMillis)}` : timings}
               <div class="chunker-bar">
                 ${bar.map(({ type, value }, i) => `
                   <div
                     class="chunker-bar-section ${type}"
-                    ${ type === 'current' && value ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"` : '' }
+                    ${type === 'current' && value ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"` : ''}
                     title="Chunk ${i + 1}\n${type !== 'cached' ? formatMilliseconds(value) : 'cached'}"
                   >
                     ${type !== 'cached' ? formatMilliseconds(value) : 'cached'}
@@ -266,42 +259,18 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
           const now = Date.now();
           const {
-            // index,
             ts_chunk_starts,
             ts_chunk_ends,
             chunk_count,
             video_path,
           } = ui.values[0];
           const create_time = (await app.api.getQueue()).Running[0]?.create_time || (await app.api.getHistory())[0].create_time;
-
-          //
-          // const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
-          //   const ts_chunk_end = ts_chunk_ends[index];
-          //   const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
-          //   return [...acc, delta];
-          // }, []);
-          // const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
-          // const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
-          // const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
-          //
-
           const bar = calculateProgressBar(create_time, ts_chunk_starts, ts_chunk_ends, chunk_count);
           this.store.set({
-            // index,
-
-            //
-            // chunk_count,
-            // ts: now,
-            // historical_deltas,
-            // predicted_deltas,
-            //
-
-            //create_time, ts_chunk_starts, ts_chunk_ends,
             lastExecutionTs: now,
             bar,
             video_path,
           });
-
           if (video_path) {
             const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
             const videoTag  = infoContainer.querySelector("video");

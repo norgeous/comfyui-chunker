@@ -118,24 +118,6 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   return value
 }
 
-const calculateProgressBar = (createTime, chunkStartTimes, chunkEndTimes, chunkCount) => {
-  let deltaSum = 0;
-  let deltaCount = 0;
-  return Array.from({ length: chunkCount }, (_, i) => {
-    const startTs = chunkStartTimes[i]; // possibly undefined
-    const endTs = chunkEndTimes[i]; // possibly undefined
-    const delta = startTs && endTs ? endTs - startTs : undefined;
-    const avg = deltaCount ? deltaSum / deltaCount : undefined;
-    if (startTs < createTime) return { type: 'cached', value: endTs - createTime };
-    if (delta) {
-      deltaSum += delta;
-      deltaCount++;
-      return { type: 'complete', value: delta };
-    }
-    return { type: i === chunkStartTimes.length ? 'current' : 'pending', value: avg };
-  });
-};
-
 const jsonDivStore = (element) => {
   element.insertAdjacentHTML("beforeEnd", '<pre class="chunker-data-store">{}</pre>');
   const storeElement = element.querySelector(".chunker-data-store");
@@ -208,10 +190,10 @@ app.registerExtension({
             const { lastExecutionTs, bar } = this.store.get();
             const now = Date.now();
             const elapsedMillis = now - lastExecutionTs;
-            const delta = bar.find(({ type }) => type === 'current')?.value;
-            const percent = Math.min(1, Math.max(0, (elapsedMillis / delta) || 0.5)) * 100;
-            const etaNextMillis = delta ? delta - elapsedMillis : undefined;
-            const etaFinalMillis = bar.reduce((acc, { type, value }) => ['current', 'pending'].includes(type) && value ? acc + value : acc, 0) - elapsedMillis;
+            const currentDelta = bar.find(({ type }) => type === 'current')?.delta;
+            const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / delta) || 0.5)) * 100;
+            const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
+            const etaFinalMillis = bar.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
             const etaNext = formatMilliseconds(etaNextMillis, true, true);
             const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
             const dueDate = new Date(now + etaFinalMillis);
@@ -219,7 +201,7 @@ app.registerExtension({
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
             const chunksCompleted = bar.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
-            const totalMillis = bar.reduce((acc, { value }) => value ? acc + value : acc, 0);
+            const totalMillis = bar.reduce((acc, { delta }) => delta ? acc + value : acc, 0);
 
             const timings = `
               <div class="chunker-timings">
@@ -231,13 +213,13 @@ app.registerExtension({
             element.querySelector(".chunker-status").innerHTML = `
               ${chunksCompleted === bar.length ? `Done in ${formatMilliseconds(totalMillis)}` : timings}
               <div class="chunker-bar">
-                ${bar.map(({ type, value }, i) => `
+                ${bar.map(({ type, delta }, i) => `
                   <div
                     class="chunker-bar-section ${type}"
-                    ${type === 'current' && value ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"` : ''}
-                    title="Chunk ${i + 1}\n${type !== 'cached' ? formatMilliseconds(value) : 'cached'}"
+                    ${type === 'current' && delta ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                    title="Chunk ${i + 1}\n${formatMilliseconds(value)}${type === 'cached' ? ' (cached)' : ''}"
                   >
-                    ${type !== 'cached' ? formatMilliseconds(value) : 'cached'}
+                    ${type !== 'cached' ? formatMilliseconds(delta) : 'cached'}
                   </div>`).join('\n')}
               </div>
               <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
@@ -259,13 +241,9 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
           const now = Date.now();
           const {
-            ts_chunk_starts,
-            ts_chunk_ends,
-            chunk_count,
+            bar,
             video_path,
           } = ui.values[0];
-          const create_time = (await app.api.getQueue()).Running[0]?.create_time || (await app.api.getHistory())[0].create_time;
-          const bar = calculateProgressBar(create_time, ts_chunk_starts, ts_chunk_ends, chunk_count);
           this.store.set({
             lastExecutionTs: now,
             bar,

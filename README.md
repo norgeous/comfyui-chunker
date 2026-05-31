@@ -3,7 +3,7 @@
 Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
 
 - RAM: Chunker saves previous generation in an mp4 file, this means less ram is used
-- 
+- blends overlaps
 
 ![image](./workflows/chunker-wan21vace-t2v.png)
 [workflow](./workflows/chunker-wan21vace-t2v.json)
@@ -31,13 +31,16 @@ Create longer videos by automatically taking the last few frames of the last gen
 ## prep for release
 
 - Combine frontend
-  - swapping internal comfyui workflow tab erases progress bar and preview video
-    - setInterval init multiple times =[
   - "~0" on cached, should be "unknown"
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui
+  - caching seems a bit broken atm
+  - swapping internal comfyui workflow tab erases progress bar and preview video
+  - remove jsonDivStore?
 - Combine
+  - only use webm when mask is provided - its really slow! find a mp4 audio format that works on web ff+chrome
+  - optimise away save preview step
   - second chunk pbar is glitchy?
   - show chunk progresion in pbar as we finishing node execution?
   - dont repeat pbar 0 to 100 x4 times?

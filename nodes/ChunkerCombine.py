@@ -1,3 +1,4 @@
+import server
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
@@ -8,6 +9,7 @@ from ..lib.utils_comfy import get_next_save_path
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts
+from ..lib.calculate_progress_bar import calculate_progress_bar
 
 
 class ChunkerCombine(io.ComfyNode):
@@ -98,6 +100,8 @@ class ChunkerCombine(io.ComfyNode):
             "last_all_preview": None,
         }
 
+        create_time = next(iter(server.PromptServer.instance.prompt_queue.currently_running.values()))[3].get("create_time")
+
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
@@ -122,6 +126,8 @@ class ChunkerCombine(io.ComfyNode):
         preview = create_preview_video(
             images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # TODO: can the save preview step be skipped? ie modify av_combine to accept mixture of paths and tensors
 
         # Save preview
         ts = get_ts()
@@ -191,11 +197,11 @@ class ChunkerCombine(io.ComfyNode):
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
-                "index": d["index"],
-                "chunk_count": c["chunk_count"],
+                "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
                 "video_path": all_preview_frontend_data,
-                "ts_chunk_starts": d["ts_chunk_starts"],
-                "ts_chunk_ends": s["ts_chunk_ends"],
+                #"chunk_count": c["chunk_count"],
+                #"ts_chunk_starts": d["ts_chunk_starts"],
+                #"ts_chunk_ends": s["ts_chunk_ends"],
             }
 
             log(f"Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
@@ -269,11 +275,11 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": None,
                 "fps": None,
             },
-            "index": d["index"],
-            "chunk_count": c["chunk_count"],
+            "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
             "video_path": all_preview_frontend_data,
-            "ts_chunk_starts": d["ts_chunk_starts"],
-            "ts_chunk_ends": s["ts_chunk_ends"],
+            #"chunk_count": c["chunk_count"],
+            #"ts_chunk_starts": d["ts_chunk_starts"],
+            #"ts_chunk_ends": s["ts_chunk_ends"],
         }
 
         log(f"Finished chunk {d['index'] + 1} of {c['chunk_count']}")

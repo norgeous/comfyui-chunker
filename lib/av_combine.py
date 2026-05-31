@@ -125,7 +125,8 @@ def av_combine(
                 a_right = None
                 b_right = None
 
-            overlap_samples = overlap_frame_count * (sr // source_fps)
+            samples_per_frame = int(sr // source_fps)
+            overlap_samples = overlap_frame_count * samples_per_frame
             end_audio = a_left[-overlap_samples:]
             start_audio = b_left[:overlap_samples]
 
@@ -179,11 +180,13 @@ def av_combine(
             source_fps = src_fps
             is_stereo = src_audio["waveform"].shape[1] == 2
 
+            samples_per_frame = int(sr // source_fps)
+
             if is_stereo:
                 left = src_audio["waveform"][0, 0].numpy()
                 right = src_audio["waveform"][0, 1].numpy()
-                trim_start = remove_start * (sr // source_fps)
-                trim_end = remove_end * (sr // source_fps)
+                trim_start = remove_start * samples_per_frame
+                trim_end = remove_end * samples_per_frame
                 trimmed_left = (
                     left[trim_start:-trim_end]
                     if trim_end > 0
@@ -197,12 +200,12 @@ def av_combine(
                 audio_1d = src_audio["waveform"][0, 0].numpy()
                 trimmed_audio = (
                     audio_1d[slice(
-                        remove_start * (sr // source_fps),
-                        -remove_end * (sr // source_fps),
+                        remove_start * samples_per_frame,
+                        -remove_end * samples_per_frame,
                     )]
                     if remove_end > 0
                     else audio_1d[
-                        remove_start * (sr // source_fps):])
+                        remove_start * samples_per_frame:])
 
             final_audio.append(trimmed_audio)
 

@@ -92,7 +92,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
 .chunker-data-store {
   font-size:8px;
   text-align:left;
-  // display:none;
+  display:none;
 }
 </style>
 `);

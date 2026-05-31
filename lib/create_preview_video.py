@@ -155,7 +155,7 @@ def create_preview_video(
     audio_layout = ["", "mono", "stereo"][audio_channel_count]
     if audio is not None:
         audio_layout = f"{audio['sample_rate']}Hz {audio_layout}"
-    preview_video_chunk = overlay_debug_text(
+    preview_images = overlay_debug_text(
         preview_video_chunk,
         previous_count,
         d["index"],
@@ -167,5 +167,6 @@ def create_preview_video(
         overlap_blend_mode,
         audio_layout,
     )
-    preview_masks = preview_video_chunk[:, :, :, 3] if preview_video_chunk.shape[3] == 4 else None
-    return (preview_video_chunk, preview_masks, audio, d["fps"])
+    preview_masks = preview_images[:, :, :, 3] if preview_images.shape[3] == 4 else None
+    preview_images = preview_images[:, :, :, :3]
+    return (preview_images, preview_masks, audio, d["fps"])

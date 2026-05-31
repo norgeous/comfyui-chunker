@@ -13,10 +13,11 @@ def test_create_preview_video_with_images_masks_audio(output_dir):
         "chunk_count": 2,
         "total_length": 50}
     overlap_blend_mode = "linear"
-    result = create_preview_video(
+    preview, preview_masks, _, _ = create_preview_video(
         images, masks, audio, d, c, overlap_blend_mode)
     saved_path, _ = av_save(
-        images=result,
+        images=preview,
+        masks=preview_masks,
         audio=audio,
         filename_prefix="preview_test",
         fps=15.0,

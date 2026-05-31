@@ -120,15 +120,13 @@ class ChunkerCombine(io.ComfyNode):
 
         # Make preview from inputs
         ts = get_ts()
-        log("Make preview images...", end="")
-        preview = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
-        preview_masks = preview[:, :, :, 3] if preview.shape[3] == 4 else None
-        preview_tuple = (preview, preview_masks, audio, d["fps"])
+        log("Make preview...", end="")
+        preview_tuple = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
-        log("Combine all previews...", end="")
+        log("Combine previews...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=(
                 [s["last_all_preview"], preview_tuple]

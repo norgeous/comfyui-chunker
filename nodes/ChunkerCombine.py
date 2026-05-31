@@ -122,8 +122,7 @@ class ChunkerCombine(io.ComfyNode):
         # Make preview from inputs
         ts = get_ts()
         log("Make preview images...", end="")
-        preview = create_preview_video(
-            images, masks, audio, d, c, overlap_blend_mode)
+        preview = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # TODO: can the save preview step be skipped? ie modify av_combine to accept mixture of paths and tensors
@@ -195,9 +194,6 @@ class ChunkerCombine(io.ComfyNode):
                 },
                 "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
                 "video_path": all_preview_frontend_data,
-                #"chunk_count": c["chunk_count"],
-                #"ts_chunk_starts": d["ts_chunk_starts"],
-                #"ts_chunk_ends": s["ts_chunk_ends"],
             }
 
             log(f"Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
@@ -273,9 +269,6 @@ class ChunkerCombine(io.ComfyNode):
             },
             "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
             "video_path": all_preview_frontend_data,
-            #"chunk_count": c["chunk_count"],
-            #"ts_chunk_starts": d["ts_chunk_starts"],
-            #"ts_chunk_ends": s["ts_chunk_ends"],
         }
 
         log(f"Finished chunk {d['index'] + 1} of {c['chunk_count']}")

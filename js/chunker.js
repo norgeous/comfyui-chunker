@@ -85,7 +85,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
 .chunker-data-store {
   font-size:8px;
   text-align:left;
-  display:none;
+  // display:none;
 }
 </style>
 `);
@@ -117,7 +117,33 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   return value
 }
 
+const calculateProgressBar = (createTime, chunkStartTimes, chunkCount) => {
+  let deltaSum = 0;
+  let deltaCount = 0;
 
+  return Array.from({ length: chunkCount }, (_, i) => {
+    const ts = chunkStartTimes[i];
+    const nextTs = ts !== undefined ? chunkStartTimes[i + 1] : undefined;
+    const delta = nextTs !== undefined ? nextTs - ts : 0;
+    const avg = deltaCount ? deltaSum / deltaCount : 0;
+
+    if (ts !== undefined && ts < createTime)
+      return { type: 'cached', value: delta };
+
+    if (ts !== undefined && (nextTs !== undefined || i === chunkCount - 1)) {
+      if (nextTs !== undefined) {
+        deltaSum += delta;
+        deltaCount++;
+      }
+      return { type: 'complete', value: delta };
+    }
+
+    if (ts !== undefined)
+      return { type: 'current', value: avg };
+
+    return { type: 'pending', value: avg };
+  });
+};
 
 const jsonDivStore = (element) => {
   element.insertAdjacentHTML("beforeEnd", '<pre class="chunker-data-store">{}</pre>');
@@ -272,6 +298,10 @@ app.registerExtension({
           const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
           const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
           const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
+
+          const bar = calculateProgressBar(create_time, ts_chunk_starts, chunk_count);
+          console.log({ bar });
+
           this.store.set({
             index,
             chunk_count,

@@ -23,13 +23,14 @@ function chainCallback(object, property, callback) {
 const statusHeight = 40;
 document.body.insertAdjacentHTML("beforeEnd", `
 <style>
-:root {
-  --hdr-gradient: linear-gradient(-45deg in oklab, oklch(30% 0.5 340), oklch(30% 0.5 200));
+@keyframes scrollLeftRight {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
-@keyframes animatepos {
-  0%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-  100%{background-position:0% 50%}
+@keyframes scrollRight {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
 .chunker-info {
   display: flex;
@@ -78,9 +79,15 @@ document.body.insertAdjacentHTML("beforeEnd", `
   width: 100%;
   min-height: 100px;
   height: calc(100% - ${statusHeight}px);
-  background: var(--hdr-gradient);
-  background-size: 400% 400%;
-  animation: animatepos 30s infinite;
+  &.hdr-gradient {
+    background: linear-gradient(-45deg in oklab, oklch(30% 0.5 340), oklch(30% 0.5 200));
+    background-size: 400% 400%;
+    animation: scrollLeftRight 30s infinite;
+  }
+  &.checkerboard {
+    background: repeating-conic-gradient(#333 0 25%, #111 0 50%) 50% / 32px 32px;
+    animation: scrollRight 60s linear infinite;
+  }
 }
 .chunker-data-store {
   font-size:8px;
@@ -178,7 +185,7 @@ app.registerExtension({
           const element = document.createElement("div");
           element.className = "chunker-info"
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
+          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video hdr-gradient checkerboard" controls autoplay loop muted />`);
           element.querySelector(".chunker-video").volume = 0.5;
 
           this.store = jsonDivStore(element);
@@ -190,18 +197,18 @@ app.registerExtension({
             const { lastExecutionTs, bar } = this.store.get();
             const now = Date.now();
             const elapsedMillis = now - lastExecutionTs;
-            const currentDelta = bar.find(({ type }) => type === 'current')?.delta;
-            const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / delta) || 0.5)) * 100;
+            const currentDelta = bar?.find(({ type }) => type === 'current')?.delta;
+            const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
-            const etaFinalMillis = bar.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
+            const etaFinalMillis = bar?.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
             const etaNext = formatMilliseconds(etaNextMillis, true, true);
             const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
             const dueDate = new Date(now + etaFinalMillis);
             const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
-            const chunksCompleted = bar.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
-            const totalMillis = bar.reduce((acc, { delta }) => delta ? acc + value : acc, 0);
+            const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
+            const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
 
             const timings = `
               <div class="chunker-timings">
@@ -211,18 +218,20 @@ app.registerExtension({
             `;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${chunksCompleted === bar.length ? `Done in ${formatMilliseconds(totalMillis)}` : timings}
-              <div class="chunker-bar">
-                ${bar.map(({ type, delta }, i) => `
-                  <div
-                    class="chunker-bar-section ${type}"
-                    ${type === 'current' && delta ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
-                    title="Chunk ${i + 1}\n${formatMilliseconds(value)}${type === 'cached' ? ' (cached)' : ''}"
-                  >
-                    ${type !== 'cached' ? formatMilliseconds(delta) : 'cached'}
-                  </div>`).join('\n')}
-              </div>
-              <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
+              ${!bar ? 'Awaiting execution...' : `
+                ${chunksCompleted === bar?.length ? `Done in ${formatMilliseconds(totalMillis)}` : timings}
+                <div class="chunker-bar">
+                  ${bar.map(({ type, delta }, i) => `
+                    <div
+                      class="chunker-bar-section ${type}"
+                      ${type === 'current' && delta ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                      title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
+                    >
+                      ${type !== 'cached' ? formatMilliseconds(delta) : 'cached'}
+                    </div>`).join('\n')}
+                </div>
+                <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
+              `}
             `;
           }, 1_000);
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {

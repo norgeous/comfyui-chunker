@@ -5,7 +5,6 @@ from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
-
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts
@@ -22,55 +21,56 @@ class ChunkerCombine(io.ComfyNode):
             inputs=[
                 io.Custom("CHUNKER_DATA").Input(
                     "chunker_data",
-                    tooltip="Connect chunker_data "
-                            "from ChunkerDivide node to here",
+                    tooltip="Connect chunker_data from ChunkerDivide node to here",
                 ),
-                io.Image.Input("images",
-                               optional=True,
-                               tooltip="Processed chunk of images",
-                               ),
-                io.Mask.Input("masks",
-                              optional=True,
-                              tooltip="Processed chunk of masks",
-                              ),
-                io.Audio.Input("audio",
-                               optional=True,
-                               tooltip="Processed chunk of audio",
-                               ),
-                io.Combo.Input("overlap_blend_mode",
-                               options=list(map(
-                                   lambda member: member.value, BlendMode)),
-                               default=BlendMode.NEWER_ONLY.value,
-                               tooltip="When chunk_overlap is more than zero "
-                                       "this setting determines how images "
-                                       "and audio are blended",
-                               ),
+                io.Image.Input(
+                    "images",
+                    optional=True,
+                    tooltip="Processed chunk of images",
+                ),
+                io.Mask.Input(
+                    "masks",
+                    optional=True,
+                    tooltip="Processed chunk of masks",
+                ),
+                io.Audio.Input(
+                    "audio",
+                    optional=True,
+                    tooltip="Processed chunk of audio",
+                ),
+                io.Combo.Input(
+                    "overlap_blend_mode",
+                    options=list(map(lambda member: member.value, BlendMode)),
+                    default=BlendMode.NEWER_ONLY.value,
+                    tooltip="When chunk_overlap is more than zero this setting determines how images and audio are blended",
+                ),
                 io.Boolean.Input(
                     "increment_seeds",
-                    tooltip=("Increment \"seed\" or "
-                             "\"noise_seed\" inputs in repeated "
-                             "nodes that have \"Sampler\" "
-                             "or \"Noise\" within the node "
-                             "type name"),
+                    tooltip=("Increment \"seed\" or \"noise_seed\" inputs in repeated nodes that have \"Sampler\" or \"Noise\" within the node class name"),
                     default=True,
                 ),
-                io.Custom("*").Input("store",
-                                     optional=True,
-                                     ),
+                io.Custom("*").Input(
+                    "store",
+                    optional=True,
+                ),
             ],
             outputs=[
-                io.Image.Output("images",
-                                tooltip="Combined images from all chunks",
-                                ),
-                io.Mask.Output("masks",
-                               tooltip="Combined masks from all chunks",
-                               ),
-                io.Audio.Output("audio",
-                                tooltip="Combined audio from all chunks",
-                                ),
-                io.Float.Output("fps",
-                                tooltip="FPS",
-                                ),
+                io.Image.Output(
+                    "images",
+                    tooltip="Combined images from all chunks",
+                ),
+                io.Mask.Output(
+                    "masks",
+                    tooltip="Combined masks from all chunks",
+                ),
+                io.Audio.Output(
+                    "audio",
+                    tooltip="Combined audio from all chunks",
+                ),
+                io.Float.Output(
+                    "fps",
+                    tooltip="FPS",
+                ),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
             is_output_node=True,
@@ -89,8 +89,7 @@ class ChunkerCombine(io.ComfyNode):
         store=None,
     ):
         if images is None and masks is None and audio is None:
-            raise ValueError(
-                "At least one of images, masks, or audio must be provided.")
+            raise ValueError("At least one of images, masks, or audio must be provided.")
 
         d = chunker_data
         c = d["chunker_config"]
@@ -274,10 +273,10 @@ class ChunkerCombine(io.ComfyNode):
         log(f"Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
-            new_combine.out(0),  # images
-            new_combine.out(1),  # masks
-            new_combine.out(2),  # audio
-            new_combine.out(3),  # fps
+            new_combine.out(0), # images
+            new_combine.out(1), # masks
+            new_combine.out(2), # audio
+            new_combine.out(3), # fps
             ui={"values": [ui_values]},
             expand=graph.finalize(),
         )

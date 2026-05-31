@@ -7,7 +7,7 @@ from .av_load import av_load
 from .av_save import av_save, Profile, PROFILE_SETTINGS
 from .utils_comfy import get_next_save_path
 
-Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], int]
+Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], float]
 Overlap = Tuple[Union[List, torch.Tensor], Union[List, torch.Tensor], Optional[np.ndarray]]
 
 
@@ -63,7 +63,7 @@ def create_overlap_audio(
 
 
 def av_combine(
-    inputs: List[Union[str, Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], int]]],
+    inputs: List[Union[str, Source]],
     filename_prefix: str = "output",
     overlap_frame_count: int = 10,
     video_blend_mode: BlendMode = BlendMode.LINEAR,

@@ -1,10 +1,11 @@
 from fractions import Fraction
 from enum import Enum
-from typing import Optional
+from typing import Optional, Tuple
 import av
 import numpy as np
 import torch
 import comfy.utils
+from .utils_comfy import get_next_save_path
 
 
 class Profile(Enum):
@@ -14,7 +15,7 @@ class Profile(Enum):
 
 PROFILE_SETTINGS = {
     Profile.HQ: {
-        "file_extension": ".mp4",
+        "file_extension": "mp4",
         "video_codec": "h264",
         "video_pixel_format": "yuv420p",
         "video_options": {"preset": "slow", "crf": "10"},
@@ -22,7 +23,7 @@ PROFILE_SETTINGS = {
         "audio_options": {},
     },
     Profile.WEB: {
-        "file_extension": ".webm",
+        "file_extension": "webm",
         "video_codec": "vp9",
         "video_pixel_format": "yuva420p",
         "video_options": {"crf": "30"},
@@ -36,21 +37,19 @@ def av_save(
     images: Optional[torch.Tensor] = None,
     masks: Optional[torch.Tensor] = None,
     audio: Optional[dict] = None,
-    output_path: str = "output",
+    filename_prefix: str = "output",
     fps: float = 30.0,
     profile: Profile = Profile.HQ,
-) -> str:
+) -> Tuple[str, dict]:
     if images is None and audio is None:
         raise ValueError("At least one of images or audio must be provided")
 
     settings = PROFILE_SETTINGS[profile]
 
-    if output_path.endswith(settings["file_extension"]):
-        output_path = output_path[:-len(settings["file_extension"])]
+    output_path, frontend_data = get_next_save_path(
+        filename_prefix, settings["file_extension"])
 
-    with av.open(
-        f"{output_path}{settings['file_extension']}", mode='w'
-    ) as container:
+    with av.open(output_path, mode='w') as container:
         video_stream = None
         mask_stream = None
         audio_stream = None
@@ -156,4 +155,4 @@ def av_save(
             for packet in audio_stream.encode():
                 container.mux(packet)
 
-    return f"{output_path}{settings['file_extension']}"
+    return (output_path, frontend_data)

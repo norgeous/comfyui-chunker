@@ -5,7 +5,7 @@ from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
-from ..lib.utils_comfy import get_next_save_path
+
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts
@@ -109,13 +109,12 @@ class ChunkerCombine(io.ComfyNode):
         # save input images and audio to lossless file
         ts = get_ts()
         log("Save chunk...", end="")
-        chunk_path = get_next_save_path("chunker-chunk", "mp4")[0]
-        chunk_path = av_save(
+        chunk_path, _ = av_save(
             images=images,
             masks=masks,
             audio=audio,
             fps=d["fps"],
-            output_path=chunk_path,
+            filename_prefix="chunker-chunk",
         )
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -132,14 +131,13 @@ class ChunkerCombine(io.ComfyNode):
         # Save preview
         ts = get_ts()
         log("Save preview...", end="")
-        preview_path = get_next_save_path("chunker-preview", "webm")[0]
         preview_masks = preview[:, :, :, 3] if preview.shape[3] == 4 else None
-        preview_path = av_save(
+        preview_path, _ = av_save(
             images=preview,
             masks=preview_masks,
             audio=audio,
             fps=d["fps"],
-            output_path=preview_path,
+            filename_prefix="chunker-preview",
             profile=Profile.WEB,
         )
         print(f"done ({format_milliseconds(get_ts() - ts)})")
@@ -147,14 +145,13 @@ class ChunkerCombine(io.ComfyNode):
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data = get_next_save_path("chunker-preview-all", "webm")
-        av_combine(
+        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
             paths=(
                 [s["last_all_preview"], preview_path]
                 if s["last_all_preview"] is not None
                 else [preview_path]
             ),
-            output_path=all_preview_path,
+            filename_prefix="chunker-preview-all",
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),
             audio_blend_mode=BlendMode(overlap_blend_mode),
@@ -170,10 +167,9 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Combine all chunks...", end="")
-            final_path = get_next_save_path("chunker-chunk-all", "mp4")[0]
-            out_images_torch, out_masks_torch, out_audio_dict = av_combine(
+            _, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                 paths=s["chunks"],
-                output_path=final_path,
+                filename_prefix="chunker-chunk-all",
                 overlap_frame_count=c["chunk_overlap"],
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),

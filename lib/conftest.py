@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 import numpy as np
 import torch
@@ -87,12 +88,15 @@ def generate_source_video(
         bg_color, line_num, freq, pixel_y_offset, stereo,
         video_frames, audio_duration,
     )
-    av_save(
+    basename = os.path.splitext(os.path.basename(output_path))[0]
+    saved_path, _ = av_save(
         images=images,
         audio=audio,
-        output_path=output_path,
         fps=fps,
+        filename_prefix=basename,
     )
+    shutil.copy2(saved_path, output_path)
+    os.remove(saved_path)
 
 
 def get_frame_info(video_path):

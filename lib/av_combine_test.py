@@ -10,12 +10,12 @@ def test_no_overlap(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-0o-none.mp4")
+    result_path, _, _, _, _ = av_combine(
+        videos, overlap_frame_count=0, video_blend_mode=BlendMode.LINEAR,
+        audio_blend_mode=BlendMode.EQUAL_POWER,
+        filename_prefix="combine-3x30i-0o-none")
 
-    av_combine(
-        videos, output_path, 0, BlendMode.LINEAR, BlendMode.EQUAL_POWER)
-
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 90, f"Expected 90 frames, got {len(frames)}"
 
@@ -61,16 +61,14 @@ def test_older_only(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-4o-older_only.mp4")
-
-    av_combine(
+    result_path, _, _, _, _ = av_combine(
         videos,
-        output_path,
-        4,
-        BlendMode.OLDER_ONLY,
-        BlendMode.OLDER_ONLY)
+        overlap_frame_count=4,
+        video_blend_mode=BlendMode.OLDER_ONLY,
+        audio_blend_mode=BlendMode.OLDER_ONLY,
+        filename_prefix="combine-3x30i-4o-older_only")
 
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -116,11 +114,12 @@ def test_linear_blend(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-4o-linear.mp4")
+    result_path, _, _, _, _ = av_combine(
+        videos, overlap_frame_count=4, video_blend_mode=BlendMode.LINEAR,
+        audio_blend_mode=BlendMode.LINEAR,
+        filename_prefix="combine-3x30i-4o-linear")
 
-    av_combine(videos, output_path, 4, BlendMode.LINEAR, BlendMode.LINEAR)
-
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -202,16 +201,14 @@ def test_ease_in_out(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-4o-ease_in_out.mp4")
-
-    av_combine(
+    result_path, _, _, _, _ = av_combine(
         videos,
-        output_path,
-        4,
-        BlendMode.EASE_IN_OUT,
-        BlendMode.EASE_IN_OUT)
+        overlap_frame_count=4,
+        video_blend_mode=BlendMode.EASE_IN_OUT,
+        audio_blend_mode=BlendMode.EASE_IN_OUT,
+        filename_prefix="combine-3x30i-4o-ease_in_out")
 
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -301,16 +298,14 @@ def test_newer_only(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-4o-newer_only.mp4")
-
-    av_combine(
+    result_path, _, _, _, _ = av_combine(
         videos,
-        output_path,
-        4,
-        BlendMode.NEWER_ONLY,
-        BlendMode.NEWER_ONLY)
+        overlap_frame_count=4,
+        video_blend_mode=BlendMode.NEWER_ONLY,
+        audio_blend_mode=BlendMode.NEWER_ONLY,
+        filename_prefix="combine-3x30i-4o-newer_only")
 
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -356,16 +351,14 @@ def test_equal_power(source_videos, output_dir):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    output_path = os.path.join(output_dir, "combine-3x30i-4o-equal_power.mp4")
-
-    av_combine(
+    result_path, _, _, _, _ = av_combine(
         videos,
-        output_path,
-        4,
-        BlendMode.EQUAL_POWER,
-        BlendMode.EQUAL_POWER)
+        overlap_frame_count=4,
+        video_blend_mode=BlendMode.EQUAL_POWER,
+        audio_blend_mode=BlendMode.EQUAL_POWER,
+        filename_prefix="combine-3x30i-4o-equal_power")
 
-    frames, audio_samples, _, _, _ = get_frame_info(output_path)
+    frames, audio_samples, _, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -447,12 +440,12 @@ def test_stereo_linear_blend(source_videos, output_dir):
         str(source_videos["source2_stereo"]),
         str(source_videos["source3_stereo"]),
     ]
-    output_path = os.path.join(output_dir,
-                               "combine-3x30i-4o-stereo_linear.mp4")
+    result_path, _, _, _, _ = av_combine(
+        videos, overlap_frame_count=4, video_blend_mode=BlendMode.LINEAR,
+        audio_blend_mode=BlendMode.LINEAR,
+        filename_prefix="combine-3x30i-4o-stereo_linear")
 
-    av_combine(videos, output_path, 4, BlendMode.LINEAR, BlendMode.LINEAR)
-
-    frames, _, audio_left, audio_right, _ = get_frame_info(output_path)
+    frames, _, audio_left, audio_right, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 

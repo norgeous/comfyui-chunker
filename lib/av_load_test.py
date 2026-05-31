@@ -44,8 +44,7 @@ def test_save_load_mono_roundtrip(output_dir, profile):
     freq = 440
     images, masks, audio = create_source_tensors(bg_color=(
         255, 0, 0), line_num=1, freq=freq, stereo=False, audio_duration=1.0)
-    path = os.path.join(output_dir, "roundtrip_mono")
-    saved_path = av_save(audio=audio, output_path=path, profile=profile)
+    saved_path, _ = av_save(audio=audio, filename_prefix="roundtrip_mono", profile=profile)
     _, _, loaded, _ = av_load(saved_path)
     assert loaded["waveform"].shape[0] == 1
     assert loaded["waveform"].shape[1] == 1
@@ -66,8 +65,7 @@ def test_save_load_stereo_roundtrip(output_dir, profile):
     freq = 440
     images, masks, audio = create_source_tensors(bg_color=(
         255, 0, 0), line_num=1, freq=freq, stereo=True, audio_duration=1.0)
-    path = os.path.join(output_dir, "roundtrip_stereo")
-    saved_path = av_save(audio=audio, output_path=path, profile=profile)
+    saved_path, _ = av_save(audio=audio, filename_prefix="roundtrip_stereo", profile=profile)
     _, _, loaded, _ = av_load(saved_path)
     assert loaded["waveform"].shape[0] == 1
     assert loaded["waveform"].shape[1] == 2

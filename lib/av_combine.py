@@ -1,10 +1,11 @@
 import math
 from enum import Enum
-from typing import List
+from typing import List, Optional, Tuple
 import numpy as np
 import torch
 from .av_load import av_load
-from .av_save import av_save, Profile
+from .av_save import av_save, Profile, PROFILE_SETTINGS
+from .utils_comfy import get_next_save_path
 
 
 class BlendMode(Enum):
@@ -60,12 +61,12 @@ def create_overlap_audio(
 
 def av_combine(
     paths: List[str],
-    output_path: str,
+    filename_prefix: str = "output",
     overlap_frame_count: int = 10,
     video_blend_mode: BlendMode = BlendMode.LINEAR,
     audio_blend_mode: BlendMode = BlendMode.EQUAL_POWER,
     profile: Profile = Profile.HQ,
-) -> str:
+) -> Tuple[str, dict, Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict]]:
     sources = []
     for path in paths:
         images, masks, audio, fps = av_load(path)
@@ -237,12 +238,15 @@ def av_combine(
                 "sample_rate": sr,
             }
 
+    output_path, frontend_data = get_next_save_path(
+        filename_prefix, PROFILE_SETTINGS[profile]["file_extension"])
+
     av_save(
         images=final_images,
         masks=final_masks_tensor,
         audio=final_audio_dict,
-        output_path=output_path,
+        filename_prefix=filename_prefix,
         fps=fps,
         profile=profile)
 
-    return (final_images, final_masks_tensor, final_audio_dict)
+    return (output_path, frontend_data, final_images, final_masks_tensor, final_audio_dict)

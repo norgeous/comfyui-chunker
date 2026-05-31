@@ -15,11 +15,10 @@ def test_create_preview_video_with_images_masks_audio(output_dir):
     overlap_blend_mode = "linear"
     result = create_preview_video(
         images, masks, audio, d, c, overlap_blend_mode)
-    output_path = os.path.join(output_dir, "preview_test.webm")
-    av_save(
+    saved_path, _ = av_save(
         images=result,
         audio=audio,
-        output_path=output_path,
+        filename_prefix="preview_test",
         fps=15.0,
         profile=Profile.WEB)
-    assert os.path.exists(output_path)
+    assert os.path.exists(saved_path)

@@ -205,15 +205,13 @@ app.registerExtension({
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            const { index, chunk_count, historical_deltas, predicted_deltas, ts } = this.store.get();
+            // const { index, chunk_count, historical_deltas, predicted_deltas, ts } = this.store.get();
             const { lastExecutionTs, bar } = this.store.get();
 
-            const chunks_completed = index + 1;
-
-            if (!historical_deltas) {
-              element.querySelector(".chunker-status").innerHTML = `Awaiting data...`;
-              return
-            }
+            // if (!historical_deltas) {
+            //   element.querySelector(".chunker-status").innerHTML = `Awaiting data...`;
+            //   return
+            // }
 
             const now = Date.now();
             const elapsedMillis = now - lastExecutionTs;
@@ -227,6 +225,8 @@ app.registerExtension({
             const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
+            const chunksCompleted = bar.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
+            const totalMillis = bar.reduce((acc, { value }) => value ? acc + value : acc, 0);
 
             const timings = `
               <div class="chunker-timings">
@@ -236,7 +236,7 @@ app.registerExtension({
             `;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${predicted_deltas?.length ? timings : `Done in ${formatMilliseconds(historical_deltas.reduce((acc, delta) => typeof delta === 'number'? acc + delta : acc, 0))}`}
+              ${chunksCompleted !== bar.length ? timings : `Done in ${formatMilliseconds(totalMillis)}`}
               <div class="chunker-bar">
                 ${bar.map(({ type, value }, i) => `
                   <div
@@ -247,7 +247,7 @@ app.registerExtension({
                     ${type !== 'cached' ? formatMilliseconds(value) : 'cached'}
                   </div>`).join('\n')}
               </div>
-              <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
+              <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
             `;
           }, 1_000);
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
@@ -266,34 +266,34 @@ app.registerExtension({
           updateLabels(this, ui.values[0]);
           const now = Date.now();
           const {
-            index,
-            chunk_count,
-            video_path,
+            // index,
             ts_chunk_starts,
             ts_chunk_ends,
+            chunk_count,
+            video_path,
           } = ui.values[0];
           const create_time = (await app.api.getQueue()).Running[0]?.create_time || (await app.api.getHistory())[0].create_time;
 
           //
-          const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
-            const ts_chunk_end = ts_chunk_ends[index];
-            const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
-            return [...acc, delta];
-          }, []);
-          const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
-          const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
-          const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
+          // const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
+          //   const ts_chunk_end = ts_chunk_ends[index];
+          //   const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
+          //   return [...acc, delta];
+          // }, []);
+          // const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
+          // const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
+          // const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
           //
 
           const bar = calculateProgressBar(create_time, ts_chunk_starts, ts_chunk_ends, chunk_count);
           this.store.set({
-            index,
+            // index,
 
             //
-            chunk_count,
-            ts: now,
-            historical_deltas,
-            predicted_deltas,
+            // chunk_count,
+            // ts: now,
+            // historical_deltas,
+            // predicted_deltas,
             //
 
             //create_time, ts_chunk_starts, ts_chunk_ends,

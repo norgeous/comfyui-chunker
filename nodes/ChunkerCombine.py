@@ -122,32 +122,18 @@ class ChunkerCombine(io.ComfyNode):
         ts = get_ts()
         log("Make preview images...", end="")
         preview = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-        # TODO: can the save preview step be skipped? ie modify av_combine to accept mixture of paths and tensors
-
-        # Save preview
-        ts = get_ts()
-        log("Save preview...", end="")
         preview_masks = preview[:, :, :, 3] if preview.shape[3] == 4 else None
-        preview_path, _ = av_save(
-            images=preview,
-            masks=preview_masks,
-            audio=audio,
-            fps=d["fps"],
-            filename_prefix="chunker-preview",
-            profile=Profile.WEB,
-        )
+        preview_tuple = (preview, preview_masks, audio, d["fps"])
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
-            paths=(
-                [s["last_all_preview"], preview_path]
+            inputs=(
+                [s["last_all_preview"], preview_tuple]
                 if s["last_all_preview"] is not None
-                else [preview_path]
+                else [preview_tuple]
             ),
             filename_prefix="chunker-preview-all",
             overlap_frame_count=c["chunk_overlap"],
@@ -166,7 +152,7 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log("Combine all chunks...", end="")
             _, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
-                paths=s["chunks"],
+                inputs=s["chunks"],
                 filename_prefix="chunker-chunk-all",
                 overlap_frame_count=c["chunk_overlap"],
                 video_blend_mode=BlendMode(overlap_blend_mode),

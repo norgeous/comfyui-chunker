@@ -68,9 +68,9 @@ document.body.insertAdjacentHTML("beforeEnd", `
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  &.cached { background: #57ab1e; }
-  &.complete { background: #bada55; }
-  &.current { background: linear-gradient(90deg, #bada55 0%, #bada55 50%, grey 50%, grey 100%); }
+  &.cached { background: #bada55; }
+  &.complete { background: #57ab1e; }
+  &.current { background: linear-gradient(90deg, aqua 0%, aqua 50%, grey 50%, grey 100%); }
   &.pending { background: grey; }
 }
 .chunker-video {
@@ -91,6 +91,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
 `);
 
 const formatMilliseconds = (ms, hideMs = false, pad = false) => {
+  if (!ms && ms !== 0) return 'unknown';
   ms = Math.floor(ms)
   if (ms < 0) return "overdue";
   if (ms === 0) return "0";
@@ -117,31 +118,21 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   return value
 }
 
-const calculateProgressBar = (createTime, chunkStartTimes, chunkCount) => {
+const calculateProgressBar = (createTime, chunkStartTimes, chunkEndTimes, chunkCount) => {
   let deltaSum = 0;
   let deltaCount = 0;
-
   return Array.from({ length: chunkCount }, (_, i) => {
-    const ts = chunkStartTimes[i];
-    const nextTs = ts !== undefined ? chunkStartTimes[i + 1] : undefined;
-    const delta = nextTs !== undefined ? nextTs - ts : 0;
-    const avg = deltaCount ? deltaSum / deltaCount : 0;
-
-    if (ts !== undefined && ts < createTime)
-      return { type: 'cached', value: delta };
-
-    if (ts !== undefined && (nextTs !== undefined || i === chunkCount - 1)) {
-      if (nextTs !== undefined) {
-        deltaSum += delta;
-        deltaCount++;
-      }
+    const startTs = chunkStartTimes[i]; // possibly undefined
+    const endTs = chunkEndTimes[i]; // possibly undefined
+    const delta = startTs && endTs ? endTs - startTs : undefined;
+    const avg = deltaCount ? deltaSum / deltaCount : undefined;
+    if (startTs < createTime) return { type: 'cached', value: endTs - createTime };
+    if (delta) {
+      deltaSum += delta;
+      deltaCount++;
       return { type: 'complete', value: delta };
     }
-
-    if (ts !== undefined)
-      return { type: 'current', value: avg };
-
-    return { type: 'pending', value: avg };
+    return { type: i === chunkStartTimes.length ? 'current' : 'pending', value: avg };
   });
 };
 
@@ -215,6 +206,7 @@ app.registerExtension({
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
             const { index, chunk_count, historical_deltas, predicted_deltas, ts } = this.store.get();
+            const { lastExecutionTs, bar } = this.store.get();
 
             const chunks_completed = index + 1;
 
@@ -224,10 +216,11 @@ app.registerExtension({
             }
 
             const now = Date.now();
-            const elapsedMillis = now - ts;
-            const etaNextMillis = typeof predicted_deltas[0] === 'number' ? predicted_deltas[0] - elapsedMillis : 0;
-            const etaFinalMillis = predicted_deltas ? predicted_deltas.reduce((acc, delta) => typeof delta === 'number' ? acc + delta : 0, 0) - elapsedMillis : 0;
-
+            const elapsedMillis = now - lastExecutionTs;
+            const delta = bar.find(({ type }) => type === 'current')?.value;
+            const percent = Math.min(1, Math.max(0, (elapsedMillis / delta) || 0.5)) * 100;
+            const etaNextMillis = delta ? delta - elapsedMillis : undefined;
+            const etaFinalMillis = bar.reduce((acc, { type, value }) => ['current', 'pending'].includes(type) && value ? acc + value : acc, 0) - elapsedMillis;
             const etaNext = formatMilliseconds(etaNextMillis, true, true);
             const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
             const dueDate = new Date(now + etaFinalMillis);
@@ -245,24 +238,14 @@ app.registerExtension({
             element.querySelector(".chunker-status").innerHTML = `
               ${predicted_deltas?.length ? timings : `Done in ${formatMilliseconds(historical_deltas.reduce((acc, delta) => typeof delta === 'number'? acc + delta : acc, 0))}`}
               <div class="chunker-bar">
-                ${historical_deltas.map((delta, i) => {
-                  const label = typeof delta === 'number' ? `${formatMilliseconds(delta)}` : delta;
-                  return `<div class="chunker-bar-section complete" title="Chunk ${i + 1}\n${label}">${label}</div>`;
-                }).join('\n')}
-                ${predicted_deltas?.map((delta, i) => {
-                  const label = typeof delta === 'number' ? `${formatMilliseconds(delta)}` : delta;
-                  if (i === 0) {
-                    const percent = typeof delta === 'number' ? Math.min(1, Math.max(0, (elapsedMillis) / delta)) * 100 : 50;
-                    return `
-                      <div
-                        class="chunker-bar-section current"
-                        style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"
-                        title="Chunk ${i + 1 + historical_deltas.length}\n~${label}"
-                      >${label}</div>
-                    `;
-                  }
-                  return `<div class="chunker-bar-section pending" title="Chunk ${i + 1 + historical_deltas.length}\n~${label}">${label}</div>`;
-                }).join('\n')}
+                ${bar.map(({ type, value }, i) => `
+                  <div
+                    class="chunker-bar-section ${type}"
+                    ${ type === 'current' && value ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${percent}%, grey ${percent}%, grey 100%);"` : '' }
+                    title="Chunk ${i + 1}\n${type !== 'cached' ? formatMilliseconds(value) : 'cached'}"
+                  >
+                    ${type !== 'cached' ? formatMilliseconds(value) : 'cached'}
+                  </div>`).join('\n')}
               </div>
               <div>Showing up to ${chunks_completed} of ${chunk_count}</div>
             `;
@@ -290,6 +273,8 @@ app.registerExtension({
             ts_chunk_ends,
           } = ui.values[0];
           const create_time = (await app.api.getQueue()).Running[0]?.create_time || (await app.api.getHistory())[0].create_time;
+
+          //
           const historical_deltas = ts_chunk_starts.reduce((acc, ts_chunk_start, index) => {
             const ts_chunk_end = ts_chunk_ends[index];
             const delta = ts_chunk_start < create_time ? "cached" : ts_chunk_end - ts_chunk_start;
@@ -298,16 +283,22 @@ app.registerExtension({
           const useful_historical_deltas = historical_deltas.filter(delta => typeof delta === 'number');
           const average = Math.round(useful_historical_deltas.reduce((acc, delta) => acc + delta, 0) / (useful_historical_deltas.length || 1)) || 'unknown';
           const predicted_deltas = Array.from({ length: chunk_count - historical_deltas.length }).fill(average);
+          //
 
-          const bar = calculateProgressBar(create_time, ts_chunk_starts, chunk_count);
-          console.log({ bar });
-
+          const bar = calculateProgressBar(create_time, ts_chunk_starts, ts_chunk_ends, chunk_count);
           this.store.set({
             index,
+
+            //
             chunk_count,
             ts: now,
             historical_deltas,
             predicted_deltas,
+            //
+
+            //create_time, ts_chunk_starts, ts_chunk_ends,
+            lastExecutionTs: now,
+            bar,
             video_path,
           });
 

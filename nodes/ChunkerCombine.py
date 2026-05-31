@@ -96,7 +96,7 @@ class ChunkerCombine(io.ComfyNode):
         s = store if store is not None else {
             "chunks": [],
             "ts_chunk_ends": [],
-            "last_all_preview": None,
+            "last_preview": None,
         }
 
         create_time = next(iter(server.PromptServer.instance.prompt_queue.currently_running.values()))[3].get("create_time")
@@ -129,17 +129,17 @@ class ChunkerCombine(io.ComfyNode):
         log("Combine previews...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=(
-                [s["last_all_preview"], preview_tuple]
-                if s["last_all_preview"] is not None
+                [s["last_preview"], preview_tuple]
+                if s["last_preview"] is not None
                 else [preview_tuple]
             ),
-            filename_prefix="chunker-preview-all",
+            filename_prefix="chunker-preview",
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),
             audio_blend_mode=BlendMode(overlap_blend_mode),
             profile=Profile.WEB,
         )
-        s["last_all_preview"] = all_preview_path
+        s["last_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # figure out if we have completed all chunks

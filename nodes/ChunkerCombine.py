@@ -46,7 +46,7 @@ class ChunkerCombine(io.ComfyNode):
                 io.Boolean.Input(
                     "increment_seeds",
                     tooltip=("Increment \"seed\" or "
-                             "\"noise_seed\" inputs in cloned "
+                             "\"noise_seed\" inputs in repeated "
                              "nodes that have \"Sampler\" "
                              "or \"Noise\" within the node "
                              "type name"),

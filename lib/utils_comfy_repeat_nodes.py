@@ -53,6 +53,10 @@ def get_ids_by_partial_names(dynprompt, partial_names):
     return [id for partial in partial_names for id, info in prompt.items() if partial in info["class_type"]]
 
 
+def get_ids_by_partial_names_in_graph(graph, partial_names):
+    return [id for id, node in graph.finalize().items() for partial in partial_names if partial in node["class_type"]]
+
+
 def get_clone_ids(
         dynprompt,
         start_node_id,
@@ -90,7 +94,7 @@ def get_clone_ids(
 
     # flatten and uniqueify
     clone_ids = list(set(item for sublist in trimmed for item in sublist))
-
+    clone_ids.sort()
     return clone_ids
 
 # TODO: is end_node_id and "Recurse" really needed?
@@ -116,48 +120,3 @@ def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
                 node.set_input(k, v)
 
     return graph
-
-
-def get_ids_by_partial_names_in_graph(graph, partial_names):
-    found = []
-    prompt = graph.finalize()
-    for id in prompt:
-        node = prompt[id]
-        class_type = node["class_type"]
-        for partial in partial_names:
-            if partial in class_type:
-                found.append(id)
-    return found
-
-
-def increment_all_seeds(graph, end_node_id, dynprompt):
-    partials = ["Sampler", "Noise"]
-    prompt = graph.finalize()
-    for id in prompt:
-        node = prompt[id]
-        class_type = node["class_type"]
-        for partial in partials:
-            if partial in class_type:
-                real_id = id.replace(f"{end_node_id}.0.0.", "")
-                node = graph.lookup_node(real_id)
-                original_id = dynprompt.get_display_node_id(real_id)
-
-                log(f"OLD id: {id}")
-                log(f"OLD real_id: {real_id}")
-                log(f"OLD original_id: {original_id}")
-
-                # if node has a disconnected seed input
-                seed = node.get_input("seed")
-                if isinstance(seed, int):
-                    new_seed = seed + 1
-                    log(f"OLD Increment seed in {class_type} #{original_id}; {seed} -> {new_seed}")
-                    node.set_input("seed", new_seed)
-
-                # if node has a disconnected noise_seed input
-                noise_seed = node.get_input("noise_seed")
-                if isinstance(noise_seed, int):
-                    new_noise_seed = noise_seed + 1
-                    log(f"OLD Increment noise_seed in {class_type} #{original_id}; {noise_seed} -> {new_noise_seed}")
-                    node.set_input("noise_seed", new_noise_seed)
-
-                break

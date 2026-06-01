@@ -144,6 +144,11 @@ const updateLabels = (that, ui_values = {}) => {
   });
 };
 
+const getBackgroundClass = (videoPath) => {
+  const filename = new URLSearchParams(videoPath).get('filename') || '';
+  return filename.endsWith('.webm') ? 'checkerboard' : 'hdr-gradient';
+};
+
 app.registerExtension({
   name: "chunker",
 
@@ -185,7 +190,7 @@ app.registerExtension({
           const element = document.createElement("div");
           element.className = "chunker-info"
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
-          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video hdr-gradient checkerboard" controls autoplay loop muted />`);
+          element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
           element.querySelector(".chunker-video").volume = 0.5;
 
           this.store = jsonDivStore(element);
@@ -263,6 +268,8 @@ app.registerExtension({
             const videoTag  = infoContainer.querySelector("video");
             const videoParams = new URLSearchParams(video_path);
             videoParams.set("cache_buster", Math.random());
+            videoTag.classList.remove('hdr-gradient', 'checkerboard');
+            videoTag.classList.add(getBackgroundClass(video_path));
             videoTag.src = `/api/view?${videoParams.toString()}`;
           }
         });
@@ -283,6 +290,8 @@ app.registerExtension({
                 if (videoTag) {
                   const videoParams = new URLSearchParams(data.chunkerStore.video_path);
                   videoParams.set("cache_buster", Math.random());
+                  videoTag.classList.remove('hdr-gradient', 'checkerboard');
+                  videoTag.classList.add(getBackgroundClass(data.chunkerStore.video_path));
                   videoTag.src = `/api/view?${videoParams.toString()}`;
                 }
               }

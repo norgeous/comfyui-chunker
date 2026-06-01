@@ -39,7 +39,7 @@ def test_load_stereo_audio_shape(source_videos):
         audio['waveform'].shape}"
 
 
-@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
+@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEBRGB, Profile.WEBRGBA])
 def test_save_load_mono_roundtrip(output_dir, profile):
     freq = 440
     images, masks, audio = create_source_tensors(bg_color=(
@@ -60,7 +60,7 @@ def test_save_load_mono_roundtrip(output_dir, profile):
                freq) < 10, f"Expected {freq}Hz, got {detected_freq}Hz"
 
 
-@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEB])
+@pytest.mark.parametrize("profile", [Profile.HQ, Profile.WEBRGB, Profile.WEBRGBA])
 def test_save_load_stereo_roundtrip(output_dir, profile):
     freq = 440
     images, masks, audio = create_source_tensors(bg_color=(

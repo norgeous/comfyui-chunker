@@ -21,5 +21,5 @@ def test_create_preview_video_with_images_masks_audio(output_dir):
         audio=audio,
         filename_prefix="preview_test",
         fps=15.0,
-        profile=Profile.WEB)
+        profile=Profile.WEBRGBA)
     assert os.path.exists(saved_path)

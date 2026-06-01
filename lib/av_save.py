@@ -10,7 +10,8 @@ from .utils_comfy import get_next_save_path
 
 class Profile(Enum):
     HQ = "hq"
-    WEB = "web"
+    WEBRGB = "webrgb"
+    WEBRGBA = "webrgba"
 
 
 PROFILE_SETTINGS = {
@@ -22,7 +23,15 @@ PROFILE_SETTINGS = {
         "audio_codec": "pcm_s16le",
         "audio_options": {},
     },
-    Profile.WEB: {
+    Profile.WEBRGB: {
+        "file_extension": "mp4",
+        "video_codec": "h264",
+        "video_pixel_format": "yuv420p",
+        "video_options": {"preset": "fast", "crf": "23"},
+        "audio_codec": "aac",
+        "audio_options": {},
+    },
+    Profile.WEBRGBA: {
         "file_extension": "webm",
         "video_codec": "vp9",
         "video_pixel_format": "yuva420p",
@@ -108,7 +117,7 @@ def av_save(
                 img = images[i]
                 img_np = (img * 255).cpu().numpy().astype(np.uint8)
 
-                if mask_stream is not None and profile == Profile.WEB:
+                if mask_stream is not None and profile == Profile.WEBRGBA:
                     mask_np = (
                         masks[i].squeeze() *
                         255).cpu().numpy().astype(

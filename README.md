@@ -39,7 +39,6 @@ Create longer videos by automatically taking the last few frames of the last gen
   - swapping internal comfyui workflow tab erases progress bar and preview video (fixed, but dont forget)
   - remove jsonDivStore?
 - Combine
-  - only use webm when mask is provided - its really slow! find a mp4 audio format that works on web ff+chrome. modify create_preview to return no masks if no masks given.
   - second chunk pbar is glitchy?
   - show chunk progresion in pbar as we finishing node execution?
   - dont repeat pbar 0 to 100 x3 times?

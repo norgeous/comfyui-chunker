@@ -79,7 +79,7 @@ def test_web_profile_video_only(output_dir, tensors_video_only):
         images=tensors_video_only["images"],
         filename_prefix="save_web_video",
         fps=15,
-        profile=Profile.WEB)
+        profile=Profile.WEBRGBA)
     assert os.path.exists(result)
     assert result.endswith(".webm")
 
@@ -88,7 +88,7 @@ def test_web_profile_audio_mono(output_dir, tensors_audio_mono):
     result, _ = av_save(
         audio=tensors_audio_mono["audio"],
         filename_prefix="save_web_audio_mono",
-        profile=Profile.WEB)
+        profile=Profile.WEBRGBA)
     assert os.path.exists(result)
     assert result.endswith(".webm")
 
@@ -99,7 +99,7 @@ def test_web_profile_video_and_audio_stereo(output_dir, tensors_audio_stereo):
         audio=tensors_audio_stereo["audio"],
         filename_prefix="save_web_video_audio_stereo",
         fps=15,
-        profile=Profile.WEB)
+        profile=Profile.WEBRGBA)
     assert os.path.exists(result)
     assert result.endswith(".webm")
 

@@ -137,7 +137,7 @@ class ChunkerCombine(io.ComfyNode):
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),
             audio_blend_mode=BlendMode(overlap_blend_mode),
-            profile=Profile.WEB,
+            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
         )
         s["last_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")

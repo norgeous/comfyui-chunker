@@ -20,22 +20,18 @@ class DivideMode(Enum):
 
 mode_settings = {
     DivideMode.DEFAULT: {
-        "dimension_adjuster": lambda length: (length // 2) * 2,  # 2n
-        "length_adjuster": lambda length: length,  # n
+        "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
+        "length_adjuster": lambda length: length, # n
         "fps": 30.0,
     },
     DivideMode.WAN: {
-        "dimension_adjuster": lambda length: (length // 16) * 16,  # 16n
-        # 4n+1. example: 1, 5, 9, 13, 17
-        "length_adjuster": lambda length: (
-            (math.ceil((length - 1) / 4) * 4) + 1),
+        "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
+        "length_adjuster": lambda length: ((math.ceil((length - 1) / 4) * 4) + 1), # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
     },
     DivideMode.LTX2: {
-        "dimension_adjuster": lambda length: (length // 32) * 32,  # 32n
-        # 8n+1. example: 1, 9, 17, 25, 33
-        "length_adjuster": lambda length: (
-            (math.ceil((length - 1) / 8) * 8) + 1),
+        "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
+        "length_adjuster": lambda length: ((math.ceil((length - 1) / 8) * 8) + 1), # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
     },
 }
@@ -49,37 +45,40 @@ class ChunkerDivide(io.ComfyNode):
             display_name="\U0001F36B Divide",
             category="chunker",
             inputs=[
-                io.Image.Input("images",
-                               optional=True,
-                               tooltip="images",
-                               ),
-                io.Mask.Input("masks",
-                              optional=True,
-                              tooltip="masks",
-                              ),
-                io.Audio.Input("audio",
-                               optional=True,
-                               tooltip="audio",
-                               ),
-                io.Float.Input("fps",
-                               optional=True,
-                               force_input=True,
-                               tooltip="FPS",
-                               ),
-                io.Combo.Input("mode",
-                               options=list(map(
-                                   lambda member: member.value, DivideMode)),
-                               tooltip="Adjust chunk_length and total_length "
-                                       "to match Wan's format (4n+1) "
-                                       "or LTX's format.",
-                               ),
-                io.Int.Input("chunk_length",
-                             tooltip="Count of images in each chunk",
-                             default=81,
-                             min=1,
-                             max=4096,
-                             step=1,
-                             ),
+                io.Image.Input(
+                    "images",
+                    optional=True,
+                    tooltip="images",
+                ),
+                io.Mask.Input(
+                    "masks",
+                    optional=True,
+                    tooltip="masks",
+                ),
+                io.Audio.Input(
+                    "audio",
+                    optional=True,
+                    tooltip="audio",
+                ),
+                io.Float.Input(
+                    "fps",
+                    optional=True,
+                    force_input=True,
+                    tooltip="FPS",
+                ),
+                io.Combo.Input(
+                    "mode",
+                    options=list(map(lambda member: member.value, DivideMode)),
+                    tooltip="Adjust chunk_length and total_length to match Wan's format (4n+1) or LTX's format.",
+                ),
+                io.Int.Input(
+                    "chunk_length",
+                    tooltip="Count of images in each chunk",
+                    default=81,
+                    min=1,
+                    max=4096,
+                    step=1,
+                ),
                 io.Int.Input(
                     "chunk_overlap",
                     tooltip="Count of images to overlap between chunks",
@@ -90,48 +89,54 @@ class ChunkerDivide(io.ComfyNode):
                 ),
                 io.Int.Input(
                     "total_length",
-                    tooltip="Minimum count of images in the final "
-                            "output. 0 to use the images length",
+                    tooltip="Minimum count of images in the final output. 0 to use the images length",
                     default=0,
                     min=0,
                     max=10000,
                     step=1,
                 ),
-                io.Custom("*").Input("store",
-                                     optional=True,
-                                     ),
+                io.Custom("*").Input(
+                    "store",
+                    optional=True,
+                ),
             ],
             outputs=[
                 io.Custom("CHUNKER_DATA").Output(
                     "chunker_data",
-                    tooltip=("Connect \"chunker_data\" "
-                             "to the \"ChunkerCombine\" node"),
+                    tooltip=("Connect \"chunker_data\" to the \"ChunkerCombine\" node"),
                 ),
-                io.Image.Output("images",
-                                tooltip="Chunk of images",
-                                ),
-                io.Mask.Output("masks",
-                               tooltip="Chunk of masks",
-                               ),
-                io.Audio.Output("audio",
-                                tooltip="Chunk of audio",
-                                ),
-                io.Float.Output("fps",
-                                tooltip="FPS",
-                                ),
-                io.Int.Output("chunk_length",
-                              tooltip="Count of images in this chunk",
-                              ),
+                io.Image.Output(
+                    "images",
+                    tooltip="Chunk of images",
+                ),
+                io.Mask.Output(
+                    "masks",
+                    tooltip="Chunk of masks",
+                ),
+                io.Audio.Output(
+                    "audio",
+                    tooltip="Chunk of audio",
+                ),
+                io.Float.Output(
+                    "fps",
+                    tooltip="FPS",
+                ),
+                io.Int.Output(
+                    "chunk_length",
+                    tooltip="Count of images in this chunk",
+                ),
                 io.Int.Output(
                     "chunk_overlap",
                     tooltip="Count of images to overlap between each chunk",
                 ),
-                io.Int.Output("total_length",
-                              tooltip="Total length of output images",
-                              ),
-                io.Int.Output("chunk_count",
-                              tooltip="Count of chunks",
-                              ),
+                io.Int.Output(
+                    "total_length",
+                    tooltip="Total length of output images",
+                ),
+                io.Int.Output(
+                    "chunk_count",
+                    tooltip="Count of chunks",
+                ),
                 io.Int.Output(
                     "index",
                     tooltip="The current itteration index, ie; 0, 1, 2, ...",

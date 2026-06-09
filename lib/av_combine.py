@@ -244,8 +244,7 @@ def av_combine(
                 "sample_rate": sr,
             }
 
-    output_path, frontend_data = get_next_save_path(
-        filename_prefix, PROFILE_SETTINGS[profile]["file_extension"])
+    output_path, frontend_data = get_next_save_path(filename_prefix, PROFILE_SETTINGS[profile]["file_extension"])
 
     av_save(
         images=final_images,

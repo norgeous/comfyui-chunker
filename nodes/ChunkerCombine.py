@@ -95,6 +95,7 @@ class ChunkerCombine(io.ComfyNode):
         c = d["chunker_config"]
         s = store if store is not None else {
             "chunks": [],
+            "previews": [],
             "ts_chunk_ends": [],
             "last_preview": None,
         }
@@ -105,7 +106,7 @@ class ChunkerCombine(io.ComfyNode):
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
 
-        # save input images and audio to lossless file
+        # Save images, masks and audio to lossless file
         ts = get_ts()
         log("Save chunk...", end="")
         chunk_path, _ = av_save(
@@ -124,15 +125,54 @@ class ChunkerCombine(io.ComfyNode):
         preview_tuple = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # combine all preview chunks to a new file, blending the overlaps
+        # Save preview to web file
         ts = get_ts()
-        log("Combine previews...", end="")
+        log("Save preview...", end="")
+        preview_path, _ = av_save(
+            images=images,
+            masks=masks,
+            audio=audio,
+            fps=d["fps"],
+            filename_prefix="chunker-preview",
+            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+        )
+        s["previews"].append(preview_path)
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # Combine all preview chunks to a new file, blending the overlaps
+        ts = get_ts()
+        log("Method0: Combine all previews...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
-            inputs=(
-                [s["last_preview"], preview_tuple]
-                if s["last_preview"] is not None
-                else [preview_tuple]
-            ),
+            inputs=s["previews"],
+            filename_prefix="chunker-preview-all",
+            overlap_frame_count=c["chunk_overlap"],
+            video_blend_mode=BlendMode(overlap_blend_mode),
+            audio_blend_mode=BlendMode(overlap_blend_mode),
+            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+        )
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # Combine all preview chunks to a new file, blending the overlaps
+        inputs = [*s["previews"][:-1], preview_tuple] if s["previews"] is not None else [preview_tuple]
+        log(len(inputs))
+        for item in inputs: log(type(item))
+        ts = get_ts()
+        log("Method1: Combine all previews...", end="")
+        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
+            inputs=[*s["previews"][:-1], preview_tuple] if s["previews"] is not None else [preview_tuple],
+            filename_prefix="chunker-preview-all",
+            overlap_frame_count=c["chunk_overlap"],
+            video_blend_mode=BlendMode(overlap_blend_mode),
+            audio_blend_mode=BlendMode(overlap_blend_mode),
+            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+        )
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # Combine all preview chunks to a new file, blending the overlaps
+        ts = get_ts()
+        log("Method2: Append preview to existing preview...", end="")
+        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
+            inputs=[s["last_preview"], preview_tuple] if s["last_preview"] is not None else [preview_tuple],
             filename_prefix="chunker-preview",
             overlap_frame_count=c["chunk_overlap"],
             video_blend_mode=BlendMode(overlap_blend_mode),

@@ -98,9 +98,9 @@ document.body.insertAdjacentHTML("beforeEnd", `
 `);
 
 const formatMilliseconds = (ms, hideMs = false, pad = false) => {
-  if (!ms && ms !== 0) return 'unknown';
+  //if (!ms && ms !== 0) return 'unknown';
   ms = Math.floor(ms)
-  if (ms < 0) return "overdue";
+  //if (ms < 0) return "overdue";
   if (ms === 0) return "0";
   const divisors = [1,    1000, 60,  60,  24,  7,   4,    13,  10,    10,  10];
   const units =    ['ms', 's',  'm', 'h', 'd', 'w', 'mo', 'y', 'dec', 'c', 'mi'];
@@ -206,19 +206,19 @@ app.registerExtension({
             const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
             const etaFinalMillis = bar?.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
-            const etaNext = formatMilliseconds(etaNextMillis, true, true);
-            const etaFinal = formatMilliseconds(etaFinalMillis, true, true);
+            const etaNext = etaNextMillis > 0 ? `~${formatMilliseconds(etaNextMillis, true, true)}` : 'unknown';
+            const etaFinal = etaFinalMillis > 0 ? `~${formatMilliseconds(etaFinalMillis, true, true)}` : 'unknown';
             const dueDate = new Date(now + etaFinalMillis);
             const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
-            const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`
+            const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`;
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
             const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
 
             const timings = `
               <div class="chunker-timings">
-                <div class="chunker-timestamp">Next: ~${etaNext}</div>
-                <div class="chunker-timestamp">Final: ~${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
+                <div class="chunker-timestamp">Next: ${etaNext}</div>
+                <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
               </div>
             `;
 

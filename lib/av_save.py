@@ -55,8 +55,7 @@ def av_save(
 
     settings = PROFILE_SETTINGS[profile]
 
-    output_path, frontend_data = get_next_save_path(
-        filename_prefix, settings["file_extension"])
+    output_path, frontend_data = get_next_save_path(filename_prefix, settings["file_extension"])
 
     with av.open(output_path, mode='w') as container:
         video_stream = None
@@ -67,8 +66,7 @@ def av_save(
         if images is not None:
             count, H, W = images.shape[0], images.shape[1], images.shape[2]
             fps_fraction = Fraction(f"{fps:.6f}")
-            video_stream = container.add_stream(
-                settings["video_codec"], rate=fps_fraction)
+            video_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
             video_stream.thread_count = 0
             video_stream.thread_type = "AUTO"
             video_stream.pix_fmt = settings["video_pixel_format"]
@@ -79,8 +77,7 @@ def av_save(
 
         if masks is not None:
             fps_fraction = Fraction(f"{fps:.6f}")
-            mask_stream = container.add_stream(
-                settings["video_codec"], rate=fps_fraction)
+            mask_stream = container.add_stream(settings["video_codec"], rate=fps_fraction)
             mask_stream.thread_count = 0
             mask_stream.thread_type = "AUTO"
             mask_stream.pix_fmt = "yuv420p"
@@ -91,22 +88,14 @@ def av_save(
 
         if audio is not None:
             waveform = audio["waveform"]
-            audio_ndarray = (
-                waveform.squeeze(0).cpu().numpy() *
-                np.iinfo(
-                    np.int16).max).astype(
-                np.int16)
+            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
-            audio_stream = container.add_stream(
-                settings["audio_codec"], rate=int(
-                    audio["sample_rate"]))
+            audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
             audio_stream.options = settings["audio_options"]
             audio_stream.layout = 'stereo' if is_stereo else 'mono'
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
-            audio_stream.bit_rate = audio["sample_rate"] * \
-                2 * (2 if is_stereo else 1)
-            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(
-                1, -1), format='s16', layout='stereo' if is_stereo else 'mono')
+            audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
+            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='stereo' if is_stereo else 'mono')
             audio_frame.rate = audio["sample_rate"]
             audio_frame.pts = 0
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))
@@ -137,12 +126,8 @@ def av_save(
                     container.mux(packet)
 
                 if mask_stream is not None:
-                    mask_np = (
-                        masks[i].squeeze() *
-                        255).cpu().numpy().astype(
-                        np.uint8)
-                    mask_frame = av.VideoFrame.from_ndarray(
-                        mask_np, format="gray")
+                    mask_np = (masks[i].squeeze() * 255).cpu().numpy().astype(np.uint8)
+                    mask_frame = av.VideoFrame.from_ndarray(mask_np, format="gray")
                     mask_frame = mask_frame.reformat(format="yuv420p")
                     mask_frame.pts = i
                     for packet in mask_stream.encode(mask_frame):

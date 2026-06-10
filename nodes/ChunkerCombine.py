@@ -97,7 +97,6 @@ class ChunkerCombine(io.ComfyNode):
             "chunks": [],
             "previews": [],
             "ts_chunk_ends": [],
-            "last_preview": None,
         }
 
         create_time = next(iter(server.PromptServer.instance.prompt_queue.currently_running.values()))[3].get("create_time")
@@ -122,16 +121,16 @@ class ChunkerCombine(io.ComfyNode):
         # Make preview from inputs
         ts = get_ts()
         log("Make preview...", end="")
-        preview_tuple = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
+        preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save preview to web file
         ts = get_ts()
         log("Save preview...", end="")
         preview_path, _ = av_save(
-            images=images,
-            masks=masks,
-            audio=audio,
+            images=preview_images,
+            masks=preview_masks, # if masks is not None else None,
+            audio=preview_audio,
             fps=d["fps"],
             filename_prefix="chunker-preview",
             profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
@@ -141,7 +140,20 @@ class ChunkerCombine(io.ComfyNode):
 
         # Combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
-        log("Method0: Combine all previews...", end="")
+        log("Method new: Combine all previews (direct tuple)...", end="")
+        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
+            inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
+            filename_prefix="chunker-preview-all",
+            overlap_frame_count=c["chunk_overlap"],
+            video_blend_mode=BlendMode(overlap_blend_mode),
+            audio_blend_mode=BlendMode(overlap_blend_mode),
+            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+        )
+        print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # Combine all preview chunks to a new file, blending the overlaps
+        ts = get_ts()
+        log("Method old: Combine all previews (simple)...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=s["previews"],
             filename_prefix="chunker-preview-all",
@@ -150,33 +162,6 @@ class ChunkerCombine(io.ComfyNode):
             audio_blend_mode=BlendMode(overlap_blend_mode),
             profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
         )
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-        # Combine all preview chunks to a new file, blending the overlaps
-        ts = get_ts()
-        log("Method1: Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
-            inputs=[*s["previews"][:-1], preview_tuple] if s["previews"] is not None else [preview_tuple],
-            filename_prefix="chunker-preview-all",
-            overlap_frame_count=c["chunk_overlap"],
-            video_blend_mode=BlendMode(overlap_blend_mode),
-            audio_blend_mode=BlendMode(overlap_blend_mode),
-            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
-        )
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-        # Combine all preview chunks to a new file, blending the overlaps
-        ts = get_ts()
-        log("Method2: Append preview to existing preview...", end="")
-        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
-            inputs=[s["last_preview"], preview_tuple] if s["last_preview"] is not None else [preview_tuple],
-            filename_prefix="chunker-preview-all",
-            overlap_frame_count=c["chunk_overlap"],
-            video_blend_mode=BlendMode(overlap_blend_mode),
-            audio_blend_mode=BlendMode(overlap_blend_mode),
-            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
-        )
-        s["last_preview"] = all_preview_path
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # figure out if we have completed all chunks

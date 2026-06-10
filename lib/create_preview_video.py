@@ -62,9 +62,7 @@ def get_overlay_config(
                 f"chunk_length: {chunk_length}\nchunk_overlap: {overlap}\n"
                 f"overlap_blend_mode: {overlap_blend_mode}"
             ),
-            "font_size": int(
-                em *
-                16),
+            "font_size": int(em * 14),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
         },
@@ -117,21 +115,14 @@ def overlay_debug_text(
     return images
 
 
-def combine_images_and_masks(
-        images: Optional[torch.Tensor],
-        masks: Optional[torch.Tensor],
-) -> Optional[torch.Tensor]:
+def combine_images_and_masks(images: Optional[torch.Tensor], masks: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
     if images is not None and masks is not None:
         alpha = masks.unsqueeze(-1)
         return torch.cat([images, alpha], dim=-1)
     if images is not None:
-        alpha = torch.ones(
-            images.shape[0],
-            images.shape[1],
-            images.shape[2],
-            1,
-            dtype=images.dtype)
-        return torch.cat([images, alpha], dim=-1)
+        #alpha = torch.ones(images.shape[0], images.shape[1], images.shape[2], 1, dtype=images.dtype)
+        #return torch.cat([images, alpha], dim=-1)
+        return images
     if masks is not None:
         rgb = mask_to_image(masks)
         alpha = masks.unsqueeze(-1)
@@ -149,9 +140,7 @@ def create_preview_video(
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[dict], float]:
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
-    audio_channel_count = (
-        audio["waveform"].shape[1] if audio is not None else 0
-    )
+    audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
     audio_layout = ["", "mono", "stereo"][audio_channel_count]
     if audio is not None:
         audio_layout = f"{audio['sample_rate']}Hz {audio_layout}"
@@ -169,4 +158,9 @@ def create_preview_video(
     )
     preview_masks = preview_images[:, :, :, 3] if preview_images.shape[3] == 4 else None
     preview_images = preview_images[:, :, :, :3]
-    return (preview_images, preview_masks, audio, d["fps"])
+    return (
+        preview_images,
+        preview_masks,
+        audio,
+        d["fps"],
+    )

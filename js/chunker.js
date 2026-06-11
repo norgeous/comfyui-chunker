@@ -232,7 +232,7 @@ app.registerExtension({
                       ${type === 'current' && delta ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
                       title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
                     >
-                      ${type !== 'cached' ? formatMilliseconds(delta) : 'cached'}
+                      ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
                     </div>`).join('\n')}
                 </div>
                 <div>Showing up to ${chunksCompleted} of ${bar.length}</div>

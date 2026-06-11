@@ -9,9 +9,12 @@ def calculate_progress_bar(create_time, chunk_start_times, chunk_end_times, chun
         avg = delta_sum / delta_count if delta_count else None
 
         if start_ts is not None and start_ts < create_time:
+            deta = end_ts - create_time
+            delta_sum += delta
+            delta_count += 1
             result.append({
                 "type": "cached",
-                "delta": end_ts - create_time,
+                "delta": delta,
             })
         elif delta is not None:
             delta_sum += delta

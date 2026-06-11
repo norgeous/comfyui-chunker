@@ -140,7 +140,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
-        log("Method new: Combine all previews (direct tuple)...", end="")
+        log("Combine all previews...", end="")
         all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
             filename_prefix="chunker-preview-all",

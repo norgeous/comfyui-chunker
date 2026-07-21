@@ -4,8 +4,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 from .av_load import av_load
-from .av_save import av_save, Profile, PROFILE_SETTINGS
-from .utils_comfy import get_next_save_path
+from .av_save import av_save, Profile
 
 Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], float]
 Overlap = Tuple[Union[List, torch.Tensor], Union[List, torch.Tensor], Optional[np.ndarray]]
@@ -244,9 +243,7 @@ def av_combine(
                 "sample_rate": sr,
             }
 
-    output_path, frontend_data = get_next_save_path(filename_prefix, PROFILE_SETTINGS[profile]["file_extension"])
-
-    av_save(
+    output_path, frontend_data = av_save(
         images=final_images,
         masks=final_masks_tensor,
         audio=final_audio_dict,

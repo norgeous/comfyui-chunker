@@ -133,7 +133,7 @@ def get_frame_info(video_path):
 
     container.close()
 
-    return frames, audio_samples, audio_left, audio_right, video_stream
+    return frames, audio_samples, audio_left, audio_right
 
 
 def analyze_audio_frequency(samples, sample_rate=44100):

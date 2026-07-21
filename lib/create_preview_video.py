@@ -120,8 +120,6 @@ def combine_images_and_masks(images: Optional[torch.Tensor], masks: Optional[tor
         alpha = masks.unsqueeze(-1)
         return torch.cat([images, alpha], dim=-1)
     if images is not None:
-        #alpha = torch.ones(images.shape[0], images.shape[1], images.shape[2], 1, dtype=images.dtype)
-        #return torch.cat([images, alpha], dim=-1)
         return images
     if masks is not None:
         rgb = mask_to_image(masks)

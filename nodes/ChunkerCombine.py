@@ -129,7 +129,7 @@ class ChunkerCombine(io.ComfyNode):
         log("Save preview...", end="")
         preview_path, _ = av_save(
             images=preview_images,
-            masks=preview_masks, # if masks is not None else None,
+            masks=preview_masks,
             audio=preview_audio,
             fps=d["fps"],
             filename_prefix="chunker-preview",
@@ -141,7 +141,7 @@ class ChunkerCombine(io.ComfyNode):
         # Combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
         log("Combine all previews...", end="")
-        all_preview_path, all_preview_frontend_data, _, _, _ = av_combine(
+        _, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
             filename_prefix="chunker-preview-all",
             overlap_frame_count=c["chunk_overlap"],

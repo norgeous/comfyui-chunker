@@ -57,8 +57,6 @@ def av_load(path: str,
         if mask_frames:
             masks = torch.stack(mask_frames)[vstart:vend]
 
-        container.seek(0)
-
     container.seek(0)
 
     if container.streams.audio:

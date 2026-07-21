@@ -14,7 +14,7 @@ def test_no_overlap(source_videos, output_dir):
         audio_blend_mode=BlendMode.EQUAL_POWER,
         filename_prefix="combine-3x30i-0o-none")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 90, f"Expected 90 frames, got {len(frames)}"
 
@@ -67,7 +67,7 @@ def test_older_only(source_videos, output_dir):
         audio_blend_mode=BlendMode.OLDER_ONLY,
         filename_prefix="combine-3x30i-4o-older_only")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -118,7 +118,7 @@ def test_linear_blend(source_videos, output_dir):
         audio_blend_mode=BlendMode.LINEAR,
         filename_prefix="combine-3x30i-4o-linear")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -207,7 +207,7 @@ def test_ease_in_out(source_videos, output_dir):
         audio_blend_mode=BlendMode.EASE_IN_OUT,
         filename_prefix="combine-3x30i-4o-ease_in_out")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -304,7 +304,7 @@ def test_newer_only(source_videos, output_dir):
         audio_blend_mode=BlendMode.NEWER_ONLY,
         filename_prefix="combine-3x30i-4o-newer_only")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -357,7 +357,7 @@ def test_equal_power(source_videos, output_dir):
         audio_blend_mode=BlendMode.EQUAL_POWER,
         filename_prefix="combine-3x30i-4o-equal_power")
 
-    frames, audio_samples, _, _, _ = get_frame_info(result_path)
+    frames, audio_samples, _, _ = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 
@@ -444,7 +444,7 @@ def test_stereo_linear_blend(source_videos, output_dir):
         audio_blend_mode=BlendMode.LINEAR,
         filename_prefix="combine-3x30i-4o-stereo_linear")
 
-    frames, _, audio_left, audio_right, _ = get_frame_info(result_path)
+    frames, _, audio_left, audio_right = get_frame_info(result_path)
 
     assert len(frames) == 82, f"Expected 82 frames, got {len(frames)}"
 

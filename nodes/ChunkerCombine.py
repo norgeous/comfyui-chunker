@@ -188,7 +188,7 @@ class ChunkerCombine(io.ComfyNode):
                 "video_path": all_preview_frontend_data,
             }
 
-            log(f"Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
+            log(f"ChunkerCombine#{self.hidden.unique_id}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
             return {
                 "ui": {"values": [ui_values]},
@@ -263,7 +263,7 @@ class ChunkerCombine(io.ComfyNode):
             "video_path": all_preview_frontend_data,
         }
 
-        log(f"Finished chunk {d['index'] + 1} of {c['chunk_count']}")
+        log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
             new_combine.out(0), # images

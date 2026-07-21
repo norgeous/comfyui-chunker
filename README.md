@@ -51,7 +51,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 - comb for todos and address all?
 - comb for ' and swap to "
 - test everything
-- trash this repo make a new one with one commit
+- tests for library fns
 - publish to comfyui-manager via PR
 
 ## Donations

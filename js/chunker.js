@@ -1,5 +1,4 @@
-import { app, ComfyApp } from '../../../scripts/app.js';
-import { api } from '../../../scripts/api.js'
+import { app } from '../../../scripts/app.js';
 
 // from kjnodes
 function chainCallback(object, property, callback) {
@@ -98,9 +97,8 @@ document.body.insertAdjacentHTML("beforeEnd", `
 `);
 
 const formatMilliseconds = (ms, hideMs = false, pad = false) => {
-  //if (!ms && ms !== 0) return 'unknown';
+  if (!ms && ms !== 0) return 'unknown';
   ms = Math.floor(ms)
-  //if (ms < 0) return "overdue";
   if (ms === 0) return "0";
   const divisors = [1,    1000, 60,  60,  24,  7,   4,    13,  10,    10,  10];
   const units =    ['ms', 's',  'm', 'h', 'd', 'w', 'mo', 'y', 'dec', 'c', 'mi'];
@@ -173,9 +171,6 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this);
         });
-        // chainCallback(nodeType.prototype, "onExecutionStart", function () {
-        //   updateLabels(this);
-        // });
         chainCallback(nodeType.prototype, "onExecuted", function (ui) {
           updateLabels(this, ui.values[0]);
         });

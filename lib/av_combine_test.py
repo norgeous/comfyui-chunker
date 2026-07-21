@@ -1,5 +1,4 @@
 import numpy as np
-import os
 from lib.av_combine import av_combine, BlendMode
 from lib.conftest import get_frame_info, analyze_audio_frequency
 

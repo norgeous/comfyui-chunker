@@ -1,4 +1,3 @@
-import os
 import pytest
 from lib.av_load import av_load
 from lib.av_save import av_save, Profile

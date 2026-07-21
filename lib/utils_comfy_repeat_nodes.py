@@ -1,6 +1,5 @@
 from comfy_execution.graph_utils import GraphBuilder, is_link
 from nodes import NODE_CLASS_MAPPINGS as ALL_NODE_CLASS_MAPPINGS
-from .utils import log
 
 
 def get_parent_ids(dynprompt, node_id):

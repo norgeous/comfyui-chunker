@@ -97,7 +97,6 @@ def get_clone_ids(
     return clone_ids
 
 # TODO: is end_node_id and "Recurse" really needed?
-# TODO: is two loops really needed?
 def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
     graph = GraphBuilder()
 

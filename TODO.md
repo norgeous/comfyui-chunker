@@ -1,0 +1,25 @@
+# TODO
+
+- Combine frontend
+  - "~0" on cached, should be "unknown"
+  - "~overdue" should be "overdue"
+  - video width fix not work in nodes 2.0
+  - execute a fully cached chunker gives wrong ui
+  - caching seems a bit broken atm
+  - swapping internal comfyui workflow tab erases progress bar and preview video (fixed, but dont forget)
+  - remove jsonDivStore?
+- Combine
+  - second chunk pbar is glitchy?
+  - show chunk progresion in pbar as we finishing node execution?
+  - dont repeat pbar 0 to 100 x3 times?
+- Divide
+  - show chunk_lengths in ui?
+- Tidy unused code
+- revise readme and samples
+- ensure builtin docs are working
+- finalise a few workflows with previews - just sam3 for now?
+- comb for todos and address all?
+- comb for ' and swap to "
+- test everything
+- tests for library fns
+- publish to comfyui-manager via PR

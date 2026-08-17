@@ -1,4 +1,5 @@
-import { app } from '../../../scripts/app.js';
+const { app } = window.comfyAPI.app;
+const { api } = window.comfyAPI.api;
 
 // from kjnodes
 function chainCallback(object, property, callback) {
@@ -150,19 +151,19 @@ const getBackgroundClass = (videoPath) => {
 app.registerExtension({
   name: "chunker",
 
-  async setup(app) {
-    app.api.addEventListener("execution_start", () => {
+  async setup() {
+    api.addEventListener("execution_start", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
-    app.api.addEventListener("execution_interrupted", () => {
+    api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
-    app.api.addEventListener("execution_error", () => {
+    api.addEventListener("execution_error", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
     });
   },
 
-  async beforeRegisterNodeDef(nodeType, nodeData, app) {
+  async beforeRegisterNodeDef(nodeType, nodeData) {
     ({
       "ChunkerDivide": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {

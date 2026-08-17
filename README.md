@@ -24,4 +24,4 @@ Create longer videos by automatically taking the last few frames of the last gen
 - Create masks for long video (by prompt) in batches of 100 images, up to any length
 - Input: [example.mp4](https://www.pexels.com/video/hip-hop-dancer-2795752/) (1080x1920, 425 frames @ 25FPS)
 - Output:
-  - <video src='.github/assets/chunker-sam3-output.mp4' width=500/>
+  - <video src='.github/assets/chunker-sam3-output.mp4' width=500></video>

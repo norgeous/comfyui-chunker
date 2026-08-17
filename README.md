@@ -1,8 +1,8 @@
 # comfyui-chunker
 
-Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
+Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation.
 
-- Easy to understand nodes that help reduce complexity and increase readability of workflows
+- Easy to understand nodes that help reduce complexity and increase readability of workflows.
 - Chunker reduces RAM usage by saving the generation into a high quality mp4 file on disk.
 - Easily blend overlaps of images, masks and audio, with a variety of blend methods.
 - Preview completed chunks as they are generated, track overall progress, view an estimate of time remaining.
@@ -21,6 +21,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Combine sequential chunks back into single av tensors.
 - Each chunk is saved to a mp4 file and recombined excluding the overlap frames.
+  - Note: You may need a (very) large pagefile or swap configured.
 
 ## [Workflows](workflows/)
 

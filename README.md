@@ -58,7 +58,7 @@ Note: You may need a (very) large pagefile or swap configured.
 | images | IMAGE | No | - | Processed chunk of images |
 | masks | MASK | No | - | Processed chunk of masks |
 | audio | AUDIO | No | - | Processed chunk of audio |
-| overlap_blend_mode | COMBO | Yes | "newer_only" | Blend mode for overlaps: "newer_only", "older_only", "crossfade", "add", "multiply", "screen", "difference" |
+| overlap_blend_mode | COMBO | Yes | "newer_only" | Blend mode for overlaps: "newer_only", "older_only", "equal_power", "linear", "ease_in_out" |
 | increment_seeds | BOOLEAN | Yes | True | Increment seed/noise_seed in Sampler/Noise nodes between chunks |
 
 #### Outputs

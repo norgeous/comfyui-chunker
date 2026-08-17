@@ -3,8 +3,9 @@
 Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
 
 - Easy to understand nodes that help reduce complexity and increase readability of workflows
-- Chunker reduces RAM usage by saving the generation into an mp4 file on disk.
+- Chunker reduces RAM usage by saving the generation into a high quality mp4 file on disk.
 - Easily blend overlaps of images, masks and audio, with a variety of methods.
+- Preview completed chunks as they are generated, tracks overall progress, estimates time remaining.
 
 ## Nodes
 

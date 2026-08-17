@@ -23,7 +23,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Create masks for long video (by prompt) in batches of 100 images, up to any length.
 - Input: [example.mp4](https://www.pexels.com/video/hip-hop-dancer-2795752/) (1080x1920, 425 frames @ 25FPS)
-- Output:
-  - https://github.com/user-attachments/assets/9b8462b1-08d2-4827-b42b-65734739de1c
+
+https://github.com/user-attachments/assets/9b8462b1-08d2-4827-b42b-65734739de1c
 
 

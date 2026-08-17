@@ -2,14 +2,17 @@
 
 Create longer videos by automatically taking the last few frames of the last generated video and feeding it into the first few frames of the next generation. 
 
-- RAM: Chunker saves previous generation in an mp4 file, this means less ram is used.
-- blends overlaps.
+- Easy to understand nodes that help reduce complexity and increase readability of workflows
+- Chunker reduces RAM usage by saving the generation into an mp4 file on disk.
+- Easily blend overlaps of images, masks and audio, with a variety of methods.
 
 ## Nodes
 
+(image of nodes?)
+
 ### 🍫 Divide
 
-- Chop large av tensor (images, masks or audio) into smaller chunks and process the chunks sequentially.
+- Chop large av tensor (images, masks and / or audio) into smaller chunks and process the chunks sequentially.
 - Optionally use the end of last chunk as start of this chunk (with `overlap`).
 
 ### 🍫 Combine

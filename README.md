@@ -4,8 +4,9 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 - Easy to understand nodes that help reduce complexity and increase readability of workflows
 - Chunker reduces RAM usage by saving the generation into a high quality mp4 file on disk.
-- Easily blend overlaps of images, masks and audio, with a variety of methods.
-- Preview completed chunks as they are generated, tracks overall progress, estimates time remaining.
+- Easily blend overlaps of images, masks and audio, with a variety of blend methods.
+- Preview completed chunks as they are generated, track overall progress, view an estimate of time remaining.
+- Uses PyAV for video processing, nothing extra to install as PyAV is included in the default ComfyUI install.
 
 ## Nodes
 

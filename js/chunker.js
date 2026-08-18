@@ -89,11 +89,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
     animation: scrollRight 60s linear infinite;
   }
 }
-.chunker-data-store {
-  font-size:8px;
-  text-align:left;
-  display:none;
-}
+
 </style>
 `);
 
@@ -124,13 +120,7 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   return value
 }
 
-const jsonDivStore = (element) => {
-  element.insertAdjacentHTML("beforeEnd", '<pre class="chunker-data-store">{}</pre>');
-  const storeElement = element.querySelector(".chunker-data-store");
-  const get = () => JSON.parse(storeElement.innerHTML);
-  const set = (data) => storeElement.innerHTML = JSON.stringify({ ...get(), ...data }, null, 2);
-  return { get, set };
-};
+
 
 const updateLabels = (that, ui_values = {}) => {
   that.inputs.forEach(input => {
@@ -189,15 +179,15 @@ app.registerExtension({
           element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
           element.querySelector(".chunker-video").volume = 0.5;
 
-          this.store = jsonDivStore(element);
+          this.chunkerData = {};
           this.chunkerInterval = setInterval(() => {
             // fix the dodgy video width
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            const { lastExecutionTs, bar } = this.store.get();
+            const { lastCombineExecutionTs, bar } = this.chunkerData;
             const now = Date.now();
-            const elapsedMillis = now - lastExecutionTs;
+            const elapsedMillis = now - lastCombineExecutionTs;
             const currentDelta = bar?.find(({ type }) => type === 'current')?.delta;
             const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
@@ -244,9 +234,6 @@ app.registerExtension({
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this);
         });
-        chainCallback(nodeType.prototype, "onExecutionStart", function () {
-          updateLabels(this);
-        });
         chainCallback(nodeType.prototype, "onExecuted", async function (ui) {
           updateLabels(this, ui.values[0]);
           const now = Date.now();
@@ -254,11 +241,11 @@ app.registerExtension({
             bar,
             video_path,
           } = ui.values[0];
-          this.store.set({
-            lastExecutionTs: now,
+          this.chunkerData = {
+            lastCombineExecutionTs: now,
             bar,
             video_path,
-          });
+          };
           if (video_path) {
             const infoContainer = this.widgets.find(({ type }) => type === "ChunkInfoWidget").element;
             const videoTag  = infoContainer.querySelector("video");
@@ -270,15 +257,13 @@ app.registerExtension({
           }
         });
         chainCallback(nodeType.prototype, "onSerialize", function (data) {
-          if (this.store) {
-            data.chunkerStore = this.store.get();
+          if (this.chunkerData) {
+            data.chunkerStore = this.chunkerData;
           }
         });
         chainCallback(nodeType.prototype, "onConfigure", function (data) {
           if (data.chunkerStore && Object.keys(data.chunkerStore).length > 1) {
-            if (this.store) {
-              this.store.set(data.chunkerStore);
-            }
+            this.chunkerData = data.chunkerStore;
             if (data.chunkerStore.video_path) {
               const infoContainer = this.widgets?.find(({ type }) => type === "ChunkInfoWidget")?.element;
               if (infoContainer) {

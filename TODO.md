@@ -5,9 +5,6 @@
   - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui
-  - caching seems a bit broken atm
-  - swapping internal comfyui workflow tab erases progress bar and preview video (fixed, but dont forget)
-  - remove jsonDivStore?
 - Combine
   - second chunk pbar is glitchy?
   - show chunk progresion in pbar as we finishing node execution?

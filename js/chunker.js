@@ -147,6 +147,12 @@ app.registerExtension({
     });
     api.addEventListener("execution_interrupted", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
+      app.graph._nodes
+        .filter(n => n.type === "ChunkerCombine" && n.chunkerData)
+        .forEach(n => {
+          n.chunkerData.active = false;
+          n.chunkerData.cancelledAt = Date.now();
+        });
     });
     api.addEventListener("execution_error", () => {
       document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
@@ -185,9 +191,9 @@ app.registerExtension({
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            const { lastCombineExecutionTs, bar } = this.chunkerData;
+            const { active, lastCombineExecutionTs, cancelledAt, bar } = this.chunkerData;
             const now = Date.now();
-            const elapsedMillis = now - lastCombineExecutionTs;
+            const elapsedMillis = active ? now - lastCombineExecutionTs : cancelledAt - lastCombineExecutionTs;
             const currentDelta = bar?.find(({ type }) => type === 'current')?.delta;
             const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
@@ -201,7 +207,9 @@ app.registerExtension({
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
             const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
 
-            const timings = `
+            const timings = !active
+              ? `<div class="chunker-timings">Cancelled after ${formatMilliseconds(elapsedMillis, true)}</div>`
+              : `
               <div class="chunker-timings">
                 <div class="chunker-timestamp">Next: ${etaNext}</div>
                 <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
@@ -215,7 +223,7 @@ app.registerExtension({
                   ${bar.map(({ type, delta }, i) => `
                     <div
                       class="chunker-bar-section ${type}"
-                      ${type === 'current' && delta ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                      ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
                       title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
                     >
                       ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
@@ -242,6 +250,7 @@ app.registerExtension({
             video_path,
           } = ui.values[0];
           this.chunkerData = {
+            active: true,
             lastCombineExecutionTs: now,
             bar,
             video_path,

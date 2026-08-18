@@ -77,29 +77,63 @@ class ChunkerDivide(io.ComfyNode):
                     options=list(map(lambda member: member.value, DivideMode)),
                     tooltip="Adjust chunk_length, total_length, image dimensions and default FPS to match selected format",
                 ),
-                io.Int.Input(
-                    "chunk_length",
-                    tooltip="Count of images in each chunk",
-                    default=81,
-                    min=1,
-                    max=4096,
-                    step=1,
-                ),
-                io.Int.Input(
-                    "chunk_overlap",
-                    tooltip="Count of images to overlap between chunks",
-                    default=4,
-                    min=0,
-                    max=4096,
-                    step=1,
-                ),
-                io.Int.Input(
-                    "total_length",
-                    tooltip="Minimum count of images in the final output. 0 to use the images length",
-                    default=0,
-                    min=0,
-                    max=10000,
-                    step=1,
+                io.DynamicCombo.Input(
+                    "input_format",
+                    tooltip="Input format for chunk parameters. Use 'frames' for image counts, 'seconds' for time-based.",
+                    options=[
+                        io.DynamicCombo.Option("frames", [
+                            io.Int.Input(
+                                "chunk_length",
+                                tooltip="Count of images in each chunk",
+                                default=81,
+                                min=1,
+                                max=4096,
+                                step=1,
+                            ),
+                            io.Int.Input(
+                                "chunk_overlap",
+                                tooltip="Count of images to overlap between chunks",
+                                default=4,
+                                min=0,
+                                max=4096,
+                                step=1,
+                            ),
+                            io.Int.Input(
+                                "total_length",
+                                tooltip="Minimum count of images in the final output. 0 to use the images length",
+                                default=0,
+                                min=0,
+                                max=10000,
+                                step=1,
+                            ),
+                        ]),
+                        io.DynamicCombo.Option("seconds", [
+                            io.Float.Input(
+                                "chunk_length_seconds",
+                                tooltip="Length of each chunk in seconds",
+                                default=2.7,
+                                min=0.01,
+                                max=3600,
+                                step=0.01,
+                            ),
+                            io.Float.Input(
+                                "chunk_overlap_seconds",
+                                tooltip="Overlap between chunks in seconds",
+                                default=0.13,
+                                min=0,
+                                max=3600,
+                                step=0.01,
+                            ),
+                            io.Float.Input(
+                                "total_length_seconds",
+                                tooltip="Minimum total output length in seconds. 0 to use the input length",
+                                default=0,
+                                min=0,
+                                max=3600,
+                                step=0.01,
+                            ),
+                        ]),
+                    ],
                 ),
                 io.Custom("*").Input(
                     "store",
@@ -155,9 +189,7 @@ class ChunkerDivide(io.ComfyNode):
     def execute(
         self,
         mode,
-        chunk_length,
-        chunk_overlap,
-        total_length,
+        input_format,
         images=None,
         masks=None,
         audio=None,
@@ -177,6 +209,18 @@ class ChunkerDivide(io.ComfyNode):
         out_fps = fps
         if out_fps is None:
             out_fps = settings["fps"]
+
+        # resolve chunk params from dynamic input
+        fmt = input_format["input_format"]
+        if fmt == "seconds":
+            chunk_length = int(input_format["chunk_length_seconds"] * out_fps)
+            chunk_overlap = int(input_format["chunk_overlap_seconds"] * out_fps)
+            total_length_raw = input_format["total_length_seconds"]
+            total_length = int(total_length_raw * out_fps) if total_length_raw > 0 else 0
+        else:
+            chunk_length = input_format["chunk_length"]
+            chunk_overlap = input_format["chunk_overlap"]
+            total_length = input_format["total_length"]
 
         if total_length == 0:
             total_length = max(

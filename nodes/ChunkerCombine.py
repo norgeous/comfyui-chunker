@@ -1,4 +1,3 @@
-import server
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
@@ -9,6 +8,7 @@ from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, 
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
+from ..lib.execution_monitor import get_execution_start_time
 
 
 class ChunkerCombine(io.ComfyNode):
@@ -99,7 +99,7 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_ends": [],
         }
 
-        create_time = next(iter(server.PromptServer.instance.prompt_queue.currently_running.values()))[3].get("create_time")
+        execution_start_time = get_execution_start_time()
 
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
@@ -184,7 +184,7 @@ class ChunkerCombine(io.ComfyNode):
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
-                "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+                "bar": calculate_progress_bar(execution_start_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
                 "video_path": all_preview_frontend_data,
             }
 
@@ -259,7 +259,7 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": None,
                 "fps": None,
             },
-            "bar": calculate_progress_bar(create_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+            "bar": calculate_progress_bar(execution_start_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
             "video_path": all_preview_frontend_data,
         }
 

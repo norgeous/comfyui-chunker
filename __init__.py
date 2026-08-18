@@ -1,5 +1,6 @@
 from comfy_api.latest import ComfyExtension, io
 
+from .lib import execution_monitor  # noqa: F401 - patches execution at import time
 from .nodes.ChunkerDivide import ChunkerDivide
 from .nodes.ChunkerCombine import ChunkerCombine
 

@@ -1,4 +1,4 @@
-def calculate_progress_bar(create_time, chunk_start_times, chunk_end_times, chunk_count):
+def calculate_progress_bar(execution_start_time, chunk_start_times, chunk_end_times, chunk_count):
     delta_sum = 0
     delta_count = 0
     result = []
@@ -8,8 +8,8 @@ def calculate_progress_bar(create_time, chunk_start_times, chunk_end_times, chun
         delta = end_ts - start_ts if start_ts is not None and end_ts is not None else None
         avg = delta_sum / delta_count if delta_count else None
 
-        if start_ts is not None and start_ts < create_time:
-            delta = end_ts - create_time
+        if start_ts is not None and start_ts < execution_start_time:
+            delta = end_ts - execution_start_time
             delta_sum += delta
             delta_count += 1
             result.append({

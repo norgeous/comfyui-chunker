@@ -16,6 +16,7 @@ class DivideMode(Enum):
     DEFAULT = "default"
     WAN = "wan"
     LTX2 = "ltx2"
+    MINIMAX_H3 = "minimax-h3"
 
 
 mode_settings = {
@@ -26,13 +27,18 @@ mode_settings = {
     },
     DivideMode.WAN: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
-        "length_adjuster": lambda length: ((math.ceil((length - 1) / 4) * 4) + 1), # 4n+1. example: 1, 5, 9, 13, 17
+        "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
     },
     DivideMode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
-        "length_adjuster": lambda length: ((math.ceil((length - 1) / 8) * 8) + 1), # 8n+1. example: 1, 9, 17, 25, 33
+        "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
+    },
+    DivideMode.MINIMAX_H3: {
+        "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
+        "length_adjuster": lambda length: (math.ceil((length - 5) / 17) * 17) + 5, # 17n+5. example: 5, 22, 39, 56, 73
+        "fps": 24.0,
     },
 }
 
@@ -69,7 +75,7 @@ class ChunkerDivide(io.ComfyNode):
                 io.Combo.Input(
                     "mode",
                     options=list(map(lambda member: member.value, DivideMode)),
-                    tooltip="Adjust chunk_length and total_length to match Wan's format (4n+1) or LTX's format.",
+                    tooltip="Adjust chunk_length, total_length, image dimensions and default FPS to match selected format",
                 ),
                 io.Int.Input(
                     "chunk_length",

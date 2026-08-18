@@ -22,3 +22,10 @@ def test_ltx2():
     assert plan_chunks(adj, 121, 8, 233) == (121, 234, [121, 121])
     assert plan_chunks(adj, 121, 8, 234) == (121, 234, [121, 121])
     assert plan_chunks(adj, 121, 8, 235) == (121, 235, [121, 121, 9])
+
+
+def test_minimax_h3():
+    def adj(length): return (math.ceil((length - 5) / 17) * 17) + 5
+    assert plan_chunks(adj, 90, 8, 172) == (90, 172, [90, 90])
+    assert plan_chunks(adj, 90, 8, 173) == (90, 186, [90, 90, 22])
+    assert plan_chunks(adj, 90, 8, 174) == (90, 186, [90, 90, 22])

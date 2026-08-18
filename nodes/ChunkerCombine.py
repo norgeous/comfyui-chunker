@@ -1,3 +1,4 @@
+import comfy.utils
 from comfy_api.latest import io
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
@@ -188,6 +189,9 @@ class ChunkerCombine(io.ComfyNode):
                 "video_path": all_preview_frontend_data,
             }
 
+            pbar = comfy.utils.ProgressBar(c["chunk_count"])
+            pbar.update_absolute(c["chunk_count"])
+
             log(f"ChunkerCombine#{self.hidden.unique_id}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
             return {
@@ -262,6 +266,9 @@ class ChunkerCombine(io.ComfyNode):
             "bar": calculate_progress_bar(execution_start_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
             "video_path": all_preview_frontend_data,
         }
+
+        pbar = comfy.utils.ProgressBar(c["chunk_count"])
+        pbar.update_absolute(d["index"] + 1)
 
         log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 

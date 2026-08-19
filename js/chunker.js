@@ -151,7 +151,6 @@ app.registerExtension({
         .filter(n => n.type === "ChunkerCombine" && n.chunkerData)
         .forEach(n => {
           n.chunkerData.active = false;
-          n.chunkerData.cancelledAt = Date.now();
         });
     });
     api.addEventListener("execution_error", () => {
@@ -184,16 +183,20 @@ app.registerExtension({
           element.insertAdjacentHTML("beforeEnd", `<div class="chunker-status" />`);
           element.insertAdjacentHTML("beforeEnd", `<video class="chunker-video" controls autoplay loop muted />`);
           element.querySelector(".chunker-video").volume = 0.5;
-
+          this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
+            serialize: false,
+            hideOnZoom: false,
+            getHeight: () => 220,
+          });
           this.chunkerData = {};
-          this.chunkerInterval = setInterval(() => {
+          const update = () => {
             // fix the dodgy video width
             const vid = element.querySelector("video");
             vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
 
-            const { active, lastCombineExecutionTs, cancelledAt, bar } = this.chunkerData;
+            const { active, lastCombineExecutionTs, bar } = this.chunkerData;
             const now = Date.now();
-            const elapsedMillis = active ? now - lastCombineExecutionTs : cancelledAt - lastCombineExecutionTs;
+            const elapsedMillis = now - lastCombineExecutionTs;
             const currentDelta = bar?.find(({ type }) => type === 'current')?.delta;
             const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
@@ -210,7 +213,7 @@ app.registerExtension({
             const statusText = !bar
               ? 'Awaiting execution...'
               : !active
-                ? `Cancelled after ${formatMilliseconds(elapsedMillis, true)}`
+                ? `Interrupted`
                 : chunksCompleted === bar?.length
                   ? `Done in ${formatMilliseconds(totalMillis)}`
                   : null;
@@ -236,12 +239,9 @@ app.registerExtension({
                   <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
                 `}
             `;
-          }, 1_000);
-          this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {
-            serialize: false,
-            hideOnZoom: false,
-            getHeight: () => 220,
-          });
+          };
+          update();
+          this.chunkerInterval = setInterval(update, 1_000);
         });
         chainCallback(nodeType.prototype, "onConnectInput", function () {
           updateLabels(this);

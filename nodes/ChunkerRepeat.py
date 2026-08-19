@@ -214,6 +214,7 @@ class ChunkerRepeat(io.ComfyNode):
             total_length = max(
                 len(images) if images is not None else 0,
                 len(masks) if masks is not None else 0,
+                audio["waveform"].shape[-1] // math.floor(audio["sample_rate"] / out_fps) if audio is not None else 0,
             )
         else:  # total_length
             total_length = repeat_until["total_length"]

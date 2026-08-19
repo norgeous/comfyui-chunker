@@ -2,11 +2,10 @@
 
 - Divide frontend
   - show chunk_lengths in ui?
+  - variable chunk lengths
 - Combine frontend
-  - "~0" on cached, should be "unknown"
-  - "~overdue" should be "overdue"
   - video width fix not work in nodes 2.0
-  - execute a fully cached chunker gives wrong ui
+  - execute a fully cached chunker gives wrong ui?
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working

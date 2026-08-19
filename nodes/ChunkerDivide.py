@@ -14,7 +14,7 @@ from enum import Enum
 
 class DivideMode(Enum):
     DEFAULT = "default"
-    WAN = "wan"
+    WAN2 = "wan2"
     LTX2 = "ltx2"
     MINIMAX_H3 = "minimax-h3"
 
@@ -25,7 +25,7 @@ mode_settings = {
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
     },
-    DivideMode.WAN: {
+    DivideMode.WAN2: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,

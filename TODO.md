@@ -1,8 +1,5 @@
 # TODO
 
-- Divide
-  - show chunk_lengths in ui?
-    - variable chunk lengths?
 - Combine
   - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui?

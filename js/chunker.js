@@ -217,7 +217,7 @@ app.registerExtension({
 
             element.querySelector(".chunker-status").innerHTML = `
               ${statusText
-                ? `<div class="chunker-timings" style="justify-content: center">${statusText}</div>`
+                ? `<div>${statusText}</div>`
                 : `
                   <div class="chunker-timings">
                     <div class="chunker-timestamp">Next: ${etaNext}</div>

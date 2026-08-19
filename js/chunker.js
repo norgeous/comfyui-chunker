@@ -207,30 +207,34 @@ app.registerExtension({
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
             const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
 
-            const timings = !active
-              ? `<div class="chunker-timings" style="justify-content: center">Cancelled after ${formatMilliseconds(elapsedMillis, true)}</div>`
-              : `
-              <div class="chunker-timings">
-                <div class="chunker-timestamp">Next: ${etaNext}</div>
-                <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
-              </div>
-            `;
+            const statusText = !bar
+              ? 'Awaiting execution...'
+              : !active
+                ? `Cancelled after ${formatMilliseconds(elapsedMillis, true)}`
+                : chunksCompleted === bar?.length
+                  ? `Done in ${formatMilliseconds(totalMillis)}`
+                  : null;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${!bar ? 'Awaiting execution...' : `
-                ${chunksCompleted === bar?.length ? `Done in ${formatMilliseconds(totalMillis)}` : timings}
-                <div class="chunker-bar">
-                  ${bar.map(({ type, delta }, i) => `
-                    <div
-                      class="chunker-bar-section ${type}"
-                      ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
-                      title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
-                    >
-                      ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
-                    </div>`).join('\n')}
-                </div>
-                <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
-              `}
+              ${statusText
+                ? `<div class="chunker-timings" style="justify-content: center">${statusText}</div>`
+                : `
+                  <div class="chunker-timings">
+                    <div class="chunker-timestamp">Next: ${etaNext}</div>
+                    <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
+                  </div>
+                  <div class="chunker-bar">
+                    ${bar.map(({ type, delta }, i) => `
+                      <div
+                        class="chunker-bar-section ${type}"
+                        ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                        title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
+                      >
+                        ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
+                      </div>`).join('\n')}
+                  </div>
+                  <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
+                `}
             `;
           }, 1_000);
           this.addDOMWidget(nodeData.name, "ChunkInfoWidget", element, {

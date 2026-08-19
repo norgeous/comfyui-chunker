@@ -12,7 +12,7 @@ from ..lib.utils_performance import get_ts
 from enum import Enum
 
 
-class DivideMode(Enum):
+class Mode(Enum):
     DEFAULT = "default"
     WAN2 = "wan2"
     LTX2 = "ltx2"
@@ -20,22 +20,22 @@ class DivideMode(Enum):
 
 
 mode_settings = {
-    DivideMode.DEFAULT: {
+    Mode.DEFAULT: {
         "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
     },
-    DivideMode.WAN2: {
+    Mode.WAN2: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
     },
-    DivideMode.LTX2: {
+    Mode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
     },
-    DivideMode.MINIMAX_H3: {
+    Mode.MINIMAX_H3: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 5) / 17) * 17) + 5, # 17n+5. example: 5, 22, 39, 56, 73
         "fps": 24.0,
@@ -43,12 +43,12 @@ mode_settings = {
 }
 
 
-class ChunkerDivide(io.ComfyNode):
+class ChunkerRepeat(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
-            node_id="ChunkerDivide",
-            display_name="\U0001F36B Divide",
+            node_id="ChunkerRepeat",
+            display_name="\U0001F36B Repeat",
             category="chunker",
             inputs=[
                 io.Image.Input(
@@ -74,7 +74,7 @@ class ChunkerDivide(io.ComfyNode):
                 ),
                 io.Combo.Input(
                     "mode",
-                    options=list(map(lambda member: member.value, DivideMode)),
+                    options=list(map(lambda member: member.value, Mode)),
                     tooltip="Adjust chunk_length, total_length, image dimensions and default FPS to match selected format",
                 ),
                 io.Int.Input(
@@ -191,7 +191,7 @@ class ChunkerDivide(io.ComfyNode):
             "ts_chunk_starts": [],
         }
 
-        settings = mode_settings[DivideMode(mode)]
+        settings = mode_settings[Mode(mode)]
 
         out_fps = fps
         if out_fps is None:
@@ -235,7 +235,7 @@ class ChunkerDivide(io.ComfyNode):
             "chunk_count": chunk_count,
         }
 
-        log(f"ChunkerDivide#{self.hidden.unique_id}: Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
+        log(f"ChunkerRepeat#{self.hidden.unique_id}: Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
 
         out_images = []
         out_masks = []

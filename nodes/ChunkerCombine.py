@@ -38,7 +38,7 @@ class ChunkerCombine(io.ComfyNode):
             inputs=[
                 io.Custom("CHUNKER_DATA").Input(
                     "chunker_data",
-                    tooltip="Connect chunker_data from ChunkerDivide node to here",
+                    tooltip="Connect chunker_data from ChunkerRepeat node to here",
                 ),
                 io.Image.Input(
                     "images",
@@ -222,7 +222,7 @@ class ChunkerCombine(io.ComfyNode):
                 )
             }
 
-        # Clone all nodes between ChunkerDivide and ChunkerCombine
+        # Clone all nodes between ChunkerRepeat and ChunkerCombine
         for id in clone_ids: log(f'Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
@@ -251,9 +251,9 @@ class ChunkerCombine(io.ComfyNode):
                 log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
                 node.set_input("noise_seed", new_noise_seed)
 
-        # update the store in the cloned ChunkerDivide
-        new_divide = graph.lookup_node(d["start_node_id"])
-        new_divide.set_input("store", {
+        # update the store in the cloned ChunkerRepeat
+        new_repeat = graph.lookup_node(d["start_node_id"])
+        new_repeat.set_input("store", {
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1],
             "ts_chunk_starts": d["ts_chunk_starts"],

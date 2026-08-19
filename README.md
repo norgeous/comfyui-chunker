@@ -12,7 +12,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 (image of nodes?)
 
-### 🍫 Divide
+### 🍫 Repeat
 
 Chop large av tensor (images, masks and / or audio) into smaller chunks and process the chunks sequentially. Optionally use the end of last chunk as start of this chunk (with `overlap`).
 
@@ -54,7 +54,7 @@ Note: You may need a (very) large pagefile or swap configured.
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| chunker_data | CHUNKER_DATA | Yes | - | Connect from ChunkerDivide node |
+| chunker_data | CHUNKER_DATA | Yes | - | Connect from ChunkerRepeat node |
 | images | IMAGE | No | - | Processed chunk of images |
 | masks | MASK | No | - | Processed chunk of masks |
 | audio | AUDIO | No | - | Processed chunk of audio |

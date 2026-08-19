@@ -160,7 +160,7 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
     ({
-      "ChunkerDivide": () => {
+      "ChunkerRepeat": () => {
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
         });

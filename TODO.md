@@ -1,7 +1,6 @@
 # TODO
 
 - Combine
-  - video width fix not work in nodes 2.0
   - execute a fully cached chunker gives wrong ui?
 - Tidy unused code
 - revise readme and samples

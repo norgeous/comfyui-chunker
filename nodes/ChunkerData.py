@@ -16,10 +16,6 @@ class ChunkerData(io.ComfyNode):
                 ),
             ],
             outputs=[
-                io.Float.Output(
-                    "fps",
-                    tooltip="FPS",
-                ),
                 io.Int.Output(
                     "chunk_length",
                     tooltip="Count of images in each chunk",
@@ -29,16 +25,20 @@ class ChunkerData(io.ComfyNode):
                     tooltip="Count of images to overlap between chunks",
                 ),
                 io.Int.Output(
-                    "total_length",
-                    tooltip="Total length of output images",
-                ),
-                io.Int.Output(
                     "chunk_count",
                     tooltip="Count of chunks",
                 ),
                 io.Int.Output(
+                    "total_length",
+                    tooltip="Total length of output images",
+                ),
+                io.Int.Output(
                     "index",
                     tooltip="The current iteration index, ie; 0, 1, 2, ...",
+                ),
+                io.Float.Output(
+                    "fps",
+                    tooltip="FPS",
                 ),
             ],
             is_output_node=True,
@@ -53,21 +53,21 @@ class ChunkerData(io.ComfyNode):
 
         ui_values = {
             "output_label_values": {
-                "fps": format_fps(chunker_data["fps"]),
                 "chunk_length": c["chunk_length"],
                 "chunk_overlap": c["chunk_overlap"],
-                "total_length": c["total_length"],
                 "chunk_count": c["chunk_count"],
+                "total_length": c["total_length"],
                 "index": chunker_data["index"],
+                "fps": format_fps(chunker_data["fps"]),
             },
         }
 
         return io.NodeOutput(
-            float(chunker_data["fps"]),
             c["chunk_length"],
             c["chunk_overlap"],
-            c["total_length"],
             c["chunk_count"],
+            c["total_length"],
             chunker_data["index"],
+            float(chunker_data["fps"]),
             ui={"values": [ui_values]},
         )

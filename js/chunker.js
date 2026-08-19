@@ -190,10 +190,6 @@ app.registerExtension({
           });
           this.chunkerData = {};
           const update = () => {
-            // fix the dodgy video width
-            const vid = element.querySelector("video");
-            vid.style.width = vid.style.width === "100%" ? "auto" : "100%";
-
             const { active, lastCombineExecutionTs, bar } = this.chunkerData;
             const now = Date.now();
             const elapsedMillis = now - lastCombineExecutionTs;

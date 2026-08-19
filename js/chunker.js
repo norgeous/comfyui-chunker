@@ -208,7 +208,7 @@ app.registerExtension({
             const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
 
             const timings = !active
-              ? `<div class="chunker-timings">Cancelled after ${formatMilliseconds(elapsedMillis, true)}</div>`
+              ? `<div class="chunker-timings" style="justify-content: center">Cancelled after ${formatMilliseconds(elapsedMillis, true)}</div>`
               : `
               <div class="chunker-timings">
                 <div class="chunker-timestamp">Next: ${etaNext}</div>

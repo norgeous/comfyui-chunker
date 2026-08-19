@@ -1,7 +1,5 @@
 # TODO
 
-- Combine
-  - execute a fully cached chunker gives wrong ui?
 - Tidy unused code
 - revise readme and samples
 - ensure builtin docs are working

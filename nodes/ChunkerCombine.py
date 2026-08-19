@@ -5,11 +5,27 @@ from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
-from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names_in_graph
+from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
+
+
+def collect_seed_info(dynprompt, clone_ids: list[str]) -> str:
+    seed_node_ids = [id for id in get_ids_by_partial_names(dynprompt, ["Sampler", "Noise"]) if id in clone_ids]
+    lines = []
+    for id in seed_node_ids:
+        node_info = dynprompt.get_node(id)
+        class_type = node_info["class_type"]
+        original_id = dynprompt.get_display_node_id(id)
+        seed = node_info["inputs"].get("seed")
+        noise_seed = node_info["inputs"].get("noise_seed")
+        if seed is not None and isinstance(seed, int):
+            lines.append(f"{class_type}#{original_id}: {seed}")
+        if noise_seed is not None and isinstance(noise_seed, int):
+            lines.append(f"{class_type}#{original_id}: {noise_seed}")
+    return "\n".join(lines)
 
 
 class ChunkerCombine(io.ComfyNode):
@@ -100,8 +116,6 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_ends": [],
         }
 
-        execution_start_time = get_execution_start_time()
-
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
@@ -119,10 +133,14 @@ class ChunkerCombine(io.ComfyNode):
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
+        # Identify nodes to repeat and collect seed info from prompt
+        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
+        seed_info = collect_seed_info(self.hidden.dynprompt, clone_ids)
+
         # Make preview from inputs
         ts = get_ts()
         log("Make preview...", end="")
-        preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode)
+        preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode, seed_info)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save preview to web file
@@ -185,7 +203,7 @@ class ChunkerCombine(io.ComfyNode):
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
-                "bar": calculate_progress_bar(execution_start_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+                "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
                 "video_path": all_preview_frontend_data,
             }
 
@@ -204,8 +222,7 @@ class ChunkerCombine(io.ComfyNode):
                 )
             }
 
-        # clone all the nodes between ChunkerDivide and ChunkerCombine
-        clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
+        # Clone all nodes between ChunkerDivide and ChunkerCombine
         for id in clone_ids: log(f'Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
 
@@ -220,19 +237,18 @@ class ChunkerCombine(io.ComfyNode):
             real_id = id.replace(f"{self.hidden.unique_id}.0.0.", "")
             original_id = self.hidden.dynprompt.get_display_node_id(real_id)
             node = graph.lookup_node(real_id)
+            class_type = self.hidden.dynprompt.get_node(original_id)['class_type']
 
-            # if node has a disconnected seed input
             seed = node.get_input("seed")
             if isinstance(seed, int):
                 new_seed = seed + 1
-                log(f"Increment seed in {self.hidden.dynprompt.get_node(original_id)['class_type']}#{original_id}; {seed} -> {new_seed}")
+                log(f"Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
                 node.set_input("seed", new_seed)
 
-            # if node has a disconnected noise_seed input
             noise_seed = node.get_input("noise_seed")
             if isinstance(noise_seed, int):
                 new_noise_seed = noise_seed + 1
-                log(f"Increment noise_seed in {self.hidden.dynprompt.get_node(original_id)['class_type']}#{original_id}; {noise_seed} -> {new_noise_seed}")
+                log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
                 node.set_input("noise_seed", new_noise_seed)
 
         # update the store in the cloned ChunkerDivide
@@ -263,7 +279,7 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": None,
                 "fps": None,
             },
-            "bar": calculate_progress_bar(execution_start_time, d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+            "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
             "video_path": all_preview_frontend_data,
         }
 

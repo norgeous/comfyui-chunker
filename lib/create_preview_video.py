@@ -40,6 +40,7 @@ def get_overlay_config(
     fps: float,
     overlap_blend_mode: str,
     audio_layout: str,
+    seed_info: str = "",
 ) -> list[dict]:
     frame_label, chunk_label, is_overlap = frame_index_info(
         i, previous_count, chunk_index, chunk_count,
@@ -55,13 +56,17 @@ def get_overlay_config(
             "horizontal_alignment": "right",
         },
     )
+    bottom_right_lines = [
+        f"{w} x {h} @ {fps:.2f}FPS",
+        audio_layout,
+        f"chunk_length: {chunk_length}",
+        f"chunk_overlap: {overlap}",
+        f"overlap_blend_mode: {overlap_blend_mode}",
+        seed_info,
+    ]
     configs.append(
         {
-            "text": (
-                f"{w} x {h} @ {fps:.2f}FPS\n{audio_layout}\n"
-                f"chunk_length: {chunk_length}\nchunk_overlap: {overlap}\n"
-                f"overlap_blend_mode: {overlap_blend_mode}"
-            ),
+            "text": "\n".join(bottom_right_lines),
             "font_size": int(em * 14),
             "vertical_alignment": "bottom",
             "horizontal_alignment": "right",
@@ -92,6 +97,7 @@ def overlay_debug_text(
     fps: float,
     overlap_blend_mode: str,
     audio_layout: str,
+    seed_info: str = "",
 ) -> torch.Tensor:
     w = images.shape[2]
     h = images.shape[1]
@@ -108,7 +114,9 @@ def overlay_debug_text(
             chunk_overlap,
             fps,
             overlap_blend_mode,
-            audio_layout) for i in range(
+            audio_layout,
+            seed_info,
+        ) for i in range(
             0,
             len(images))]
     images = batch_draw_text(images, config)
@@ -135,6 +143,7 @@ def create_preview_video(
     d: dict,
     c: dict,
     overlap_blend_mode: str,
+    seed_info: str = "",
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[dict], float]:
     previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
@@ -153,6 +162,7 @@ def create_preview_video(
         d["fps"],
         overlap_blend_mode,
         audio_layout,
+        seed_info,
     )
     preview_masks = preview_images[:, :, :, 3] if preview_images.shape[3] == 4 else None
     preview_images = preview_images[:, :, :, :3]

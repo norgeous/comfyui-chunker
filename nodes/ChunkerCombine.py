@@ -207,7 +207,7 @@ class ChunkerCombine(io.ComfyNode):
                 "video_path": all_preview_frontend_data,
             }
 
-            pbar = comfy.utils.ProgressBar(c["chunk_count"])
+            pbar = comfy.utils.ProgressBar(c["chunk_count"], node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
             pbar.update_absolute(c["chunk_count"])
 
             log(f"ChunkerCombine#{self.hidden.unique_id}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
@@ -283,7 +283,7 @@ class ChunkerCombine(io.ComfyNode):
             "video_path": all_preview_frontend_data,
         }
 
-        pbar = comfy.utils.ProgressBar(c["chunk_count"])
+        pbar = comfy.utils.ProgressBar(c["chunk_count"], node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
         pbar.update_absolute(d["index"] + 1)
 
         log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")

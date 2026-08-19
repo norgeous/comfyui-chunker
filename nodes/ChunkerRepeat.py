@@ -75,7 +75,14 @@ class ChunkerRepeat(io.ComfyNode):
                 io.Combo.Input(
                     "mode",
                     options=list(map(lambda member: member.value, Mode)),
-                    tooltip="Adjust chunk_length, total_length, image dimensions and default FPS to match selected format",
+                    tooltip=(
+                        "Adjust chunk_length, total_length, image dimensions and default FPS to match selected format\n"
+                        "\n"
+                        "default:          dim 2n,   length n,     fps 30\n"
+                        "wan2:            dim 16n,  length 4n+1,  fps 16\n"
+                        "ltx2:               dim 32n,  length 8n+1,  fps 25\n"
+                        "minimax-h3: dim 32n,  length 17n+5, fps 24"
+                    ),
                 ),
                 io.Int.Input(
                     "chunk_length",

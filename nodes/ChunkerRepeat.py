@@ -149,30 +149,7 @@ class ChunkerRepeat(io.ComfyNode):
                     "audio",
                     tooltip="Chunk of audio",
                 ),
-                io.Float.Output(
-                    "fps",
-                    tooltip="FPS",
-                ),
-                io.Int.Output(
-                    "chunk_length",
-                    tooltip="Count of images in this chunk",
-                ),
-                io.Int.Output(
-                    "chunk_overlap",
-                    tooltip="Count of images to overlap between each chunk",
-                ),
-                io.Int.Output(
-                    "total_length",
-                    tooltip="Total length of output images",
-                ),
-                io.Int.Output(
-                    "chunk_count",
-                    tooltip="Count of chunks",
-                ),
-                io.Int.Output(
-                    "index",
-                    tooltip="The current itteration index, ie; 0, 1, 2, ...",
-                ),
+
             ],
             hidden=[io.Hidden.unique_id],
         )
@@ -338,12 +315,6 @@ class ChunkerRepeat(io.ComfyNode):
                 "images": format_images(out_images_torch),
                 "masks": format_masks(out_masks_torch),
                 "audio": format_audio(out_audio_dict),
-                "fps": format_fps(out_fps),
-                "chunk_length": this_chunk_length,
-                "chunk_overlap": chunk_overlap,
-                "total_length": total_length,
-                "chunk_count": chunk_count,
-                "index": s["index"],
             },
         }
 
@@ -352,11 +323,5 @@ class ChunkerRepeat(io.ComfyNode):
             out_images_torch,
             out_masks_torch,
             out_audio_dict,
-            out_fps,
-            this_chunk_length,
-            chunk_overlap,
-            total_length,
-            chunk_count,
-            s["index"],
             ui={"values": [ui_values]},
         )

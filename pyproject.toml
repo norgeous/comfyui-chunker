@@ -1,14 +1,14 @@
 [project]
 name = "comfyui-chunker"
-description = "Itterate video chunks"
+description = "Iterate video chunks"
 version = "1.0.0"
 # license = {file = "LICENSE"}
 dependencies = []
 
 [project.urls]
-# Repository = "https://github.com/norgeous/comfyui-chunker"
+Repository = "https://github.com/norgeous/comfyui-chunker"
 # Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-# PublisherId = "norgeous"
-# DisplayName = "ComfyUI-Chunker"
+PublisherId = "norgeous"
+DisplayName = "comfyui-chunker"

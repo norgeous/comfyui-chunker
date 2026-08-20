@@ -62,7 +62,7 @@ def av_load(path: str,
     if container.streams.audio:
         audio_stream = container.streams.audio[0]
         sample_rate = audio_stream.rate
-        is_stereo = audio_stream.layout.name == 'stereo'
+        is_stereo = audio_stream.layout.name == "stereo"
 
         samples_per_frame = math.floor(sample_rate / fps)
 

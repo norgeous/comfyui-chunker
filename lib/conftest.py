@@ -30,7 +30,7 @@ def create_source_tensors(
 
     pil_frames = []
     for frame_num in range(video_frames):
-        img = Image.new('RGB', (video_width, video_height), bg_color)
+        img = Image.new("RGB", (video_width, video_height), bg_color)
         draw = ImageDraw.Draw(img)
 
         draw.rectangle([0, 0, 299, 29], fill=(0, 0, 0))
@@ -60,7 +60,7 @@ def create_source_tensors(
     radius_per_frame = torch.linspace(50, 100, video_frames)
     y = torch.arange(video_height)
     x = torch.arange(video_width)
-    yy, xx = torch.meshgrid(y, x, indexing='ij')
+    yy, xx = torch.meshgrid(y, x, indexing="ij")
     center_y = video_height // 2
     center_x = video_width // 2
     dist_sq = (yy - center_y) ** 2 + (xx - center_x) ** 2
@@ -106,7 +106,7 @@ def get_frame_info(video_path):
 
     frames = []
     for frame in container.decode(video_stream):
-        img = frame.to_ndarray(format='rgb24')
+        img = frame.to_ndarray(format="rgb24")
         frames.append(img)
 
     container.close()
@@ -161,7 +161,7 @@ def analyze_audio_frequency(samples, sample_rate=44100):
 
 
 def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
-    plt.style.use('dark_background')
+    plt.style.use("dark_background")
     waveform = waveform[0]
     num_channels = waveform.shape[0]
     num_samples = waveform.shape[1]
@@ -178,8 +178,8 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
 
     for i in range(num_channels):
         axes[i, 0].plot(x, waveform[i].numpy()[::step], linewidth=0.5)
-        axes[i, 0].set_xlabel('Samples')
-        axes[i, 0].set_ylabel('Amplitude')
+        axes[i, 0].set_xlabel("Samples")
+        axes[i, 0].set_ylabel("Amplitude")
         axes[i, 0].set_title(f'Channel {i + 1}')
 
         tick_locations = np.arange(0, num_samples + 1, sample_rate)
@@ -187,10 +187,10 @@ def plot_audio_waveform(waveform, sample_rate, fps, title, output_path):
         axes[i, 0].set_xticklabels([int(loc) for loc in tick_locations])
 
         for sample_pos in np.arange(0, num_samples, sample_rate / fps):
-            axes[i, 0].axvline(x=sample_pos, color='red',
-                               linestyle='--', alpha=0.5)
+            axes[i, 0].axvline(x=sample_pos, color="red",
+                               linestyle="--", alpha=0.5)
 
-    plt.savefig(output_path, dpi=100, bbox_inches='tight', pad_inches=0)
+    plt.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0)
     plt.close()
 
 

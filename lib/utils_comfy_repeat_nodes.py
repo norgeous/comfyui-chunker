@@ -43,7 +43,7 @@ def get_all_output_node_ids(dynprompt):
         info in prompt.items() if getattr(
             ALL_NODE_CLASS_MAPPINGS.get(
                 info.get("class_type")),
-            'OUTPUT_NODE',
+            "OUTPUT_NODE",
             False) is True]
 
 

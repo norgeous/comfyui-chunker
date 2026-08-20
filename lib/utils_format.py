@@ -26,7 +26,7 @@ def format_milliseconds(ms: int) -> str:
     if ms == 0:
         return "0"
     divisors = [1, 1000, 60, 60, 24, 7, 4, 13, 10, 10, 10]
-    units = ['ms', 's', 'm', 'h', 'd', 'w', 'mo', 'y', 'dec', 'c', 'mi']
+    units = ["ms", "s", "m", "h", "d", "w", "mo", "y", "dec", "c", "mi"]
     results = []
     quotient = ms
     for i in range(1, len(divisors)):
@@ -38,4 +38,4 @@ def format_milliseconds(ms: int) -> str:
     first = next(i for i, v in enumerate(rresults) if v > 0)
     last = len(results) - next(i for i, v in enumerate(results) if v > 0)
     out = [f"{rresults[i]}{runits[i]}" for i in range(first, last)]
-    return ''.join(out[0:2])
+    return "".join(out[0:2])

@@ -57,7 +57,7 @@ def av_save(
 
     output_path, frontend_data = get_next_save_path(filename_prefix, settings["file_extension"])
 
-    with av.open(output_path, mode='w') as container:
+    with av.open(output_path, mode="w") as container:
         video_stream = None
         mask_stream = None
         audio_stream = None
@@ -92,10 +92,10 @@ def av_save(
             is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
             audio_stream.options = settings["audio_options"]
-            audio_stream.layout = 'stereo' if is_stereo else 'mono'
+            audio_stream.layout = "stereo" if is_stereo else "mono"
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
             audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
-            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format='s16', layout='stereo' if is_stereo else 'mono')
+            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format="s16", layout="stereo" if is_stereo else "mono")
             audio_frame.rate = audio["sample_rate"]
             audio_frame.pts = 0
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))

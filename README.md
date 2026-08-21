@@ -14,13 +14,11 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 ### 🍫 Repeat
 
-Chop large av tensor (images, masks and / or audio) into smaller chunks and process the chunks sequentially. Optionally use the end of last chunk as start of this chunk (with `overlap`).
+Repeat nodes between this node and `🍫 Combine`. Optionally divide long batches images, masks and / or audio into smaller chunks and process the chunks sequentially. Optionally use the end of last chunk as start of this chunk (with `chunk_overlap`).
 
 ### 🍫 Data
 
-Extract values from `chunker_data` as individual outputs, for use elsewhere in your workflow. Also displays chunk progress info on the node itself.
-
-Outputs: `chunk_length`, `chunk_overlap`, `chunk_count`, `total_length`, `index` and `fps`.
+Extract values from `chunker_data` as individual outputs, for use elsewhere in your workflow.
 
 ### 🍫 Combine
 

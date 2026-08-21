@@ -321,14 +321,14 @@ class ChunkerRepeat(io.ComfyNode):
         out_images_torch = None
         if len(out_images) > 0:
             out_images_resized = list(
-                map(lambda tensor: resize_image(tensor, w, h), out_images))
+                map(lambda tensor: resize_image(tensor, w, h, pad=True), out_images))
             out_images_torch = torch.cat(out_images_resized)
 
         # finalise out masks, resize and concat together
         out_masks_torch = None
         if len(out_masks) > 0:
             out_masks_resized = list(
-                map(lambda tensor: resize_mask(tensor, w, h), out_masks))
+                map(lambda tensor: resize_mask(tensor, w, h, pad=True), out_masks))
             out_masks_torch = torch.cat(out_masks_resized)
 
         # finalise out audio, concat together

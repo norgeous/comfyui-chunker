@@ -116,6 +116,8 @@ class ChunkerCombine(io.ComfyNode):
             "ts_chunk_ends": [],
         }
 
+        pbar = comfy.utils.ProgressBar(0, node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
+
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
@@ -207,8 +209,7 @@ class ChunkerCombine(io.ComfyNode):
                 "video_path": all_preview_frontend_data,
             }
 
-            pbar = comfy.utils.ProgressBar(c["chunk_count"], node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
-            pbar.update_absolute(c["chunk_count"])
+            pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
             log(f"ChunkerCombine#{self.hidden.unique_id}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
@@ -283,8 +284,7 @@ class ChunkerCombine(io.ComfyNode):
             "video_path": all_preview_frontend_data,
         }
 
-        pbar = comfy.utils.ProgressBar(c["chunk_count"], node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
-        pbar.update_absolute(d["index"] + 1)
+        pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
         log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 

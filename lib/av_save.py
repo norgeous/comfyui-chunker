@@ -101,7 +101,7 @@ def av_save(
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))
 
         if video_stream is not None:
-            pbar = comfy.utils.ProgressBar(count)
+            pbar = comfy.utils.ProgressBar(0)
             for i in range(count):
                 img = images[i]
                 img_np = (img * 255).cpu().numpy().astype(np.uint8)
@@ -133,7 +133,7 @@ def av_save(
                     for packet in mask_stream.encode(mask_frame):
                         container.mux(packet)
 
-                pbar.update(1)
+                pbar.update_absolute(i + 1, count)
 
             for packet in video_stream.encode():
                 container.mux(packet)

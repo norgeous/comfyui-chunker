@@ -22,6 +22,12 @@ def format_fps(fps: Optional[float]) -> str:
     return f"{fps:.2f}"
 
 
+def format_video(video) -> str:
+    if video is None:
+        return "0s"
+    return f"{video.get_duration():.3f}s"
+
+
 def format_milliseconds(ms: int) -> str:
     if ms == 0:
         return "0"

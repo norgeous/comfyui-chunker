@@ -6,8 +6,7 @@ from ..lib.plan_chunks import plan_chunks
 from ..lib.av_load import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import resize_image, resize_mask
-from ..lib.utils_format import (
-    format_images, format_masks, format_audio, format_fps)
+from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_video)
 from ..lib.utils_performance import get_ts
 from enum import Enum
 
@@ -57,6 +56,11 @@ class ChunkerRepeat(io.ComfyNode):
                 "as start of this chunk (with `chunk_overlap`)."
             ),
             inputs=[
+                io.Video.Input(
+                    "video",
+                    optional=True,
+                    tooltip="video (optional)",
+                ),
                 io.Image.Input(
                     "images",
                     optional=True,
@@ -167,6 +171,7 @@ class ChunkerRepeat(io.ComfyNode):
         chunk_length,
         chunk_overlap,
         repeat_until,
+        video=None,
         images=None,
         masks=None,
         audio=None,
@@ -181,11 +186,19 @@ class ChunkerRepeat(io.ComfyNode):
             "ts_chunk_starts": [],
         }
 
+        video_source = None
+        video_fps = None
+        video_frame_count = None
+        if video is not None:
+            video_source = video.get_stream_source()
+            video_fps = float(video.get_frame_rate())
+            video_frame_count = video.get_frame_count()
+
         settings = mode_settings[Mode(mode)]
 
         out_fps = fps
         if out_fps is None:
-            out_fps = settings["fps"]
+            out_fps = video_fps if video_fps is not None else settings["fps"]
 
         # resolve total_length from repeat_until
         tl_type = repeat_until["repeat_until"]
@@ -197,6 +210,7 @@ class ChunkerRepeat(io.ComfyNode):
             total_length = max(
                 len(images) if images is not None else 0,
                 len(masks) if masks is not None else 0,
+                video_frame_count if video_frame_count is not None else 0,
                 audio["waveform"].shape[-1] // math.floor(audio["sample_rate"] / out_fps) if audio is not None else 0,
             )
         else:  # total_length
@@ -246,6 +260,29 @@ class ChunkerRepeat(io.ComfyNode):
                 out_masks.append(overlap_masks)
             if overlap_audio_dict is not None:
                 out_audio.append(overlap_audio_dict)
+
+        # load chunk frames from video (lazy load via av_load)
+        if video_source is not None and images is None:
+            load_start = start + count(out_images)
+            load_end = end
+            if load_start < load_end:
+                video_images, video_masks, video_audio_dict, loaded_fps = av_load(
+                    path=video_source,
+                    start=load_start,
+                    end=load_end,
+                )
+                if video_images is not None:
+                    if w is None:
+                        w = settings["dimension_adjuster"](video_images.shape[2])
+                    if h is None:
+                        h = settings["dimension_adjuster"](video_images.shape[1])
+                    out_images.append(video_images)
+                if video_masks is not None:
+                    out_masks.append(video_masks)
+                if video_audio_dict is not None:
+                    out_audio.append(video_audio_dict)
+                if fps is None and loaded_fps:
+                    out_fps = loaded_fps
 
         # prepare chunk of images from input
         if images is not None:
@@ -312,6 +349,7 @@ class ChunkerRepeat(io.ComfyNode):
 
         ui_values = {
             "input_label_values": {
+                "video": format_video(video),
                 "images": format_images(images),
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),

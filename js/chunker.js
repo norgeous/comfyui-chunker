@@ -138,6 +138,45 @@ const getBackgroundClass = (videoPath) => {
   return filename.endsWith('.webm') ? 'checkerboard' : 'hdr-gradient';
 };
 
+// Workaround for a frontend bug in migrateWidgetsValues (Comfy-Org/ComfyUI_frontend):
+// during node configure it strips legacy pre-1.16 dummy widget values by
+// positionally matching static input defs against widgets_values. DynamicCombo
+// children ("repeat_until.chunk_count") occupy widget slots but have no static
+// def, shifting the alignment — and when the counts coincide (here: 4 widget
+// defs + forceInput fps vs 4 top-level widgets + 1 child = 5==5) real values
+// are silently dropped on every workflow load/tab switch, resetting
+// chunk_count/total_length to their defaults. Dynamic children only exist in
+// modern workflows, so the legacy migration can never legitimately apply:
+// snapshot the saved values before configure, then re-apply whatever it stripped.
+const restoreDynamicComboValues = (nodeType) => {
+  const origConfigure = nodeType.prototype.configure;
+  if (typeof origConfigure !== 'function') return;
+  nodeType.prototype.configure = function (info) {
+    const saved = Array.isArray(info?.widgets_values)
+      ? info.widgets_values.slice()
+      : null;
+    const result = origConfigure.apply(this, arguments);
+    if (!saved || !this.widgets) return result;
+
+    const defNames = new Set(
+      Object.values(this.constructor.nodeData?.inputs ?? {}).map((d) => d.name)
+    );
+    if (!this.widgets.some((w) => !defNames.has(w.name))) return result;
+
+    const comboIdx = this.widgets.findIndex((w) => w.name === 'repeat_until');
+    if (comboIdx === -1) return result;
+    for (
+      let i = comboIdx + 1;
+      i < Math.min(saved.length, this.widgets.length);
+      i++
+    ) {
+      const w = this.widgets[i];
+      if (w && w.serialize !== false && w.value !== saved[i]) w.value = saved[i];
+    }
+    return result;
+  };
+};
+
 app.registerExtension({
   name: "chunker",
 
@@ -161,6 +200,7 @@ app.registerExtension({
   async beforeRegisterNodeDef(nodeType, nodeData) {
     ({
       "ChunkerRepeat": () => {
+        restoreDynamicComboValues(nodeType);
         chainCallback(nodeType.prototype, "onNodeCreated", function () {
           setTimeout(() => this.removeInput(this.inputs.findIndex(({ name }) => name === "store")));
         });

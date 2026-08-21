@@ -52,7 +52,7 @@ class ChunkerRepeat(io.ComfyNode):
             category="chunker",
             description=(
                 "Repeat nodes between this node and `🍫 Combine`. "
-                "Optionally divide long batch images, masks and / or audio into smaller chunks "
+                "Optionally divide long batches images, masks and / or audio into smaller chunks "
                 "and process the chunks sequentially. Optionally use the end of last chunk "
                 "as start of this chunk (with `chunk_overlap`)."
             ),

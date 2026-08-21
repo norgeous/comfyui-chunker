@@ -35,6 +35,11 @@ class ChunkerCombine(io.ComfyNode):
             node_id="ChunkerCombine",
             display_name="\U0001F36B Combine",
             category="chunker",
+            description=(
+                "Combine sequential chunks back into single av tensors. Each chunk is saved to a mp4 file and recombined excluding the overlap frames.\n"
+                "\n"
+                "Note: You may need a (very) large pagefile or swap configured."
+            ),
             inputs=[
                 io.Custom("CHUNKER_DATA").Input(
                     "chunker_data",

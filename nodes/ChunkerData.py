@@ -9,6 +9,10 @@ class ChunkerData(io.ComfyNode):
             node_id="ChunkerData",
             display_name="\U0001F36B Data",
             category="chunker",
+            description=(
+                "Extract values from `chunker_data` as individual outputs, for use elsewhere in your workflow. "
+                "Also displays chunk progress info on the node itself."
+            ),
             inputs=[
                 io.Custom("CHUNKER_DATA").Input(
                     "chunker_data",

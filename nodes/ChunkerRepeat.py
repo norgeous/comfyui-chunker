@@ -50,6 +50,11 @@ class ChunkerRepeat(io.ComfyNode):
             node_id="ChunkerRepeat",
             display_name="\U0001F36B Repeat",
             category="chunker",
+            description=(
+                "Chop large av tensor (images, masks and / or audio) into smaller chunks "
+                "and process the chunks sequentially. Optionally use the end of last chunk "
+                "as start of this chunk (with `overlap`)."
+            ),
             inputs=[
                 io.Image.Input(
                     "images",

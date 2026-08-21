@@ -260,7 +260,7 @@ class ChunkerCombine(io.ComfyNode):
         })
 
         # update the store in the cloned ChunkerCombine (copy of this node)
-        new_combine = graph.lookup_node("Recurse")
+        new_combine = graph.lookup_node(self.hidden.unique_id)
         s["ts_chunk_ends"] = [
             *s["ts_chunk_ends"],
             get_ts(),

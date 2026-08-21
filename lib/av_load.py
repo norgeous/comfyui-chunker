@@ -5,11 +5,7 @@ import torch
 import math
 
 
-def av_load(path: str,
-            overlap_frame_count: int = 0) -> Tuple[Optional[torch.Tensor],
-                                                   Optional[torch.Tensor],
-                                                   Optional[dict],
-                                                   int]:
+def av_load(path: str, overlap_frame_count: int = 0) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], int]:
     container = av.open(path)
     container.seek(0)
 

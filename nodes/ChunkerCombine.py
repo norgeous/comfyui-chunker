@@ -224,7 +224,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Clone all nodes between ChunkerRepeat and ChunkerCombine
         for id in clone_ids: log(f'Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
-        graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids, self.hidden.unique_id)
+        graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids)
 
         # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
         # - KSampler

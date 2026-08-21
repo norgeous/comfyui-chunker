@@ -25,7 +25,7 @@ def tensors_audio_stereo():
     return {"images": images, "masks": masks, "audio": audio}
 
 
-def test_video_only(output_dir, tensors_video_only):
+def test_video_only(tensors_video_only):
     result, _ = av_save(
         images=tensors_video_only["images"],
         filename_prefix="save_video_only",
@@ -33,21 +33,21 @@ def test_video_only(output_dir, tensors_video_only):
     assert os.path.exists(result)
 
 
-def test_audio_mono_only(output_dir, tensors_audio_mono):
+def test_audio_mono_only(tensors_audio_mono):
     result, _ = av_save(
         audio=tensors_audio_mono["audio"],
         filename_prefix="save_audio_mono")
     assert os.path.exists(result)
 
 
-def test_audio_stereo_only(output_dir, tensors_audio_stereo):
+def test_audio_stereo_only(tensors_audio_stereo):
     result, _ = av_save(
         audio=tensors_audio_stereo["audio"],
         filename_prefix="save_audio_stereo")
     assert os.path.exists(result)
 
 
-def test_video_and_audio_mono(output_dir, tensors_audio_mono):
+def test_video_and_audio_mono(tensors_audio_mono):
     result, _ = av_save(
         images=tensors_audio_mono["images"],
         audio=tensors_audio_mono["audio"],
@@ -56,7 +56,7 @@ def test_video_and_audio_mono(output_dir, tensors_audio_mono):
     assert os.path.exists(result)
 
 
-def test_video_and_audio_stereo(output_dir, tensors_audio_stereo):
+def test_video_and_audio_stereo(tensors_audio_stereo):
     result, _ = av_save(
         images=tensors_audio_stereo["images"],
         audio=tensors_audio_stereo["audio"],
@@ -65,7 +65,7 @@ def test_video_and_audio_stereo(output_dir, tensors_audio_stereo):
     assert os.path.exists(result)
 
 
-def test_no_inputs_raises(output_dir):
+def test_no_inputs_raises():
     with pytest.raises(
             ValueError,
             match="At least one of images or audio "
@@ -74,7 +74,7 @@ def test_no_inputs_raises(output_dir):
         av_save(filename_prefix="save_empty")
 
 
-def test_web_profile_video_only(output_dir, tensors_video_only):
+def test_web_profile_video_only(tensors_video_only):
     result, _ = av_save(
         images=tensors_video_only["images"],
         filename_prefix="save_web_video",
@@ -84,7 +84,7 @@ def test_web_profile_video_only(output_dir, tensors_video_only):
     assert result.endswith(".webm")
 
 
-def test_web_profile_audio_mono(output_dir, tensors_audio_mono):
+def test_web_profile_audio_mono(tensors_audio_mono):
     result, _ = av_save(
         audio=tensors_audio_mono["audio"],
         filename_prefix="save_web_audio_mono",
@@ -93,7 +93,7 @@ def test_web_profile_audio_mono(output_dir, tensors_audio_mono):
     assert result.endswith(".webm")
 
 
-def test_web_profile_video_and_audio_stereo(output_dir, tensors_audio_stereo):
+def test_web_profile_video_and_audio_stereo(tensors_audio_stereo):
     result, _ = av_save(
         images=tensors_audio_stereo["images"],
         audio=tensors_audio_stereo["audio"],
@@ -104,7 +104,7 @@ def test_web_profile_video_and_audio_stereo(output_dir, tensors_audio_stereo):
     assert result.endswith(".webm")
 
 
-def test_hq_profile_default_extension(output_dir, tensors_video_only):
+def test_hq_profile_default_extension(tensors_video_only):
     result, _ = av_save(
         images=tensors_video_only["images"],
         filename_prefix="save_hq_default",

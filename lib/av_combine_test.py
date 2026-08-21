@@ -3,7 +3,7 @@ from lib.av_combine import av_combine, BlendMode
 from lib.conftest import get_frame_info, analyze_audio_frequency
 
 
-def test_no_overlap(source_videos, output_dir):
+def test_no_overlap(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -54,7 +54,7 @@ def test_no_overlap(source_videos, output_dir):
         f"Audio frames 174+ should be ~880Hz, got {audio_880}")
 
 
-def test_older_only(source_videos, output_dir):
+def test_older_only(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -107,7 +107,7 @@ def test_older_only(source_videos, output_dir):
         f"Audio frames 174+ should be ~880Hz, got {audio_880}")
 
 
-def test_linear_blend(source_videos, output_dir):
+def test_linear_blend(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -194,7 +194,7 @@ def test_linear_blend(source_videos, output_dir):
         f"Audio end should be ~880Hz, got {audio_880}")
 
 
-def test_ease_in_out(source_videos, output_dir):
+def test_ease_in_out(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -291,7 +291,7 @@ def test_ease_in_out(source_videos, output_dir):
         f"Audio end should be ~880Hz, got {audio_880}")
 
 
-def test_newer_only(source_videos, output_dir):
+def test_newer_only(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -344,7 +344,7 @@ def test_newer_only(source_videos, output_dir):
         f"Audio frames 174+ should be ~880Hz, got {audio_880}")
 
 
-def test_equal_power(source_videos, output_dir):
+def test_equal_power(source_videos):
     videos = [
         str(source_videos["source1"]),
         str(source_videos["source2"]),
@@ -433,7 +433,7 @@ def test_equal_power(source_videos, output_dir):
         f"Audio end should be ~880Hz, got {audio_880}")
 
 
-def test_stereo_linear_blend(source_videos, output_dir):
+def test_stereo_linear_blend(source_videos):
     videos = [
         str(source_videos["source1_stereo"]),
         str(source_videos["source2_stereo"]),

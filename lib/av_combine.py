@@ -22,8 +22,8 @@ blend_handlers = {
     BlendMode.EQUAL_POWER: lambda p: math.sin(p * math.pi / 2),
     BlendMode.LINEAR: lambda p: p,
     BlendMode.EASE_IN_OUT: lambda p: p * p * (3 - 2 * p),
-    BlendMode.NEWER_ONLY: lambda p: 1,
-    BlendMode.OLDER_ONLY: lambda p: 0,
+    BlendMode.NEWER_ONLY: lambda _p: 1,
+    BlendMode.OLDER_ONLY: lambda _p: 0,
 }
 
 

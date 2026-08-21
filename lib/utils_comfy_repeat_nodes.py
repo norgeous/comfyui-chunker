@@ -56,11 +56,7 @@ def get_ids_by_partial_names_in_graph(graph, partial_names):
     return [id for id, node in graph.finalize().items() for partial in partial_names if partial in node["class_type"]]
 
 
-def get_clone_ids(
-        dynprompt,
-        start_node_id,
-        end_node_id,
-        extra_include_partial_names):
+def get_clone_ids(dynprompt, start_node_id, end_node_id, extra_include_partial_names):
     # get parent id chains for end node
     end_node_parent_id_chains = get_parent_id_chains(dynprompt, end_node_id)
 
@@ -96,7 +92,7 @@ def get_clone_ids(
     clone_ids.sort()
     return clone_ids
 
-def comfyui_repeat_nodes(dynprompt, clone_ids, end_node_id):
+def comfyui_repeat_nodes(dynprompt, clone_ids):
     graph = GraphBuilder()
 
     # clone nodes

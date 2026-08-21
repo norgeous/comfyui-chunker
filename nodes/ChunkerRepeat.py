@@ -51,31 +51,32 @@ class ChunkerRepeat(io.ComfyNode):
             display_name="\U0001F36B Repeat",
             category="chunker",
             description=(
-                "Chop large av tensor (images, masks and / or audio) into smaller chunks "
+                "Repeat nodes between this node and `🍫 Combine`. "
+                "Optionally divide long batch images, masks and / or audio into smaller chunks "
                 "and process the chunks sequentially. Optionally use the end of last chunk "
-                "as start of this chunk (with `overlap`)."
+                "as start of this chunk (with `chunk_overlap`)."
             ),
             inputs=[
                 io.Image.Input(
                     "images",
                     optional=True,
-                    tooltip="images",
+                    tooltip="images (optional)",
                 ),
                 io.Mask.Input(
                     "masks",
                     optional=True,
-                    tooltip="masks",
+                    tooltip="masks (optional)",
                 ),
                 io.Audio.Input(
                     "audio",
                     optional=True,
-                    tooltip="audio",
+                    tooltip="audio (optional)",
                 ),
                 io.Float.Input(
                     "fps",
                     optional=True,
                     force_input=True,
-                    tooltip="FPS",
+                    tooltip="The default FPS of 30 is overridden when `mode` is not default (see mode tooltip). If you supply a value it overrides the FPS value from mode",
                 ),
                 io.Combo.Input(
                     "mode",

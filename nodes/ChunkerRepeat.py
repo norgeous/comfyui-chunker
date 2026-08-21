@@ -236,7 +236,7 @@ class ChunkerRepeat(io.ComfyNode):
         if s["last_chunk_path"] is not None and chunk_overlap > 0:
             overlap_images, overlap_masks, overlap_audio_dict, _ = av_load(
                 path=s["last_chunk_path"],
-                overlap_frame_count=-chunk_overlap,
+                start=-chunk_overlap,
             )
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]

@@ -1,12 +1,12 @@
 import comfy.utils
-from comfy_api.latest import io
+from comfy_api.latest import io, VideoFromFile
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
-from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds
+from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
@@ -77,6 +77,10 @@ class ChunkerCombine(io.ComfyNode):
                 ),
             ],
             outputs=[
+                io.Video.Output(
+                    "video",
+                    tooltip="Combined video file",
+                ),
                 io.Image.Output(
                     "images",
                     tooltip="Combined images from all chunks",
@@ -184,7 +188,7 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             ts = get_ts()
             log("Combine all chunks...", end="")
-            _, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
+            out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                 inputs=s["chunks"],
                 filename_prefix="chunker-chunk-all",
                 overlap_frame_count=c["chunk_overlap"],
@@ -192,6 +196,7 @@ class ChunkerCombine(io.ComfyNode):
                 audio_blend_mode=BlendMode(overlap_blend_mode),
             )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
+            out_video = VideoFromFile(out_video_path)
 
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],
@@ -205,6 +210,7 @@ class ChunkerCombine(io.ComfyNode):
                     "audio": format_audio(audio),
                 },
                 "output_label_values": {
+                    "video": format_video(out_video),
                     "images": format_images(out_images_torch),
                     "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
@@ -221,10 +227,11 @@ class ChunkerCombine(io.ComfyNode):
             return {
                 "ui": {"values": [ui_values]},
                 "result": (
+                    out_video,
                     out_images_torch,
                     out_masks_torch,
                     out_audio_dict,
-                    float(d["fps"]), # it might be a Fraction or float, so cast to float
+                    float(d["fps"]),
                 )
             }
 
@@ -280,6 +287,7 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": format_audio(audio),
             },
             "output_label_values": {
+                "video": None,
                 "images": None,
                 "masks": None,
                 "audio": None,
@@ -294,10 +302,11 @@ class ChunkerCombine(io.ComfyNode):
         log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
-            new_combine.out(0), # images
-            new_combine.out(1), # masks
-            new_combine.out(2), # audio
-            new_combine.out(3), # fps
+            new_combine.out(0), # video
+            new_combine.out(1), # images
+            new_combine.out(2), # masks
+            new_combine.out(3), # audio
+            new_combine.out(4), # fps
             ui={"values": [ui_values]},
             expand=graph.finalize(),
         )

@@ -23,21 +23,25 @@ mode_settings = {
         "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
+        "chunk_length": {"default": 100, "min": 1, "step": 1},   # n
     },
     Mode.WAN2: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
+        "chunk_length": {"default": 81, "min": 1, "step": 4},   # 4n+1
     },
     Mode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
+        "chunk_length": {"default": 81, "min": 1, "step": 8},   # 8n+1
     },
     Mode.MINIMAX_H3: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 5) / 17) * 17) + 5, # 17n+5. example: 5, 22, 39, 56, 73
         "fps": 24.0,
+        "chunk_length": {"default": 107, "min": 5, "step": 17},  # 17n+5
     },
 }
 
@@ -82,9 +86,21 @@ class ChunkerRepeat(io.ComfyNode):
                     force_input=True,
                     tooltip="The default FPS of 30 is overridden when `mode` is not default (see mode tooltip). If you supply a value it overrides the FPS value from mode",
                 ),
-                io.Combo.Input(
+                io.DynamicCombo.Input(
                     "mode",
-                    options=list(map(lambda member: member.value, Mode)),
+                    options=[
+                        io.DynamicCombo.Option(
+                            member.value,
+                            [
+                                io.Int.Input(
+                                    "chunk_length",
+                                    tooltip="Count of images in each chunk",
+                                    **mode_settings[member]["chunk_length"],
+                                ),
+                            ],
+                        )
+                        for member in Mode
+                    ],
                     tooltip=(
                         "Adjust chunk_length, total_length, image dimensions and default FPS to match selected format\n"
                         "\n"
@@ -93,14 +109,6 @@ class ChunkerRepeat(io.ComfyNode):
                         "ltx2:               dim 32n,  length 8n+1,  fps 25\n"
                         "minimax-h3: dim 32n,  length 17n+5, fps 24"
                     ),
-                ),
-                io.Int.Input(
-                    "chunk_length",
-                    tooltip="Count of images in each chunk",
-                    default=81,
-                    min=1,
-                    max=4096,
-                    step=1,
                 ),
                 io.Int.Input(
                     "chunk_overlap",
@@ -168,7 +176,6 @@ class ChunkerRepeat(io.ComfyNode):
     def execute(
         self,
         mode,
-        chunk_length,
         chunk_overlap,
         repeat_until,
         video=None,
@@ -179,6 +186,10 @@ class ChunkerRepeat(io.ComfyNode):
         store=None,
     ) -> io.NodeOutput:
         ts_chunk_start = get_ts()
+
+        selected_mode = Mode(mode["mode"])
+        settings = mode_settings[selected_mode]
+        chunk_length = mode["chunk_length"]
 
         s = store if store is not None else {
             "index": 0,
@@ -193,8 +204,6 @@ class ChunkerRepeat(io.ComfyNode):
             video_source = video.get_stream_source()
             video_fps = float(video.get_frame_rate())
             video_frame_count = video.get_frame_count()
-
-        settings = mode_settings[Mode(mode)]
 
         out_fps = fps
         if out_fps is None:
@@ -233,7 +242,7 @@ class ChunkerRepeat(io.ComfyNode):
             (total_length - chunk_overlap) / (chunk_length - chunk_overlap))
 
         c = {
-            "mode": mode,
+            "mode": selected_mode.value,
             "chunk_length": chunk_length,
             "chunk_overlap": chunk_overlap,
             "total_length": total_length,

@@ -253,7 +253,7 @@ app.registerExtension({
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`;
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
-            const totalMillis = bar?.reduce((acc, { delta }) => delta ? acc + delta : acc, 0);
+            const totalMillis = bar?.reduce((acc, { type, delta }) => ['cached', 'complete'].includes(type) && delta ? acc + delta : acc, 0);
 
             const statusText = !bar
               ? 'Awaiting execution...'

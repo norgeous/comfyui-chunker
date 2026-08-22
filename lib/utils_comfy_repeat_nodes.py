@@ -36,15 +36,11 @@ def get_parent_id_chains(dynprompt, node_id):
 
 
 def get_all_output_node_ids(dynprompt):
-    prompt = dynprompt.ephemeral_prompt if len(
-        dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
+    prompt = dynprompt.ephemeral_prompt if len(dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
     return [
         id for id,
-        info in prompt.items() if getattr(
-            ALL_NODE_CLASS_MAPPINGS.get(
-                info.get("class_type")),
-            "OUTPUT_NODE",
-            False) is True]
+        info in prompt.items() if getattr(ALL_NODE_CLASS_MAPPINGS.get(info.get("class_type")), "OUTPUT_NODE", False) is True
+    ]
 
 
 def get_ids_by_partial_names(dynprompt, partial_names):
@@ -72,20 +68,15 @@ def get_clone_ids(dynprompt, start_node_id, end_node_id, extra_include_partial_n
         if start_node_id in chain and end_node_id not in chain
     ]
 
-    all_parent_id_chains = [
-        *end_node_parent_id_chains,
-        *output_nodes_parent_id_chains]
+    all_parent_id_chains = [*end_node_parent_id_chains, *output_nodes_parent_id_chains]
 
     # only include chains that include any start node id
-    extra_node_ids = get_ids_by_partial_names(
-        dynprompt, extra_include_partial_names)
+    extra_node_ids = get_ids_by_partial_names(dynprompt, extra_include_partial_names)
     start_node_ids = [start_node_id, *extra_node_ids]
-    filtered = [chain for chain in all_parent_id_chains if set(
-        start_node_ids) & set(chain)]
+    filtered = [chain for chain in all_parent_id_chains if set(start_node_ids) & set(chain)]
 
     # remove nodes in each chain that are "before" the start node
-    trimmed = [c[:c.index(start_node_id) + 1]
-               if start_node_id in c else c for c in filtered]
+    trimmed = [c[:c.index(start_node_id) + 1] if start_node_id in c else c for c in filtered]
 
     # flatten and uniqueify
     clone_ids = list(set(item for sublist in trimmed for item in sublist))

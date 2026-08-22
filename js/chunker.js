@@ -59,12 +59,12 @@ document.body.insertAdjacentHTML("beforeEnd", `
 }
 .chunker-bar {
   display: flex;
-  gap: 2px;
   font-size: 3px;
+  width: 100%;
 }
 .chunker-bar-section {
   flex: 1 1;
-  padding: 1px;
+  padding: 1px 0;
   color: black;
   overflow: hidden;
   white-space: nowrap;
@@ -258,31 +258,32 @@ app.registerExtension({
             const statusText = !bar
               ? 'Awaiting execution...'
               : !active
-                ? `Interrupted`
+                ? `Interrupted (Completed chunks took ${formatMilliseconds(totalMillis)})`
                 : chunksCompleted === bar?.length
                   ? `Done in ${formatMilliseconds(totalMillis)}`
-                  : null;
+                  : undefined;
 
             element.querySelector(".chunker-status").innerHTML = `
-              ${statusText
-                ? `<div>${statusText}</div>`
-                : `
-                  <div class="chunker-timings">
-                    <div class="chunker-timestamp">Next: ${etaNext}</div>
-                    <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
-                  </div>
-                  <div class="chunker-bar">
-                    ${bar.map(({ type, delta }, i) => `
-                      <div
-                        class="chunker-bar-section ${type}"
-                        ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
-                        title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
-                      >
-                        ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
-                      </div>`).join('\n')}
-                  </div>
-                  <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
-                `}
+              ${statusText ? `<div>${statusText}</div>` : ''}
+              ${active !== false  && !statusText ? `
+                <div class="chunker-timings">
+                  <div class="chunker-timestamp">Next: ${etaNext}</div>
+                  <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
+                </div>
+              ` : ''}
+              ${bar ? `
+                <div class="chunker-bar">
+                  ${bar.map(({ type, delta }, i) => `
+                    <div
+                      class="chunker-bar-section ${type}"
+                      ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                      title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
+                    >
+                      ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
+                    </div>`).join('\n')}
+                </div>
+                <div>Showing up to ${chunksCompleted} of ${bar.length}</div>
+              ` : ''}
             `;
           };
           update();

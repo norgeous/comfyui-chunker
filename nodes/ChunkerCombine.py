@@ -63,7 +63,7 @@ class ChunkerCombine(io.ComfyNode):
                 io.Combo.Input(
                     "overlap_blend_mode",
                     options=list(map(lambda member: member.value, BlendMode)),
-                    default=BlendMode.NEWER_ONLY.value,
+                    default=BlendMode.LINEAR.value,
                     tooltip="When chunk_overlap is more than zero this setting determines how images and audio are blended",
                 ),
                 io.Boolean.Input(

@@ -35,8 +35,15 @@ def get_parent_id_chains(dynprompt, node_id):
     return extract_chains([node_id, *get_parent_ids(dynprompt, node_id)])
 
 
+def get_all_nodes(dynprompt):
+    # union of original and ephemeral prompts; ephemeral wins on id clash so
+    # expanded clones are always seen, while original top-level nodes are not
+    # hidden once any loop has expanded
+    return {**dynprompt.get_original_prompt(), **dynprompt.ephemeral_prompt}
+
+
 def get_all_output_node_ids(dynprompt):
-    prompt = dynprompt.ephemeral_prompt if len(dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
+    prompt = get_all_nodes(dynprompt)
     return [
         id for id,
         info in prompt.items() if getattr(ALL_NODE_CLASS_MAPPINGS.get(info.get("class_type")), "OUTPUT_NODE", False) is True
@@ -44,7 +51,7 @@ def get_all_output_node_ids(dynprompt):
 
 
 def get_ids_by_partial_names(dynprompt, partial_names):
-    prompt = dynprompt.ephemeral_prompt if len(dynprompt.ephemeral_prompt) > 0 else dynprompt.get_original_prompt()
+    prompt = get_all_nodes(dynprompt)
     return [id for partial in partial_names for id, info in prompt.items() if partial in info["class_type"]]
 
 
@@ -70,16 +77,27 @@ def get_clone_ids(dynprompt, start_node_id, end_node_id, extra_include_partial_n
 
     all_parent_id_chains = [*end_node_parent_id_chains, *output_nodes_parent_id_chains]
 
-    # only include chains that include any start node id
-    extra_node_ids = get_ids_by_partial_names(dynprompt, extra_include_partial_names)
-    start_node_ids = [start_node_id, *extra_node_ids]
-    filtered = [chain for chain in all_parent_id_chains if set(start_node_ids) & set(chain)]
+    # the repeat section is made of chains anchored at the start node; remove
+    # nodes in each chain that are "before" the start node
+    section_ids = {
+        item
+        for chain in all_parent_id_chains if start_node_id in chain
+        for item in chain[:chain.index(start_node_id) + 1]
+    }
 
-    # remove nodes in each chain that are "before" the start node
-    trimmed = [c[:c.index(start_node_id) + 1] if start_node_id in c else c for c in filtered]
+    # chains without the start node reach outside the section. only take their
+    # extra matching nodes (eg noise / sampler), and only when the chain also
+    # passes through the section - otherwise the chain belongs to another loop
+    # or graph branch entirely and must not be dragged into this one
+    extra_node_ids = set(get_ids_by_partial_names(dynprompt, extra_include_partial_names))
+    for chain in all_parent_id_chains:
+        if start_node_id in chain or not set(chain) & section_ids:
+            continue
+        for previous_id, id in zip(chain, chain[1:]):
+            if id in extra_node_ids and previous_id in section_ids:
+                section_ids.add(id)
 
-    # flatten and uniqueify
-    clone_ids = list(set(item for sublist in trimmed for item in sublist))
+    clone_ids = list(section_ids)
     clone_ids.sort()
     return clone_ids
 

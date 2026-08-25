@@ -146,7 +146,8 @@ class ChunkerCombine(io.ComfyNode):
 
         # Identify nodes to repeat and collect seed info from prompt
         clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
-        seed_info = collect_seed_info(self.hidden.dynprompt, clone_ids)
+        seed_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"])
+        seed_info = collect_seed_info(self.hidden.dynprompt, seed_ids)
 
         # Make preview from inputs
         ts = get_ts()

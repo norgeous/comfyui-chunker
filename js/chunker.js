@@ -140,14 +140,14 @@ const getBackgroundClass = (videoPath) => {
 
 // Workaround for a frontend bug in migrateWidgetsValues (Comfy-Org/ComfyUI_frontend):
 // during node configure it strips legacy pre-1.16 dummy widget values by
-// positionally matching static input defs against widgets_values. DynamicCombo
-// children ("repeat_until.chunk_count") occupy widget slots but have no static
-// def, shifting the alignment — and when the counts coincide (here: 4 widget
-// defs + forceInput fps vs 4 top-level widgets + 1 child = 5==5) real values
-// are silently dropped on every workflow load/tab switch, resetting
-// chunk_count/total_length to their defaults. Dynamic children only exist in
-// modern workflows, so the legacy migration can never legitimately apply:
-// snapshot the saved values before configure, then re-apply whatever it stripped.
+// positionally matching static input defs against widgets_values. fps has
+// force_input=True, creating a phantom "forceInput" entry in the boolean array.
+// When repeat_until is "input_length" (no DynamicCombo children), the widget
+// count (4) coincides with the inputDefs count (4), so the migration strips
+// index 0 — shifting all values by one and resetting repeat_until to its
+// default. Dynamic children only exist in modern workflows, so the legacy
+// migration can never legitimately apply: snapshot the saved values before
+// configure, then re-apply all of them afterward.
 const restoreDynamicComboValues = (nodeType) => {
   const origConfigure = nodeType.prototype.configure;
   if (typeof origConfigure !== 'function') return;
@@ -158,15 +158,8 @@ const restoreDynamicComboValues = (nodeType) => {
     const result = origConfigure.apply(this, arguments);
     if (!saved || !this.widgets) return result;
 
-    const defNames = new Set(
-      Object.values(this.constructor.nodeData?.inputs ?? {}).map((d) => d.name)
-    );
-    if (!this.widgets.some((w) => !defNames.has(w.name))) return result;
-
-    const comboIdx = this.widgets.findIndex((w) => w.name === 'repeat_until');
-    if (comboIdx === -1) return result;
     for (
-      let i = comboIdx + 1;
+      let i = 0;
       i < Math.min(saved.length, this.widgets.length);
       i++
     ) {

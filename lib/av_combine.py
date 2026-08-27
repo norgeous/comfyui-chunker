@@ -7,7 +7,6 @@ from .av_load import av_load
 from .av_save import av_save, Profile
 
 Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], float]
-Overlap = Tuple[Union[List, torch.Tensor], Union[List, torch.Tensor], Optional[np.ndarray]]
 
 
 class BlendMode(Enum):
@@ -72,58 +71,61 @@ def av_combine(
     need_masks: bool = True,
     need_audio: bool = True,
 ) -> Tuple[str, dict, Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict]]:
-    sources: List[Source] = []
-    for item in inputs:
+    def _load(item):
         if isinstance(item, str):
-            images, masks, audio, fps = av_load(item)
-            sources.append((images, masks, audio, fps))
-        else:
-            sources.append(item)
+            return av_load(item)
+        return item
 
-    if len(sources) == 0:
+    if len(inputs) == 0:
         raise ValueError("No sources provided")
 
-    fps = sources[0][3]
+    # Sliding window: load at most two chunks at a time so each chunk's
+    # tensors are released from memory as soon as they have been consumed.
+    prev_images, prev_masks, prev_audio, prev_fps = _load(inputs[0])
+    fps = prev_fps
+    audio_sr = prev_audio["sample_rate"] if prev_audio is not None else None
 
-    overlaps: List[Overlap] = []
-    for i in range(len(sources) - 1):
-        a_images, a_masks, a_audio, a_fps = sources[i]
-        b_images, b_masks, b_audio, b_fps = sources[i + 1]
+    final_frames = []
+    final_masks = []
+    final_audio = []
 
-        overlap_frames: Union[List, torch.Tensor] = []
-        overlap_masks: Union[List, torch.Tensor] = []
-        overlap_audio: Optional[np.ndarray] = None
+    for i in range(1, len(inputs)):
+        curr_images, curr_masks, curr_audio, curr_fps = _load(inputs[i])
+
+        overlap_frames = []
+        overlap_masks = []
+        overlap_audio = None
 
         if (overlap_frame_count > 0
-                and a_images is not None
-                and b_images is not None):
-            end_frames = a_images[-overlap_frame_count:]
-            start_frames = b_images[:overlap_frame_count]
+                and prev_images is not None
+                and curr_images is not None):
+            end_frames = prev_images[-overlap_frame_count:]
+            start_frames = curr_images[:overlap_frame_count]
             overlap_frames = create_overlap_frames(
                 end_frames, start_frames, overlap_frame_count,
                 video_blend_mode)
 
         if (overlap_frame_count > 0
-                and a_masks is not None
-                and b_masks is not None):
-            end_masks = a_masks[-overlap_frame_count:]
-            start_masks = b_masks[:overlap_frame_count]
+                and prev_masks is not None
+                and curr_masks is not None):
+            end_masks = prev_masks[-overlap_frame_count:]
+            start_masks = curr_masks[:overlap_frame_count]
             overlap_masks = create_overlap_frames(
                 end_masks, start_masks, overlap_frame_count, video_blend_mode)
 
-        if a_audio is not None and b_audio is not None:
-            is_stereo = a_audio["waveform"].shape[1] == 2
-            sr = a_audio["sample_rate"]
-            source_fps = a_fps
+        if prev_audio is not None and curr_audio is not None:
+            is_stereo = prev_audio["waveform"].shape[1] == 2
+            sr = prev_audio["sample_rate"]
+            source_fps = prev_fps
 
             if is_stereo:
-                a_left = a_audio["waveform"][0, 0].numpy()
-                b_left = b_audio["waveform"][0, 0].numpy()
-                a_right = a_audio["waveform"][0, 1].numpy()
-                b_right = b_audio["waveform"][0, 1].numpy()
+                a_left = prev_audio["waveform"][0, 0].numpy()
+                b_left = curr_audio["waveform"][0, 0].numpy()
+                a_right = prev_audio["waveform"][0, 1].numpy()
+                b_right = curr_audio["waveform"][0, 1].numpy()
             else:
-                a_left = a_audio["waveform"][0, 0].numpy()
-                b_left = b_audio["waveform"][0, 0].numpy()
+                a_left = prev_audio["waveform"][0, 0].numpy()
+                b_left = curr_audio["waveform"][0, 0].numpy()
                 a_right = None
                 b_right = None
 
@@ -143,50 +145,40 @@ def av_combine(
                         end_audio_r, start_audio_r, audio_blend_mode)
                     overlap_audio = np.stack(
                         [overlap_audio, overlap_audio_r], axis=0)
-            else:
-                overlap_audio = None
 
-        overlaps.append((overlap_frames, overlap_masks, overlap_audio))
+        # prev is chunk (i - 1); trim and clone it, then release it.
+        remove_start = 0 if i == 1 else overlap_frame_count
+        remove_end = overlap_frame_count
 
-    final_frames = []
-    final_masks = []
-    final_audio = []
-
-    for idx, src in enumerate(sources):
-        src_images, src_masks, src_audio, src_fps = src
-        remove_start = overlap_frame_count if idx > 0 else 0
-        remove_end = overlap_frame_count if idx < len(sources) - 1 else 0
-
-        if src_images is not None:
+        if prev_images is not None:
             if remove_start > 0 or remove_end > 0:
                 trimmed = (
-                    src_images[remove_start:-remove_end]
+                    prev_images[remove_start:-remove_end]
                     if remove_end > 0
-                    else src_images[remove_start:])
+                    else prev_images[remove_start:])
             else:
-                trimmed = src_images
-            final_frames.append(trimmed)
+                trimmed = prev_images
+            final_frames.append(trimmed.clone())
 
-        if src_masks is not None:
+        if prev_masks is not None:
             if remove_start > 0 or remove_end > 0:
                 trimmed = (
-                    src_masks[remove_start:-remove_end]
+                    prev_masks[remove_start:-remove_end]
                     if remove_end > 0
-                    else src_masks[remove_start:])
+                    else prev_masks[remove_start:])
             else:
-                trimmed = src_masks
-            final_masks.append(trimmed)
+                trimmed = prev_masks
+            final_masks.append(trimmed.clone())
 
-        if src_audio is not None:
-            sr = src_audio["sample_rate"]
-            source_fps = src_fps
-            is_stereo = src_audio["waveform"].shape[1] == 2
-
+        if prev_audio is not None:
+            sr = prev_audio["sample_rate"]
+            source_fps = prev_fps
+            is_stereo = prev_audio["waveform"].shape[1] == 2
             samples_per_frame = int(sr // source_fps)
 
             if is_stereo:
-                left = src_audio["waveform"][0, 0].numpy()
-                right = src_audio["waveform"][0, 1].numpy()
+                left = prev_audio["waveform"][0, 0].numpy()
+                right = prev_audio["waveform"][0, 1].numpy()
                 trim_start = remove_start * samples_per_frame
                 trim_end = remove_end * samples_per_frame
                 trimmed_left = (
@@ -199,33 +191,99 @@ def av_combine(
                     else right[trim_start:])
                 trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
             else:
-                audio_1d = src_audio["waveform"][0, 0].numpy()
+                audio_1d = prev_audio["waveform"][0, 0].numpy()
                 trimmed_audio = (
                     audio_1d[slice(
                         remove_start * samples_per_frame,
                         -remove_end * samples_per_frame,
                     )]
-                    if remove_end > 0
+                    if trim_end > 0
                     else audio_1d[
                         remove_start * samples_per_frame:])
-
             final_audio.append(trimmed_audio)
 
-        if idx < len(overlaps):
-            ov = overlaps[idx]
-            if ov[0] is not None and len(ov[0]) > 0:
-                final_frames.append(ov[0])
-            if ov[1] is not None and len(ov[1]) > 0:
-                final_masks.append(ov[1])
-            if ov[2] is not None:
-                final_audio.append(ov[2])
+        if len(overlap_frames) > 0:
+            final_frames.append(overlap_frames)
+        if len(overlap_masks) > 0:
+            final_masks.append(overlap_masks)
+        if overlap_audio is not None:
+            final_audio.append(overlap_audio)
+
+        # Release the previous chunk's tensors before loading the next one.
+        prev_images = None
+        prev_masks = None
+        prev_audio = None
+
+        prev_images = curr_images
+        prev_masks = curr_masks
+        prev_audio = curr_audio
+
+    # Final chunk: only its start overlap is trimmed.
+    remove_start = overlap_frame_count if len(inputs) > 1 else 0
+    remove_end = 0
+
+    if prev_images is not None:
+        if remove_start > 0 or remove_end > 0:
+            trimmed = (
+                prev_images[remove_start:-remove_end]
+                if remove_end > 0
+                else prev_images[remove_start:])
+        else:
+            trimmed = prev_images
+        final_frames.append(trimmed.clone())
+
+    if prev_masks is not None:
+        if remove_start > 0 or remove_end > 0:
+            trimmed = (
+                prev_masks[remove_start:-remove_end]
+                if remove_end > 0
+                else prev_masks[remove_start:])
+        else:
+            trimmed = prev_masks
+        final_masks.append(trimmed.clone())
+
+    if prev_audio is not None:
+        sr = prev_audio["sample_rate"]
+        source_fps = prev_fps
+        is_stereo = prev_audio["waveform"].shape[1] == 2
+        samples_per_frame = int(sr // source_fps)
+
+        if is_stereo:
+            left = prev_audio["waveform"][0, 0].numpy()
+            right = prev_audio["waveform"][0, 1].numpy()
+            trim_start = remove_start * samples_per_frame
+            trim_end = remove_end * samples_per_frame
+            trimmed_left = (
+                left[trim_start:-trim_end]
+                if trim_end > 0
+                else left[trim_start:])
+            trimmed_right = (
+                right[trim_start:-trim_end]
+                if trim_end > 0
+                else right[trim_start:])
+            trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
+        else:
+            audio_1d = prev_audio["waveform"][0, 0].numpy()
+            trimmed_audio = (
+                audio_1d[slice(
+                    remove_start * samples_per_frame,
+                    -remove_end * samples_per_frame,
+                )]
+                if trim_end > 0
+                else audio_1d[
+                    remove_start * samples_per_frame:])
+        final_audio.append(trimmed_audio)
+
+    prev_images = None
+    prev_masks = None
+    prev_audio = None
 
     final_images = torch.cat(final_frames, dim=0) if final_frames else None
     final_masks_tensor = torch.cat(final_masks, dim=0) if final_masks else None
 
     final_audio_dict = None
     if final_audio:
-        sr = sources[0][2]["sample_rate"]
+        sr = audio_sr
 
         shapes = [a.shape for a in final_audio]
         dims = [a.ndim for a in final_audio]

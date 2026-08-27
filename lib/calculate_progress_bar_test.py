@@ -59,3 +59,22 @@ def test_cached_chunks_reset_rate():
     assert result[1]["type"] == "complete"
     assert result[2]["type"] == "current"
     assert result[2]["delta"] == 5_000 / 100 * 45
+
+
+def test_ema_weights_recent_chunk_higher():
+    start = 1000
+    chunk_lengths = [100, 100, 100]
+    result = calculate_progress_bar(
+        execution_start_time=start - 100_000,
+        chunk_start_times=[start, start + 20_000],
+        chunk_end_times=[start + 10_000, start + 25_000],
+        chunk_count=3,
+        chunk_lengths=chunk_lengths,
+        alpha=0.3,
+    )
+    slow_rate = 10_000 / 100  # chunk 0: 100ms/frame
+    fast_rate = 5_000 / 100   # chunk 1: 50ms/frame
+    ema_rate = 0.3 * fast_rate + 0.7 * slow_rate
+    assert result[2]["type"] == "current"
+    assert result[2]["delta"] == ema_rate * 100
+    assert slow_rate > ema_rate > fast_rate

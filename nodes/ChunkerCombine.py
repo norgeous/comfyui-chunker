@@ -12,6 +12,18 @@ from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
 
 
+def _detect_connected_outputs(prompt, node_id: str) -> set[int]:
+    root_id = node_id.split(".")[0]
+    connected = set()
+    for nid, info in prompt.items():
+        if nid == root_id:
+            continue
+        for val in info.get("inputs", {}).values():
+            if isinstance(val, list) and len(val) == 2 and val[0] == root_id:
+                connected.add(int(val[1]))
+    return connected
+
+
 def collect_seed_info(dynprompt, clone_ids: list[str]) -> str:
     seed_node_ids = [id for id in get_ids_by_partial_names(dynprompt, ["Sampler", "Noise"]) if id in clone_ids]
     lines = []
@@ -98,7 +110,7 @@ class ChunkerCombine(io.ComfyNode):
                     tooltip="FPS",
                 ),
             ],
-            hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
+            hidden=[io.Hidden.unique_id, io.Hidden.dynprompt, io.Hidden.prompt],
             is_output_node=True,
             enable_expand=True,
         )
@@ -187,6 +199,8 @@ class ChunkerCombine(io.ComfyNode):
 
         # if no more chunks needed, return early
         if is_done:
+            connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.unique_id)
+
             ts = get_ts()
             log("Combine all chunks...", end="")
             out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
@@ -195,6 +209,9 @@ class ChunkerCombine(io.ComfyNode):
                 overlap_frame_count=c["chunk_overlap"],
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),
+                need_images=1 in connected,
+                need_masks=2 in connected,
+                need_audio=3 in connected,
             )
             print(f"done ({format_milliseconds(get_ts() - ts)})")
             out_video = VideoFromFile(out_video_path)

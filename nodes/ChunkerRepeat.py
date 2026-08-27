@@ -349,6 +349,7 @@ class ChunkerRepeat(io.ComfyNode):
             "start_node_id": self.hidden.unique_id,
             "index": s["index"],
             "chunker_config": c,
+            "chunk_lengths": chunk_lengths,
             "fps": out_fps,
             "ts_chunk_starts": [
                 *s["ts_chunk_starts"],

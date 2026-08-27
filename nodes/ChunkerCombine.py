@@ -234,7 +234,7 @@ class ChunkerCombine(io.ComfyNode):
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
                 },
-                "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+                "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
                 "video_path": all_preview_frontend_data,
             }
 
@@ -312,7 +312,7 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": None,
                 "fps": None,
             },
-            "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"]),
+            "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
             "video_path": all_preview_frontend_data,
         }
 

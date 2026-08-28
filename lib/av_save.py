@@ -22,6 +22,11 @@ PROFILE_SETTINGS = {
         "video_options": {"preset": "slow", "crf": "10"},
         "audio_codec": "pcm_s16le",
         "audio_options": {},
+        "audio_bitrate": None,
+        "audio_reformat": lambda w: (
+            (w.squeeze(0).clamp(-1.0, 1.0).numpy() * np.iinfo(np.int16).max).astype(np.int16),
+            "s16",
+        ),
     },
     Profile.WEBRGB: {
         "file_extension": "mp4",
@@ -30,6 +35,11 @@ PROFILE_SETTINGS = {
         "video_options": {"preset": "fast", "crf": "23"},
         "audio_codec": "aac",
         "audio_options": {},
+        "audio_bitrate": 192000,
+        "audio_reformat": lambda w: (
+            w.squeeze(0).clamp(-1.0, 1.0).numpy().astype(np.float32),
+            "flt",
+        ),
     },
     Profile.WEBRGBA: {
         "file_extension": "webm",
@@ -38,6 +48,11 @@ PROFILE_SETTINGS = {
         "video_options": {"crf": "30"},
         "audio_codec": "vorbis",
         "audio_options": {"strict": "-2"},
+        "audio_bitrate": 192000,
+        "audio_reformat": lambda w: (
+            w.squeeze(0).clamp(-1.0, 1.0).numpy().astype(np.float32),
+            "flt",
+        ),
     },
 }
 
@@ -87,15 +102,14 @@ def av_save(
             mask_stream.time_base = Fraction(1, int(fps))
 
         if audio is not None:
-            waveform = audio["waveform"]
-            audio_ndarray = (waveform.squeeze(0).cpu().numpy() * np.iinfo(np.int16).max).astype(np.int16)
-            is_stereo = audio_ndarray.ndim > 1 and audio_ndarray.shape[0] == 2
+            ndarray, fmt = settings["audio_reformat"](audio["waveform"])
+            layout = "stereo" if ndarray.ndim > 1 and ndarray.shape[0] == 2 else "mono"
             audio_stream = container.add_stream(settings["audio_codec"], rate=int(audio["sample_rate"]))
             audio_stream.options = settings["audio_options"]
-            audio_stream.layout = "stereo" if is_stereo else "mono"
+            audio_stream.layout = layout
             audio_stream.time_base = Fraction(1, int(audio["sample_rate"]))
-            audio_stream.bit_rate = audio["sample_rate"] * 2 * (2 if is_stereo else 1)
-            audio_frame = av.AudioFrame.from_ndarray(audio_ndarray.T.reshape(1, -1), format="s16", layout="stereo" if is_stereo else "mono")
+            if settings["audio_bitrate"]: audio_stream.bit_rate = settings["audio_bitrate"]
+            audio_frame = av.AudioFrame.from_ndarray(np.ascontiguousarray(ndarray.T.reshape(1, -1)), format=fmt, layout=layout)
             audio_frame.rate = audio["sample_rate"]
             audio_frame.pts = 0
             audio_frame.time_base = Fraction(1, int(audio["sample_rate"]))

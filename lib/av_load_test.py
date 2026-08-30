@@ -156,11 +156,11 @@ def test_av_load_negative_start_tail(source_videos):
 
 def test_av_load_negative_start_clamp(source_videos):
     path = source_videos["source-long"]
+    fi, fm, fa, fps = av_load(path)
 
     wi, wm, wa, wf = av_load(path, start=-100)
     assert wf == fps
     assert wm is None
-    assert wi is not None
     assert torch.equal(wi, fi)
     assert wa is not None
     assert torch.equal(wa["waveform"], fa["waveform"])

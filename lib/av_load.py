@@ -34,7 +34,9 @@ def av_load(path: str, start: int = 0, end: Optional[int] = None) -> Tuple[Optio
         total, is_exact = _frame_count(container)
 
     slack = 0 if is_exact else 8
+    negative_start_target = None
     if start is not None and start < 0:
+        negative_start_target = -start
         start = max(0, (total or 0) + start - slack)
     if end is not None and end < 0:
         end = max(0, (total or 0) + end)
@@ -162,16 +164,15 @@ def av_load(path: str, start: int = 0, end: Optional[int] = None) -> Tuple[Optio
             }
 
     # Post-decode trim when negative start was requested
-    if start is not None and start < 0:
-        target = -start
+    if negative_start_target is not None:
+        target = negative_start_target
         if images is not None and len(images) > target:
-            excess = len(images) - target
             images = images[-target:]
         if masks is not None and len(masks) > target:
             masks = masks[-target:]
-        if audio is not None and excess > 0:
+        if audio is not None:
             spb = samples_per_frame
-            audio["waveform"] = audio["waveform"][:, :, excess * spb:]
+            audio["waveform"] = audio["waveform"][:, :, -target * spb:]
 
     container.close()
     return images, masks, audio, fps

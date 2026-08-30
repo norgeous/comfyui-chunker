@@ -176,11 +176,11 @@ def av_combine(
             is_stereo = prev_audio["waveform"].shape[1] == 2
             samples_per_frame = int(sr // source_fps)
 
+            trim_start = remove_start * samples_per_frame
+            trim_end = remove_end * samples_per_frame
             if is_stereo:
                 left = prev_audio["waveform"][0, 0].numpy()
                 right = prev_audio["waveform"][0, 1].numpy()
-                trim_start = remove_start * samples_per_frame
-                trim_end = remove_end * samples_per_frame
                 trimmed_left = (
                     left[trim_start:-trim_end]
                     if trim_end > 0
@@ -193,13 +193,9 @@ def av_combine(
             else:
                 audio_1d = prev_audio["waveform"][0, 0].numpy()
                 trimmed_audio = (
-                    audio_1d[slice(
-                        remove_start * samples_per_frame,
-                        -remove_end * samples_per_frame,
-                    )]
+                    audio_1d[trim_start:-trim_end]
                     if trim_end > 0
-                    else audio_1d[
-                        remove_start * samples_per_frame:])
+                    else audio_1d[trim_start:])
             final_audio.append(trimmed_audio)
 
         if len(overlap_frames) > 0:
@@ -248,11 +244,11 @@ def av_combine(
         is_stereo = prev_audio["waveform"].shape[1] == 2
         samples_per_frame = int(sr // source_fps)
 
+        trim_start = remove_start * samples_per_frame
+        trim_end = remove_end * samples_per_frame
         if is_stereo:
             left = prev_audio["waveform"][0, 0].numpy()
             right = prev_audio["waveform"][0, 1].numpy()
-            trim_start = remove_start * samples_per_frame
-            trim_end = remove_end * samples_per_frame
             trimmed_left = (
                 left[trim_start:-trim_end]
                 if trim_end > 0
@@ -265,13 +261,9 @@ def av_combine(
         else:
             audio_1d = prev_audio["waveform"][0, 0].numpy()
             trimmed_audio = (
-                audio_1d[slice(
-                    remove_start * samples_per_frame,
-                    -remove_end * samples_per_frame,
-                )]
+                audio_1d[trim_start:-trim_end]
                 if trim_end > 0
-                else audio_1d[
-                    remove_start * samples_per_frame:])
+                else audio_1d[trim_start:])
         final_audio.append(trimmed_audio)
 
     prev_images = None

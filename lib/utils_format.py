@@ -22,6 +22,10 @@ def format_fps(fps: Optional[float]) -> str:
     return f"{fps:.2f}"
 
 
+def format_boolean(value: bool) -> str:
+    return "\u2705" if value else "\u274C"
+
+
 def format_video(video) -> str:
     if video is None:
         return "0s"

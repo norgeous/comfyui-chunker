@@ -1,5 +1,5 @@
 from comfy_api.latest import io
-from ..lib.utils_format import format_fps
+from ..lib.utils_format import format_boolean, format_fps
 
 
 class ChunkerData(io.ComfyNode):
@@ -19,6 +19,10 @@ class ChunkerData(io.ComfyNode):
                 ),
             ],
             outputs=[
+                io.Custom("CHUNKER_DATA").Output(
+                    "chunker_data",
+                    tooltip="Pass through the chunker_data",
+                ),
                 io.Int.Output(
                     "chunk_length",
                     tooltip="Count of images in each chunk",
@@ -39,6 +43,10 @@ class ChunkerData(io.ComfyNode):
                     "index",
                     tooltip="The current iteration index, ie; 0, 1, 2, ...",
                 ),
+                io.Boolean.Output(
+                    "is_first_chunk",
+                    tooltip="True if this is the first chunk (index 0)",
+                ),
                 io.Float.Output(
                     "fps",
                     tooltip="FPS",
@@ -53,6 +61,7 @@ class ChunkerData(io.ComfyNode):
         chunker_data,
     ) -> io.NodeOutput:
         c = chunker_data["chunker_config"]
+        is_first_chunk = chunker_data["index"] == 0
 
         ui_values = {
             "output_label_values": {
@@ -62,15 +71,18 @@ class ChunkerData(io.ComfyNode):
                 "total_length": c["total_length"],
                 "index": chunker_data["index"],
                 "fps": format_fps(chunker_data["fps"]),
+                "is_first_chunk": format_boolean(is_first_chunk),
             },
         }
 
         return io.NodeOutput(
+            chunker_data,
             c["chunk_length"],
             c["chunk_overlap"],
             c["chunk_count"],
             c["total_length"],
             chunker_data["index"],
+            is_first_chunk,
             float(chunker_data["fps"]),
             ui={"values": [ui_values]},
         )

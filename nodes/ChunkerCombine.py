@@ -12,8 +12,8 @@ from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
 
 
-def _detect_connected_outputs(prompt, node_id: str) -> set[int]:
-    root_id = node_id.split(".")[0]
+def _detect_connected_outputs(prompt, dynprompt, node_id: str) -> set[int]:
+    root_id = dynprompt.get_display_node_id(node_id)
     connected = set()
     for nid, info in prompt.items():
         if nid == root_id:
@@ -199,7 +199,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # if no more chunks needed, return early
         if is_done:
-            connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.unique_id)
+            connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.dynprompt, self.hidden.unique_id)
 
             ts = get_ts()
             log("Combine all chunks...", end="")

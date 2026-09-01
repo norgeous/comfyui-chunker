@@ -13,7 +13,9 @@ def format_masks(masks: Optional[torch.Tensor]) -> str:
 def format_audio(audio: Optional[dict]) -> str:
     if audio is None:
         return "0s"
-    return f"{audio['waveform'].shape[2] / audio['sample_rate']:.3f}s"
+    duration = audio["waveform"].shape[2] / audio["sample_rate"]
+    sample_rate_k = audio["sample_rate"] / 1000.0
+    return f"{duration:.1f}s ({sample_rate_k:.1f}k)"
 
 
 def format_fps(fps: Optional[float]) -> str:

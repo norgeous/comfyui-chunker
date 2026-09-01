@@ -169,7 +169,7 @@ class ChunkerRepeat(io.ComfyNode):
                 ),
 
             ],
-            hidden=[io.Hidden.unique_id],
+            hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
         )
 
     @classmethod
@@ -249,7 +249,7 @@ class ChunkerRepeat(io.ComfyNode):
             "chunk_count": chunk_count,
         }
 
-        log(f"ChunkerRepeat#{self.hidden.unique_id}: Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
+        log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
 
         out_images = []
         out_masks = []

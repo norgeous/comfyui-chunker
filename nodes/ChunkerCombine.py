@@ -240,7 +240,7 @@ class ChunkerCombine(io.ComfyNode):
 
             pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
-            log(f"ChunkerCombine#{self.hidden.unique_id}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
+            log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
             return {
                 "ui": {"values": [ui_values]},
@@ -254,7 +254,7 @@ class ChunkerCombine(io.ComfyNode):
             }
 
         # Clone all nodes between ChunkerRepeat and ChunkerCombine
-        log(f"ChunkerCombine#{self.hidden.unique_id}: cloning {len(clone_ids)} nodes (max nesting depth {max(id.count('.') for id in clone_ids)})")
+        log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: cloning {len(clone_ids)} nodes (max nesting depth {max(id.count('.') for id in clone_ids)})")
         for id in clone_ids: log(f'Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids)
 
@@ -318,7 +318,7 @@ class ChunkerCombine(io.ComfyNode):
 
         pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
-        log(f"ChunkerCombine#{self.hidden.unique_id}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
+        log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
             new_combine.out(0), # video

@@ -52,8 +52,8 @@ def get_overlay_config(
         {
             "text": f"{frame_label}\n{chunk_label}",
             "font_size": int(em * 20),
-            "vertical_alignment": "top",
-            "horizontal_alignment": "right",
+            "anchor": "rt",
+            "padding": int(em * 8),
         },
     )
     bottom_right_lines = [
@@ -68,8 +68,8 @@ def get_overlay_config(
         {
             "text": "\n".join(bottom_right_lines),
             "font_size": int(em * 14),
-            "vertical_alignment": "bottom",
-            "horizontal_alignment": "right",
+            "anchor": "rb",
+            "padding": int(em * 8),
         },
     )
     if is_overlap:
@@ -79,8 +79,8 @@ def get_overlay_config(
                 "font_size": int(em * 28),
                 "fill_color_hex": "#FF0000",
                 "stroke_color_hex": "#FFFFFF",
-                "vertical_alignment": "top",
-                "horizontal_alignment": "left",
+                "anchor": "lt",
+                "padding": int(em * 8),
             },
         )
     return configs

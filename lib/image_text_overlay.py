@@ -21,8 +21,7 @@ def draw_text(
     stroke_color_hex="#000000",
     stroke_thickness=0.2,
     padding=8,
-    horizontal_alignment="center",
-    vertical_alignment="bottom",
+    anchor="mm",
     x_shift=0,
     y_shift=0,
     line_spacing=0,
@@ -51,28 +50,52 @@ def draw_text(
     text_lines.append(line.strip())
     _full_text = "\n".join(text_lines)
 
-    # Calculate text position based on alignment and position adjustments
-    left, top, right, bottom = draw.multiline_textbbox(
-        (0, 0),
+    # Measure the actual rendered extent on a scratch canvas so positioning
+    # matches exactly what gets drawn (avoids bbox/font-metric skew).
+    h_align = {"l": "left", "m": "center", "r": "right"}[anchor[0]]
+    font = ImageFont.load_default(font_size)
+    sw = int(font_size * stroke_thickness * 0.5)
+    # Large fixed origin so strokes/ascenders are never clipped by the canvas.
+    extent_origin = 1000
+    scratch = Image.new(
+        "RGB",
+        (extent_origin * 2 + image.width, extent_origin * 2 + image.height),
+        (0, 0, 0),
+    )
+    scratch_draw = ImageDraw.Draw(scratch)
+    scratch_draw.text(
+        (extent_origin, extent_origin),
         _full_text,
-        font=ImageFont.load_default(font_size),
-        stroke_width=int(font_size * stroke_thickness * 0.5),
-        align=horizontal_alignment,
+        fill="#FFFFFF",
+        stroke_fill="#000000",
+        stroke_width=sw,
+        font=font,
+        align=h_align,
         spacing=line_spacing,
     )
-    if horizontal_alignment == "left":
-        _x = padding
-    elif horizontal_alignment == "center":
-        _x = (image.width - (right - left)) / 2
-    elif horizontal_alignment == "right":
-        _x = image.width - (right - left) - padding
+    scratch_arr = np.array(scratch)
+    mask = scratch_arr.max(axis=2) > 5
+    rows = np.where(mask.any(axis=1))[0]
+    cols = np.where(mask.any(axis=0))[0]
+    rel_top = rows.min() - extent_origin
+    rel_bottom = rows.max() - extent_origin
+    rel_left = cols.min() - extent_origin
+    rel_right = cols.max() - extent_origin
+
+    # Calculate text position based on anchor and position adjustments
+    if anchor[0] == "l":
+        _x = padding - rel_left
+    elif anchor[0] == "m":
+        _x = (image.width - (rel_right - rel_left)) / 2 - rel_left
+    else:  # "r"
+        _x = image.width - padding - 1 - rel_right
     _x += x_shift
-    if vertical_alignment == "middle":
-        _y = (image.height - (bottom - top)) / 2
-    elif vertical_alignment == "top":
-        _y = padding
-    elif vertical_alignment == "bottom":
-        _y = image.height - (bottom - top) - padding
+    if anchor[1] == "t":
+        _y = padding - rel_top
+    elif anchor[1] == "m":
+        _y = (image.height - (rel_bottom - rel_top)) / 2 - rel_top
+    else:  # "b"
+        _y = image.height - padding - 1 - rel_bottom
     _y += y_shift
 
     # Draw the processed text onto the image
@@ -81,9 +104,9 @@ def draw_text(
         _full_text,
         fill=hex_to_rgb(fill_color_hex),
         stroke_fill=hex_to_rgb(stroke_color_hex),
-        stroke_width=int(font_size * stroke_thickness * 0.5),
-        font=ImageFont.load_default(font_size),
-        align=horizontal_alignment,
+        stroke_width=sw,
+        font=font,
+        align=h_align,
         spacing=line_spacing,
     )
     return image

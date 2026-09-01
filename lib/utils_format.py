@@ -15,7 +15,9 @@ def format_audio(audio: Optional[dict]) -> str:
         return "0s"
     duration = audio["waveform"].shape[2] / audio["sample_rate"]
     sample_rate_k = audio["sample_rate"] / 1000.0
-    return f"{duration:.1f}s ({sample_rate_k:.1f}k)"
+    dur_str = f"{duration:.1f}" if duration % 1 else f"{duration:.0f}"
+    sr_str = f"{sample_rate_k:.1f}" if sample_rate_k % 1 else f"{sample_rate_k:.0f}"
+    return f"{dur_str}s ({sr_str}k)"
 
 
 def format_fps(fps: Optional[float]) -> str:
@@ -31,7 +33,8 @@ def format_boolean(value: bool) -> str:
 def format_video(video) -> str:
     if video is None:
         return "0s"
-    return f"{video.get_duration():.3f}s"
+    duration = video.get_duration()
+    return f"{duration:.3f}s" if duration % 1 else f"{duration:.0f}s"
 
 
 def format_milliseconds(ms: int) -> str:

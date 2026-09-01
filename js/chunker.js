@@ -94,7 +94,8 @@ document.body.insertAdjacentHTML("beforeEnd", `
 
 const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   if (!ms && ms !== 0) return 'unknown';
-  ms = Math.floor(ms)
+  const isNegative = ms < 0;
+  ms = Math.floor(Math.abs(ms))
   if (ms === 0) return "0";
   const divisors = [1,    1000, 60,  60,  24,  7,   4,    13,  10,    10,  10];
   const units =    ['ms', 's',  'm', 'h', 'd', 'w', 'mo', 'y', 'dec', 'c', 'mi'];
@@ -116,7 +117,7 @@ const formatMilliseconds = (ms, hideMs = false, pad = false) => {
   }
   if (hideMs && out.length > 1) out.pop();
   const value = out.slice(0, 2).join('');
-  return value
+  return isNegative ? `${value} overdue` : value;
 }
 
 
@@ -238,8 +239,8 @@ app.registerExtension({
             const currentPercent = Math.min(1, Math.max(0, (elapsedMillis / currentDelta) || 0.5)) * 100;
             const etaNextMillis = currentDelta ? currentDelta - elapsedMillis : undefined;
             const etaFinalMillis = bar?.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
-            const etaNext = etaNextMillis > 0 ? `~${formatMilliseconds(etaNextMillis, true, true)}` : 'unknown';
-            const etaFinal = etaFinalMillis > 0 ? `~${formatMilliseconds(etaFinalMillis, true, true)}` : 'unknown';
+            const etaNext = `${etaNextMillis >= 0 ? '~' : ''}${formatMilliseconds(etaNextMillis, true, true)}`;
+            const etaFinal = `${etaFinalMillis >= 0 ? '~' : ''}${formatMilliseconds(etaFinalMillis, true, true)}`;
             const dueDate = new Date(now + etaFinalMillis);
             const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
             const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`;

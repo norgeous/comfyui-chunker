@@ -1,9 +1,9 @@
 import os
 from typing import List, Tuple
 import torch
+import torchaudio
 from functools import reduce
 import folder_paths
-from comfy_extras.nodes_audio import match_audio_sample_rates
 from comfy_api.latest import AudioInput
 
 
@@ -12,11 +12,12 @@ def concat_audio(audio1: AudioInput, audio2: AudioInput) -> AudioInput:
     waveform_2 = audio2["waveform"]
     sample_rate_1 = audio1["sample_rate"]
     sample_rate_2 = audio2["sample_rate"]
-    waveform_1, waveform_2, output_sample_rate = match_audio_sample_rates(waveform_1, sample_rate_1, waveform_2, sample_rate_2)
+    if sample_rate_1 != sample_rate_2:
+        waveform_2 = torchaudio.functional.resample(waveform_2, sample_rate_2, sample_rate_1)
     concatenated_audio = torch.cat((waveform_1, waveform_2), dim=2)
     return {
         "waveform": concatenated_audio,
-        "sample_rate": output_sample_rate,
+        "sample_rate": sample_rate_1,
     }
 
 

@@ -20,7 +20,7 @@ function chainCallback(object, property, callback) {
   }
 }
 
-const statusHeight = 40;
+const statusHeight = 38;
 document.body.insertAdjacentHTML("beforeEnd", `
 <style>
 @keyframes scrollLeftRight {
@@ -36,7 +36,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 10px;
+  font-size: 8px;
   text-align: center;
   color: var(--descrip-text);
 }
@@ -46,7 +46,6 @@ document.body.insertAdjacentHTML("beforeEnd", `
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-  font-size: 8px;
 }
 .chunker-timings {
   display: flex;

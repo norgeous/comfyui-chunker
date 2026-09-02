@@ -209,6 +209,7 @@ class ChunkerCombine(io.ComfyNode):
                 overlap_frame_count=c["chunk_overlap"],
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),
+                profile=Profile.COMFY,
                 need_images=1 in connected,
                 need_masks=2 in connected,
                 need_audio=3 in connected,

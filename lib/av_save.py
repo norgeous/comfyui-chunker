@@ -10,6 +10,7 @@ from .utils_comfy import get_next_save_path
 
 class Profile(Enum):
     HQ = "hq"
+    COMFY = "comfy"
     WEBRGB = "webrgb"
     WEBRGBA = "webrgba"
 
@@ -26,6 +27,19 @@ PROFILE_SETTINGS = {
         "audio_reformat": lambda w: (
             (w.squeeze(0).clamp(-1.0, 1.0).numpy() * np.iinfo(np.int16).max).astype(np.int16),
             "s16",
+        ),
+    },
+    Profile.COMFY: {
+        "file_extension": "mp4",
+        "video_codec": "h264",
+        "video_pixel_format": "yuv420p",
+        "video_options": {"preset": "slow", "crf": "10"},
+        "audio_codec": "aac",
+        "audio_options": {},
+        "audio_bitrate": 192000,
+        "audio_reformat": lambda w: (
+            w.squeeze(0).clamp(-1.0, 1.0).numpy().astype(np.float32),
+            "flt",
         ),
     },
     Profile.WEBRGB: {

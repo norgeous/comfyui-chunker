@@ -4,7 +4,7 @@ import torch
 
 
 def log(*args: Any, **kwargs: Any) -> None:
-    print(f"\U0001F36B ", *args, **kwargs)
+    print(f"\U0001F36B", *args, **kwargs)
 
 
 def count(items: list[torch.Tensor]) -> int:

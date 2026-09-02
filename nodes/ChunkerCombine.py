@@ -145,7 +145,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Save images, masks and audio to lossless file
         ts = get_ts()
-        log("Save chunk...", end="")
+        log("Save HQ chunk...", end="")
         chunk_path, _ = av_save(
             images=images,
             masks=masks,
@@ -169,7 +169,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Save preview to web file
         ts = get_ts()
-        log("Save preview...", end="")
+        log("Save web preview...", end="")
         preview_path, _ = av_save(
             images=preview_images,
             masks=preview_masks,

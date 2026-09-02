@@ -19,7 +19,7 @@ def format_audio(audio: Optional[dict]) -> str:
     sr_str = f"{sample_rate_k:.1f}" if sample_rate_k % 1 else f"{sample_rate_k:.0f}"
     channels = audio["waveform"].shape[1] if audio["waveform"].dim() > 1 else 1
     icon = "\U0001F4FE" if channels > 1 else "\U0001F56C"
-    return f"{dur_str}s ({sr_str}k {icon})"
+    return f"{dur_str}s ({sr_str}㎑ {icon})"
 
 
 def format_fps(fps: Optional[float]) -> str:

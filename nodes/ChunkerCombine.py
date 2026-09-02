@@ -129,6 +129,8 @@ class ChunkerCombine(io.ComfyNode):
         if images is None and masks is None and audio is None:
             raise ValueError("At least one of images, masks, or audio must be provided.")
 
+        node_label = f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}"
+
         d = chunker_data
         c = d["chunker_config"]
         s = store if store is not None else {
@@ -145,7 +147,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Save images, masks and audio to lossless file
         ts = get_ts()
-        log("Save HQ chunk...", end="")
+        log(f"{node_label}: Save HQ chunk...", end="")
         chunk_path, _ = av_save(
             images=images,
             masks=masks,
@@ -163,13 +165,13 @@ class ChunkerCombine(io.ComfyNode):
 
         # Make preview from inputs
         ts = get_ts()
-        log("Make preview...", end="")
+        log(f"{node_label}: Make preview...", end="")
         preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode, seed_info)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save preview to web file
         ts = get_ts()
-        log("Save web preview...", end="")
+        log(f"{node_label}: Save web preview...", end="")
         preview_path, _ = av_save(
             images=preview_images,
             masks=preview_masks,
@@ -183,7 +185,7 @@ class ChunkerCombine(io.ComfyNode):
 
         # Combine all preview chunks to a new file, blending the overlaps
         ts = get_ts()
-        log("Combine all previews...", end="")
+        log(f"{node_label}: Combine all previews...", end="")
         _, all_preview_frontend_data, _, _, _ = av_combine(
             inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
             filename_prefix="chunker-preview-all",
@@ -202,7 +204,7 @@ class ChunkerCombine(io.ComfyNode):
             connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.dynprompt, self.hidden.unique_id)
 
             ts = get_ts()
-            log("Combine all chunks...", end="")
+            log(f"{node_label}: Combine all chunks...", end="")
             out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                 inputs=s["chunks"],
                 filename_prefix="chunker-chunk-all",
@@ -241,7 +243,7 @@ class ChunkerCombine(io.ComfyNode):
 
             pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
-            log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
+            log(f"{node_label}: Finished all chunks {d['index'] + 1} of {c['chunk_count']}!")
 
             return {
                 "ui": {"values": [ui_values]},
@@ -255,8 +257,8 @@ class ChunkerCombine(io.ComfyNode):
             }
 
         # Clone all nodes between ChunkerRepeat and ChunkerCombine
-        log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: cloning {len(clone_ids)} nodes (max nesting depth {max(id.count('.') for id in clone_ids)})")
-        for id in clone_ids: log(f'Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
+        log(f"{node_label}: cloning {len(clone_ids)} nodes (max nesting depth {max(id.count('.') for id in clone_ids)})")
+        for id in clone_ids: log(f'{node_label}: Repeating node {self.hidden.dynprompt.get_node(id)["class_type"]}#{self.hidden.dynprompt.get_display_node_id(id)}')
         graph = comfyui_repeat_nodes(self.hidden.dynprompt, clone_ids)
 
         # Increment seed in cloned nodes with "Sampler" or "Noise" in the node type name, such as;
@@ -275,13 +277,13 @@ class ChunkerCombine(io.ComfyNode):
             seed = node.get_input("seed")
             if isinstance(seed, int):
                 new_seed = seed + 1
-                log(f"Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
+                log(f"{node_label}: Increment seed in {class_type}#{original_id}; {seed} -> {new_seed}")
                 node.set_input("seed", new_seed)
 
             noise_seed = node.get_input("noise_seed")
             if isinstance(noise_seed, int):
                 new_noise_seed = noise_seed + 1
-                log(f"Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
+                log(f"{node_label}: Increment noise_seed in {class_type}#{original_id}; {noise_seed} -> {new_noise_seed}")
                 node.set_input("noise_seed", new_noise_seed)
 
         # update the store in the cloned ChunkerRepeat
@@ -319,7 +321,7 @@ class ChunkerCombine(io.ComfyNode):
 
         pbar.update_absolute(d["index"] + 1, c["chunk_count"])
 
-        log(f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
+        log(f"{node_label}: Finished chunk {d['index'] + 1} of {c['chunk_count']}")
 
         return io.NodeOutput(
             new_combine.out(0), # video

@@ -60,7 +60,7 @@ def get_overlay_config(
         f"{w} x {h} @ {fps:.2f}FPS",
         audio_layout,
         f"chunk_length: {chunk_length}",
-        f"chunk_overlap: {overlap}",
+        f"overlap_length: {overlap}",
         f"overlap_blend_mode: {overlap_blend_mode}",
         seed_info,
     ]
@@ -92,7 +92,7 @@ def overlay_debug_text(
     chunk_index: int,
     chunk_count: int,
     chunk_length: int,
-    chunk_overlap: int,
+    overlap_length: int,
     total_length: int,
     fps: float,
     overlap_blend_mode: str,
@@ -111,7 +111,7 @@ def overlay_debug_text(
             w,
             h,
             chunk_length,
-            chunk_overlap,
+            overlap_length,
             fps,
             overlap_blend_mode,
             audio_layout,
@@ -145,7 +145,7 @@ def create_preview_video(
     overlap_blend_mode: str,
     seed_info: str = "",
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[dict], float]:
-    previous_count = ((d["index"]) * (c["chunk_length"] - c["chunk_overlap"]))
+    previous_count = ((d["index"]) * (c["chunk_length"] - c["overlap_length"]))
     preview_video_chunk = combine_images_and_masks(images, masks)
     audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
     audio_layout = ["", "mono", "stereo"][audio_channel_count]
@@ -157,7 +157,7 @@ def create_preview_video(
         d["index"],
         c["chunk_count"],
         c["chunk_length"],
-        c["chunk_overlap"],
+        c["overlap_length"],
         c["total_length"],
         d["fps"],
         overlap_blend_mode,

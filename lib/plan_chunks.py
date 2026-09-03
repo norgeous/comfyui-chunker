@@ -4,12 +4,12 @@ from typing import Callable, List, Tuple
 
 def plan_chunks(length_adjuster: Callable[[int], int],
                 chunk_length: int,
-                chunk_overlap: int,
+                overlap_length: int,
                 total_length: int) -> Tuple[int,
                                             int,
                                             List[int]]:
     adjusted_chunk_length = length_adjuster(chunk_length)
-    stride = adjusted_chunk_length - chunk_overlap
+    stride = adjusted_chunk_length - overlap_length
     full_chunk_count = max(
         0, math.ceil(
             (total_length - adjusted_chunk_length) / stride))
@@ -19,5 +19,5 @@ def plan_chunks(length_adjuster: Callable[[int], int],
         tail = total_length - pos
         chunk_lengths.append(length_adjuster(tail))
     adjusted_total_length = sum(chunk_lengths) - \
-        chunk_overlap * (len(chunk_lengths) - 1)
+        overlap_length * (len(chunk_lengths) - 1)
     return adjusted_chunk_length, adjusted_total_length, chunk_lengths

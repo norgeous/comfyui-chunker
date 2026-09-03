@@ -11,7 +11,7 @@ def test_create_preview_video_with_images_masks_audio():
     d = {"index": 0, "fps": 15.0, "seed_info": ""}
     c = {
         "chunk_length": 30,
-        "chunk_overlap": 10,
+        "overlap_length": 10,
         "chunk_count": 2,
         "total_length": 50}
     overlap_blend_mode = "linear"

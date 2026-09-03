@@ -28,7 +28,7 @@ class ChunkerData(io.ComfyNode):
                     tooltip="Count of images in each chunk",
                 ),
                 io.Int.Output(
-                    "chunk_overlap",
+                    "overlap_length",
                     tooltip="Count of images to overlap between chunks",
                 ),
                 io.Int.Output(
@@ -71,7 +71,7 @@ class ChunkerData(io.ComfyNode):
         ui_values = {
             "output_label_values": {
                 "chunk_length": c["chunk_length"],
-                "chunk_overlap": c["chunk_overlap"],
+                "overlap_length": c["overlap_length"],
                 "chunk_count": c["chunk_count"],
                 "total_length": c["total_length"],
                 "index": chunker_data["index"],
@@ -84,7 +84,7 @@ class ChunkerData(io.ComfyNode):
         return io.NodeOutput(
             chunker_data,
             c["chunk_length"],
-            c["chunk_overlap"],
+            c["overlap_length"],
             c["chunk_count"],
             c["total_length"],
             chunker_data["index"],

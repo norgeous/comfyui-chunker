@@ -83,7 +83,7 @@ class ChunkerCombine(io.ComfyNode):
                     "overlap_blend_mode",
                     options=list(map(lambda member: member.value, BlendMode)),
                     default=BlendMode.LINEAR.value,
-                    tooltip="When chunk_overlap is more than zero this setting determines how images and audio are blended",
+                    tooltip="When overlap_length is more than zero this setting determines how images and audio are blended",
                 ),
                 io.Boolean.Input(
                     "increment_seeds",
@@ -216,7 +216,7 @@ class ChunkerCombine(io.ComfyNode):
             _, all_preview_frontend_data, _, _, _ = av_combine(
                 inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
                 filename_prefix="chunker-preview-all",
-                overlap_frame_count=c["chunk_overlap"],
+                overlap_frame_count=c["overlap_length"],
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),
                 profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
@@ -235,7 +235,7 @@ class ChunkerCombine(io.ComfyNode):
             out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                 inputs=s["chunks"],
                 filename_prefix="chunker-chunk-all",
-                overlap_frame_count=c["chunk_overlap"],
+                overlap_frame_count=c["overlap_length"],
                 video_blend_mode=BlendMode(overlap_blend_mode),
                 audio_blend_mode=BlendMode(overlap_blend_mode),
                 profile=Profile.COMFY,

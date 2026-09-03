@@ -57,7 +57,7 @@ class ChunkerRepeat(io.ComfyNode):
                 "Repeat nodes between this node and `🍫 Combine`. "
                 "Optionally divide long batches images, masks and / or audio into smaller chunks "
                 "and process the chunks sequentially. Optionally use the end of last chunk "
-                "as start of this chunk (with `chunk_overlap`)."
+                "as start of this chunk (with `overlap_length`)."
             ),
             inputs=[
                 io.Video.Input(
@@ -111,7 +111,7 @@ class ChunkerRepeat(io.ComfyNode):
                     ),
                 ),
                 io.Int.Input(
-                    "chunk_overlap",
+                    "overlap_length",
                     tooltip="Count of images to overlap between chunks",
                     default=4,
                     min=0,
@@ -176,7 +176,7 @@ class ChunkerRepeat(io.ComfyNode):
     def execute(
         self,
         mode,
-        chunk_overlap,
+        overlap_length,
         repeat_until,
         video=None,
         images=None,
@@ -214,7 +214,7 @@ class ChunkerRepeat(io.ComfyNode):
         if tl_type == "chunk_count":
             target_count = repeat_until["chunk_count"]
             adjusted = settings["length_adjuster"](chunk_length)
-            total_length = (target_count - 1) * (adjusted - chunk_overlap) + adjusted
+            total_length = (target_count - 1) * (adjusted - overlap_length) + adjusted
         elif tl_type == "input_length":
             total_length = max(
                 len(images) if images is not None else 0,
@@ -228,7 +228,7 @@ class ChunkerRepeat(io.ComfyNode):
         chunk_length, total_length, chunk_lengths = plan_chunks(
             settings["length_adjuster"],
             chunk_length,
-            chunk_overlap,
+            overlap_length,
             total_length,
         )
         this_chunk_length = chunk_lengths[s["index"]]
@@ -236,15 +236,15 @@ class ChunkerRepeat(io.ComfyNode):
         w = None
         h = None
 
-        start = (s["index"] * (chunk_length - chunk_overlap))
+        start = (s["index"] * (chunk_length - overlap_length))
         end = start + chunk_length
         chunk_count = math.ceil(
-            (total_length - chunk_overlap) / (chunk_length - chunk_overlap))
+            (total_length - overlap_length) / (chunk_length - overlap_length))
 
         c = {
             "mode": selected_mode.value,
             "chunk_length": chunk_length,
-            "chunk_overlap": chunk_overlap,
+            "overlap_length": overlap_length,
             "total_length": total_length,
             "chunk_count": chunk_count,
         }
@@ -256,10 +256,10 @@ class ChunkerRepeat(io.ComfyNode):
         out_audio = []
 
         # get the overlap from the last chunk (video file) that Combine saved
-        if s["last_chunk_path"] is not None and chunk_overlap > 0:
+        if s["last_chunk_path"] is not None and overlap_length > 0:
             overlap_images, overlap_masks, overlap_audio_dict, _ = av_load(
                 path=s["last_chunk_path"],
-                start=-chunk_overlap,
+                start=-overlap_length,
             )
             w = overlap_images.shape[2]
             h = overlap_images.shape[1]

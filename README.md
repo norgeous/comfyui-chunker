@@ -12,7 +12,7 @@ Create longer videos by automatically taking the last few frames of the last gen
 
 ### 🍫 Repeat
 
-Repeat nodes between this node and `🍫 Combine`. Optionally divide long batches images, masks and / or audio into smaller chunks and process the chunks sequentially. Optionally use the end of last chunk as start of this chunk (with `chunk_overlap`).
+Repeat nodes between this node and `🍫 Combine`. Optionally divide long batches images, masks and / or audio into smaller chunks and process the chunks sequentially. Optionally use the end of last chunk as start of this chunk (with `overlap_length`).
 
 ### 🍫 Data
 

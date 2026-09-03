@@ -12,7 +12,7 @@ def format_masks(masks: Optional[torch.Tensor]) -> str:
 
 def format_audio(audio: Optional[dict]) -> str:
     if audio is None:
-        return "0s"
+        return "0"
     duration = audio["waveform"].shape[2] / audio["sample_rate"]
     sample_rate_k = audio["sample_rate"] / 1000.0
     dur_str = f"{duration:.1f}" if duration % 1 else f"{duration:.0f}"
@@ -34,7 +34,7 @@ def format_boolean(value: bool) -> str:
 
 def format_video(video) -> str:
     if video is None:
-        return "0s"
+        return "0"
     duration = video.get_duration()
     return f"{duration:.3f}s" if duration % 1 else f"{duration:.0f}s"
 

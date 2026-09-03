@@ -43,17 +43,17 @@ class ChunkerData(io.ComfyNode):
                     "index",
                     tooltip="The current iteration index, ie; 0, 1, 2, ...",
                 ),
-                io.Boolean.Output(
-                    "is_first_chunk",
-                    tooltip="True if this is the first chunk (index 0)",
+                io.Float.Output(
+                    "fps",
+                    tooltip="FPS",
                 ),
                 io.Boolean.Output(
                     "is_i2v",
                     tooltip="True when images count > 0",
                 ),
-                io.Float.Output(
-                    "fps",
-                    tooltip="FPS",
+                io.Boolean.Output(
+                    "is_first_chunk",
+                    tooltip="True if this is the first chunk (index 0)",
                 ),
             ],
             is_output_node=True,
@@ -88,8 +88,8 @@ class ChunkerData(io.ComfyNode):
             c["chunk_count"],
             c["total_length"],
             chunker_data["index"],
-            is_first_chunk,
-            is_i2v,
             float(chunker_data["fps"]),
+            is_i2v,
+            is_first_chunk,
             ui={"values": [ui_values]},
         )

@@ -1,10 +1,11 @@
+from enum import Enum
 import comfy.utils
 from comfy_api.latest import io, VideoFromFile
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
-from ..lib.create_preview_video import create_preview_video
+from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video
 from ..lib.utils_performance import get_ts
@@ -38,6 +39,12 @@ def collect_seed_info(dynprompt, clone_ids: list[str]) -> str:
         if noise_seed is not None and isinstance(noise_seed, int):
             lines.append(f"{class_type}#{original_id}: {noise_seed}")
     return "\n".join(lines)
+
+
+class PreviewMode(Enum):
+    DISABLED = "disabled"
+    VIDEO_WITHOUT_DEBUG = "video_without_debug"
+    VIDEO_WITH_DEBUG = "video_with_debug"
 
 
 class ChunkerCombine(io.ComfyNode):
@@ -83,6 +90,16 @@ class ChunkerCombine(io.ComfyNode):
                     tooltip=("Increment \"seed\" or \"noise_seed\" inputs in repeated nodes that have \"Sampler\" or \"Noise\" within the node class name"),
                     default=True,
                 ),
+                io.Combo.Input(
+                    "preview_mode",
+                    options=[m.value for m in PreviewMode],
+                    default=PreviewMode.VIDEO_WITH_DEBUG.value,
+                    tooltip=(
+                        "disabled: Skip preview generation entirely.\n"
+                        "video_without_debug: Generate a preview video without debug overlay.\n"
+                        "video_with_debug: Generate a preview video with debug overlay (chunk index, resolution, FPS, blend mode, etc.)"
+                    ),
+                ),
                 io.Custom("*").Input(
                     "store",
                     optional=True,
@@ -121,6 +138,7 @@ class ChunkerCombine(io.ComfyNode):
         chunker_data,
         overlap_blend_mode,
         increment_seeds,
+        preview_mode,
         images=None,
         masks=None,
         audio=None,
@@ -164,37 +182,46 @@ class ChunkerCombine(io.ComfyNode):
         seed_info = collect_seed_info(self.hidden.dynprompt, seed_ids)
 
         # Make preview from inputs
-        ts = get_ts()
-        log(f"{node_label}: Make preview...", end="")
-        preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode, seed_info)
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+        all_preview_frontend_data = None
+        if preview_mode != PreviewMode.DISABLED.value:
+            ts = get_ts()
+            log(f"{node_label}: Make preview...", end="")
+            if preview_mode == PreviewMode.VIDEO_WITH_DEBUG.value:
+                preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode, seed_info)
+            else:
+                preview_video_chunk = combine_images_and_masks(images, masks)
+                preview_masks = preview_video_chunk[:, :, :, 3] if preview_video_chunk.shape[3] == 4 else None
+                preview_images = preview_video_chunk[:, :, :, :3]
+                preview_audio = audio
+                preview_fps = d["fps"]
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # Save preview to web file
-        ts = get_ts()
-        log(f"{node_label}: Save web preview...", end="")
-        preview_path, _ = av_save(
-            images=preview_images,
-            masks=preview_masks,
-            audio=preview_audio,
-            fps=d["fps"],
-            filename_prefix="chunker-preview",
-            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
-        )
-        s["previews"].append(preview_path)
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+            # Save preview to web file
+            ts = get_ts()
+            log(f"{node_label}: Save web preview...", end="")
+            preview_path, _ = av_save(
+                images=preview_images,
+                masks=preview_masks,
+                audio=preview_audio,
+                fps=d["fps"],
+                filename_prefix="chunker-preview",
+                profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+            )
+            s["previews"].append(preview_path)
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-        # Combine all preview chunks to a new file, blending the overlaps
-        ts = get_ts()
-        log(f"{node_label}: Combine all previews...", end="")
-        _, all_preview_frontend_data, _, _, _ = av_combine(
-            inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
-            filename_prefix="chunker-preview-all",
-            overlap_frame_count=c["chunk_overlap"],
-            video_blend_mode=BlendMode(overlap_blend_mode),
-            audio_blend_mode=BlendMode(overlap_blend_mode),
-            profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
-        )
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+            # Combine all preview chunks to a new file, blending the overlaps
+            ts = get_ts()
+            log(f"{node_label}: Combine all previews...", end="")
+            _, all_preview_frontend_data, _, _, _ = av_combine(
+                inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
+                filename_prefix="chunker-preview-all",
+                overlap_frame_count=c["chunk_overlap"],
+                video_blend_mode=BlendMode(overlap_blend_mode),
+                audio_blend_mode=BlendMode(overlap_blend_mode),
+                profile=Profile.WEBRGB if masks is None else Profile.WEBRGBA,
+            )
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # figure out if we have completed all chunks
         is_done = d["index"] + 1 >= c["chunk_count"]

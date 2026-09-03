@@ -16,6 +16,8 @@ def _predict_delta(deltas, source_chunk_lengths, target_chunk_length, steps_ahea
 def calculate_progress_bar(execution_start_time, chunk_start_times, chunk_end_times, chunk_count, chunk_lengths):
     completed_deltas = []
     completed_lengths = []
+    cached_deltas = []
+    cached_lengths = []
     pending_count = 0
     result = []
     for i in range(chunk_count):
@@ -25,6 +27,8 @@ def calculate_progress_bar(execution_start_time, chunk_start_times, chunk_end_ti
 
         if start_ts is not None and start_ts < execution_start_time:
             delta = end_ts - execution_start_time
+            cached_deltas.append(delta)
+            cached_lengths.append(chunk_lengths[i])
             result.append({
                 "type": "cached",
                 "delta": delta,
@@ -37,7 +41,9 @@ def calculate_progress_bar(execution_start_time, chunk_start_times, chunk_end_ti
                 "delta": delta,
             })
         else:
-            predicted = _predict_delta(completed_deltas, completed_lengths, chunk_lengths[i], pending_count + 1)
+            source_deltas = completed_deltas if completed_deltas else cached_deltas
+            source_lengths = completed_lengths if completed_lengths else cached_lengths
+            predicted = _predict_delta(source_deltas, source_lengths, chunk_lengths[i], pending_count + 1)
             pending_count += 1
             result.append({
                 "type": "current" if i == len(chunk_start_times) else "pending",

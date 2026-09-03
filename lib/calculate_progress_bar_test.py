@@ -61,6 +61,21 @@ def test_cached_chunks_reset_rate():
     assert result[2]["delta"] == 5_000 / 100 * 45
 
 
+def test_cached_chunks_fallback_for_prediction():
+    start = 1000
+    chunk_lengths = [100, 45]
+    result = calculate_progress_bar(
+        execution_start_time=start + 4_000,
+        chunk_start_times=[start],
+        chunk_end_times=[start + 5_000],
+        chunk_count=2,
+        chunk_lengths=chunk_lengths,
+    )
+    assert result[0]["type"] == "cached"
+    assert result[1]["type"] == "current"
+    assert result[1]["delta"] == 1_000 / 100 * 45
+
+
 def test_predict_delta_constant():
     assert _predict_delta([10, 10, 10], [1, 1, 1], 1) == 10
 

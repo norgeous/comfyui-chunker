@@ -47,6 +47,10 @@ class ChunkerData(io.ComfyNode):
                     "is_first_chunk",
                     tooltip="True if this is the first chunk (index 0)",
                 ),
+                io.Boolean.Output(
+                    "is_i2v",
+                    tooltip="True when images count > 0",
+                ),
                 io.Float.Output(
                     "fps",
                     tooltip="FPS",
@@ -62,6 +66,7 @@ class ChunkerData(io.ComfyNode):
     ) -> io.NodeOutput:
         c = chunker_data["chunker_config"]
         is_first_chunk = chunker_data["index"] == 0
+        is_i2v = chunker_data.get("is_i2v", False)
 
         ui_values = {
             "output_label_values": {
@@ -72,6 +77,7 @@ class ChunkerData(io.ComfyNode):
                 "index": chunker_data["index"],
                 "fps": format_fps(chunker_data["fps"]),
                 "is_first_chunk": format_boolean(is_first_chunk),
+                "is_i2v": format_boolean(is_i2v),
             },
         }
 
@@ -83,6 +89,7 @@ class ChunkerData(io.ComfyNode):
             c["total_length"],
             chunker_data["index"],
             is_first_chunk,
+            is_i2v,
             float(chunker_data["fps"]),
             ui={"values": [ui_values]},
         )

@@ -351,6 +351,7 @@ class ChunkerRepeat(io.ComfyNode):
             "chunker_config": c,
             "chunk_lengths": chunk_lengths,
             "fps": out_fps,
+            "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,
             "ts_chunk_starts": [
                 *s["ts_chunk_starts"],
                 ts_chunk_start,

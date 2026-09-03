@@ -231,6 +231,8 @@ app.registerExtension({
             getHeight: () => 220,
           });
           this.chunkerData = {};
+          const segmentedDigit = (d) => String.fromCodePoint(0x1FBF0 + parseInt(d));
+          const toSegmentedDigits = (s) => [...s].map(segmentedDigit).join('');
           const update = () => {
             const { active, lastCombineExecutionTs, bar } = this.chunkerData;
             const now = Date.now();
@@ -241,9 +243,11 @@ app.registerExtension({
             const etaFinalMillis = bar?.reduce((acc, { type, delta }) => ['current', 'pending'].includes(type) && delta ? acc + delta : acc, 0) - elapsedMillis;
             const etaNext = `${etaNextMillis >= 0 ? '~' : ''}${formatMilliseconds(etaNextMillis, true, true)}`;
             const etaFinal = `${etaFinalMillis >= 0 ? '~' : ''}${formatMilliseconds(etaFinalMillis, true, true)}`;
-            const dueDate = new Date(now + etaFinalMillis);
+            const dueDate = Number.isFinite(etaFinalMillis) ? new Date(now + etaFinalMillis) : null;
             const flashingSeparator = Math.round(now / 1000) % 2 === 0 ? ':' : ' ';
-            const due = `${String(dueDate.getHours()).padStart(2, '0')}${flashingSeparator}${String(dueDate.getMinutes()).padStart(2, '0')}`;
+            const due = dueDate
+              ? `${toSegmentedDigits(String(dueDate.getHours()).padStart(2, '0'))}${flashingSeparator}${toSegmentedDigits(String(dueDate.getMinutes()).padStart(2, '0'))}`
+              : '--' + flashingSeparator + '--';
             const warn = etaFinalMillis >= 1000 * 60 * 30; // 30 min
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
             const totalMillis = bar?.reduce((acc, { type, delta }) => ['cached', 'complete'].includes(type) && delta ? acc + delta : acc, 0);

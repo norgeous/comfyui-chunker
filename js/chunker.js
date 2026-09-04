@@ -175,18 +175,25 @@ app.registerExtension({
 
   async setup() {
     api.addEventListener("execution_start", () => {
-      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
-    });
-    api.addEventListener("execution_interrupted", () => {
-      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
       app.graph._nodes
         .filter(n => n.type === "ChunkerCombine" && n.chunkerData)
         .forEach(n => {
-          n.chunkerData.active = false;
+          n.chunkerData.lastEvent = "start";
+        });
+    });
+    api.addEventListener("execution_interrupted", () => {
+      app.graph._nodes
+        .filter(n => n.type === "ChunkerCombine" && n.chunkerData)
+        .forEach(n => {
+          n.chunkerData.lastEvent = "interrupted";
         });
     });
     api.addEventListener("execution_error", () => {
-      document.querySelectorAll('#data_store').forEach(store => store.innerHTML = '{}');
+      app.graph._nodes
+        .filter(n => n.type === "ChunkerCombine" && n.chunkerData)
+        .forEach(n => {
+          n.chunkerData.lastEvent = "error";
+        });
     });
   },
 
@@ -234,7 +241,7 @@ app.registerExtension({
           const segmentedDigit = (d) => String.fromCodePoint(0x1FBF0 + parseInt(d));
           const toSegmentedDigits = (s) => [...s].map(segmentedDigit).join('');
           const update = () => {
-            const { active, lastCombineExecutionTs, bar } = this.chunkerData;
+            const { lastEvent, lastCombineExecutionTs, bar } = this.chunkerData;
             const now = Date.now();
             const elapsedMillis = now - lastCombineExecutionTs;
             const currentDelta = bar?.find(({ type }) => type === 'current')?.delta;
@@ -252,17 +259,24 @@ app.registerExtension({
             const chunksCompleted = bar?.reduce((acc, { type }) => ['cached', 'complete'].includes(type) ? acc + 1 : acc, 0);
             const totalMillis = bar?.reduce((acc, { type, delta }) => ['cached', 'complete'].includes(type) && delta ? acc + delta : acc, 0);
 
-            const statusText = !bar
-              ? 'Awaiting execution...'
-              : !active
-                ? `Interrupted (Completed chunks took ${formatMilliseconds(totalMillis)})`
-                : chunksCompleted === bar?.length
-                  ? `Done in ${formatMilliseconds(totalMillis)}`
-                  : undefined;
+            const statusLabel = ({
+              default: 'Awaiting execution...',
+              start: 'Awaiting first chunk...',
+              interrupted: 'Interrupted by user!',
+              error: '💀 Error 💀',
+            })[lastEvent || 'default'];
+
+            const statusText = bar && chunksCompleted === bar.length
+              ? `Done in ${formatMilliseconds(totalMillis)}`
+              : bar && (lastEvent === "interrupted" || lastEvent === "error")
+                ? `${statusLabel} (Completed chunks took ${formatMilliseconds(totalMillis)})`
+                : bar
+                  ? undefined
+                  : statusLabel;
 
             element.querySelector(".chunker-status").innerHTML = `
               ${statusText ? `<div>${statusText}</div>` : ''}
-              ${active !== false  && !statusText ? `
+              ${lastEvent !== "interrupted" && lastEvent !== "error" && !statusText ? `
                 <div class="chunker-timings">
                   <div class="chunker-timestamp">Next: ${etaNext}</div>
                   <div class="chunker-timestamp">Final: ${etaFinal} @ ${due}${warn ? ' \u26A0\uFE0F' : ''}</div>
@@ -273,7 +287,7 @@ app.registerExtension({
                   ${bar.map(({ type, delta }, i) => `
                     <div
                       class="chunker-bar-section ${type}"
-                      ${type === 'current' && delta && active ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
+                      ${type === 'current' && delta && lastEvent === "start" ? `style="background: linear-gradient(90deg, aqua 0%, aqua ${currentPercent}%, grey ${currentPercent}%, grey 100%);"` : ''}
                       title="Chunk ${i + 1}\n${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}"
                     >
                       ${formatMilliseconds(delta)}${type === 'cached' ? ' (cached)' : ''}
@@ -297,7 +311,7 @@ app.registerExtension({
             video_path,
           } = ui.values[0];
           this.chunkerData = {
-            active: true,
+            lastEvent: "start",
             lastCombineExecutionTs: now,
             bar,
             video_path,

@@ -63,18 +63,24 @@ def format_latent(latent: Optional[dict]) -> str:
         return "0"
     if isinstance(latent, dict):
         latent_tensor = latent.get("samples")
-        latent_type = latent.get("type", "standard")
     else:
         latent_tensor = latent
-        latent_type = "standard"
     
     if latent_tensor is None:
         return "0"
     
-    type_str = f" ({latent_type})" if latent_type != "standard" else ""
-    
     if hasattr(latent_tensor, "tensors"):  # NestedTensor
-        shapes = [list(t.shape) for t in latent_tensor.tensors]
-        return f"NestedTensor{shapes}{type_str}"
+        parts = []
+        for t in latent_tensor.tensors:
+            if t.dim() == 5:  # Video: [B, C, T, H, W]
+                parts.append(str(t.shape[2]))
+            elif t.dim() == 4 and t.shape[2] == 2:  # Audio: [B, C, 2, T]
+                parts.append(str(t.shape[3]))
+        return ", ".join(parts) if parts else "0"
     
-    return f"{list(latent_tensor.shape)}{type_str}"
+    if latent_tensor.dim() == 5:  # Video: [B, C, T, H, W]
+        return str(latent_tensor.shape[2])
+    elif latent_tensor.dim() == 4 and latent_tensor.shape[2] == 2:  # Audio: [B, C, 2, T]
+        return str(latent_tensor.shape[3])
+    
+    return "0"

@@ -12,7 +12,7 @@ from ..lib.utils_format import format_images, format_masks, format_audio, format
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
-from ..lib.utils_comfy import get_next_save_path
+from ..lib.utils_comfy import get_next_save_path, stretch_audio_to_video
 
 
 def _detect_connected_outputs(prompt, dynprompt, node_id: str) -> set[int]:
@@ -107,6 +107,11 @@ class ChunkerCombine(io.ComfyNode):
                         "video_with_debug: Generate a preview video with debug overlay (chunk index, resolution, FPS, blend mode, etc.)"
                     ),
                 ),
+                io.Boolean.Input(
+                    "fit_audio_to_video",
+                    default=True,
+                    tooltip="Time-stretch audio to match video frame duration per chunk (preserves pitch)",
+                ),
                 io.Custom("*").Input(
                     "store",
                     optional=True,
@@ -146,6 +151,7 @@ class ChunkerCombine(io.ComfyNode):
         overlap_blend_mode,
         increment_seeds,
         preview_mode,
+        fit_audio_to_video,
         images=None,
         masks=None,
         audio=None,
@@ -170,6 +176,13 @@ class ChunkerCombine(io.ComfyNode):
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
+
+        # Stretch audio to match video frames if enabled
+        if fit_audio_to_video and audio is not None:
+            if images is not None:
+                audio = stretch_audio_to_video(audio, images.shape[0], d["fps"])
+            else:
+                audio = stretch_audio_to_video(audio, c["chunk_length"], d["fps"])
 
         # Save images, masks and audio to lossless file
         ts = get_ts()
@@ -223,6 +236,10 @@ class ChunkerCombine(io.ComfyNode):
                 preview_audio = audio
                 preview_fps = d["fps"]
             print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+            # Stretch preview audio to match preview video frames if enabled
+            if fit_audio_to_video and preview_audio is not None and preview_images is not None:
+                preview_audio = stretch_audio_to_video(preview_audio, preview_images.shape[0], preview_fps)
 
             # Save preview to web file
             ts = get_ts()

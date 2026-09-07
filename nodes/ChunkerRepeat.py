@@ -260,9 +260,22 @@ class ChunkerRepeat(io.ComfyNode):
         latent = None
         if s.get("last_latent_path") is not None:
             latent_data = safetensors.torch.load_file(s["last_latent_path"])
-            latent_tensor = latent_data.get("latent")
+            latent_type = latent_data.get("type", "standard")
+            
+            latent_keys = [k for k in latent_data.keys() if k.startswith("latent_")]
+            if latent_keys:
+                # NestedTensor format
+                latent_keys.sort(key=lambda x: int(x.split("_")[1]))
+                tensors = [latent_data[k] for k in latent_keys]
+                from comfy.nested_tensor import NestedTensor
+                latent_tensor = NestedTensor(tensors)
+            else:
+                latent_tensor = latent_data.get("latent")
+            
             if latent_tensor is not None:
                 latent = {"samples": latent_tensor}
+                if latent_type != "standard":
+                    latent["type"] = latent_type
 
         out_images = []
         out_masks = []

@@ -58,7 +58,23 @@ def format_milliseconds(ms: int) -> str:
     return "".join(out[0:2])
 
 
-def format_latent(latent: Optional[torch.Tensor]) -> str:
+def format_latent(latent: Optional[dict]) -> str:
     if latent is None:
         return "0"
-    return f"{list(latent.shape)}"
+    if isinstance(latent, dict):
+        latent_tensor = latent.get("samples")
+        latent_type = latent.get("type", "standard")
+    else:
+        latent_tensor = latent
+        latent_type = "standard"
+    
+    if latent_tensor is None:
+        return "0"
+    
+    type_str = f" ({latent_type})" if latent_type != "standard" else ""
+    
+    if hasattr(latent_tensor, "tensors"):  # NestedTensor
+        shapes = [list(t.shape) for t in latent_tensor.tensors]
+        return f"NestedTensor{shapes}{type_str}"
+    
+    return f"{list(latent_tensor.shape)}{type_str}"

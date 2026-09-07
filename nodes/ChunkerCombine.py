@@ -189,8 +189,18 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log(f"{node_label}: Save latent...", end="")
             latent_path, _ = get_next_save_path("chunker-latent", "safetensors")
-            latent_tensor = latent["samples"] if isinstance(latent, dict) else latent
-            safetensors.torch.save_file({"latent": latent_tensor}, latent_path)
+            latent_dict = latent if isinstance(latent, dict) else {"samples": latent}
+            latent_tensor = latent_dict.get("samples")
+            latent_type = latent_dict.get("type", "standard")
+            
+            save_dict = {"type": latent_type}
+            if hasattr(latent_tensor, "tensors"):  # NestedTensor
+                for i, t in enumerate(latent_tensor.tensors):
+                    save_dict[f"latent_{i}"] = t
+            else:
+                save_dict["latent"] = latent_tensor
+            
+            safetensors.torch.save_file(save_dict, latent_path)
             s["last_latent_path"] = latent_path
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 

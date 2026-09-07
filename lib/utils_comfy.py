@@ -1,10 +1,41 @@
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import torch
 import torchaudio
+import torchaudio.transforms
 from functools import reduce
 import folder_paths
 from comfy_api.latest import AudioInput
+
+
+def stretch_audio_to_video(audio_dict: Optional[dict], num_frames: int, fps: float) -> Optional[dict]:
+    """Time-stretch audio to match video frame count at given fps (preserves pitch)."""
+    if audio_dict is None:
+        return None
+
+    waveform = audio_dict["waveform"]
+    sample_rate = audio_dict["sample_rate"]
+
+    target_samples = int(num_frames * sample_rate / fps)
+    current_samples = waveform.shape[-1]
+
+    if current_samples == target_samples:
+        return audio_dict
+
+    rate = target_samples / current_samples
+
+    spec = torchaudio.transforms.Spectrogram(n_fft=400, power=None)
+    istft = torchaudio.transforms.InverseSpectrogram(n_fft=400)
+    stretch = torchaudio.transforms.TimeStretch()
+
+    complex_spec = spec(waveform)
+    stretched_spec = stretch(complex_spec, rate)
+    stretched_waveform = istft(stretched_spec, length=target_samples)
+
+    return {
+        "waveform": stretched_waveform,
+        "sample_rate": sample_rate,
+    }
 
 
 def concat_audio(audio1: AudioInput, audio2: AudioInput) -> AudioInput:

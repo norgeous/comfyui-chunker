@@ -1,5 +1,6 @@
 from enum import Enum
 import comfy.utils
+import safetensors.torch
 from comfy_api.latest import io, VideoFromFile
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
@@ -7,10 +8,11 @@ from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
-from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video
+from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video, format_latent
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
+from ..lib.utils_comfy import get_next_save_path
 
 
 def _detect_connected_outputs(prompt, dynprompt, node_id: str) -> set[int]:
@@ -79,6 +81,11 @@ class ChunkerCombine(io.ComfyNode):
                     optional=True,
                     tooltip="Processed chunk of audio",
                 ),
+                io.Latent.Input(
+                    "latent",
+                    optional=True,
+                    tooltip="Processed chunk of latent",
+                ),
                 io.Combo.Input(
                     "overlap_blend_mode",
                     options=list(map(lambda member: member.value, BlendMode)),
@@ -142,6 +149,7 @@ class ChunkerCombine(io.ComfyNode):
         images=None,
         masks=None,
         audio=None,
+        latent=None,
         store=None,
     ):
         if images is None and masks is None and audio is None:
@@ -175,6 +183,16 @@ class ChunkerCombine(io.ComfyNode):
         )
         s["chunks"].append(chunk_path)
         print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+        # Save latent to safetensors
+        if latent is not None:
+            ts = get_ts()
+            log(f"{node_label}: Save latent...", end="")
+            latent_path, _ = get_next_save_path("chunker-latent", "safetensors")
+            latent_tensor = latent["samples"] if isinstance(latent, dict) else latent
+            safetensors.torch.save_file({"latent": latent_tensor}, latent_path)
+            s["last_latent_path"] = latent_path
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Identify nodes to repeat and collect seed info from prompt
         clone_ids = get_clone_ids(self.hidden.dynprompt, d["start_node_id"], self.hidden.unique_id, ["Noise"] if increment_seeds else [])
@@ -256,6 +274,7 @@ class ChunkerCombine(io.ComfyNode):
                     "images": format_images(images),
                     "masks": format_masks(masks),
                     "audio": format_audio(audio),
+                    "latent": format_latent(latent),
                 },
                 "output_label_values": {
                     "video": format_video(out_video),
@@ -318,6 +337,7 @@ class ChunkerCombine(io.ComfyNode):
         new_repeat.set_input("store", {
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1],
+            "last_latent_path": s.get("last_latent_path"),
             "ts_chunk_starts": d["ts_chunk_starts"],
         })
 
@@ -334,6 +354,7 @@ class ChunkerCombine(io.ComfyNode):
                 "images": format_images(images),
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),
+                "latent": format_latent(latent),
             },
             "output_label_values": {
                 "video": None,

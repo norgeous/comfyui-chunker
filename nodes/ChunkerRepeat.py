@@ -1,12 +1,13 @@
 import torch
 import math
+import safetensors.torch
 from comfy_api.latest import io
 from ..lib.utils import count, log
 from ..lib.plan_chunks import plan_chunks
 from ..lib.av_load import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import resize_image, resize_mask
-from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_video)
+from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_video, format_latent)
 from ..lib.utils_performance import get_ts
 from enum import Enum
 
@@ -167,6 +168,10 @@ class ChunkerRepeat(io.ComfyNode):
                     "audio",
                     tooltip="Chunk of audio",
                 ),
+                io.Latent.Output(
+                    "latent",
+                    tooltip="Latent from previous chunk",
+                ),
 
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
@@ -250,6 +255,14 @@ class ChunkerRepeat(io.ComfyNode):
         }
 
         log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Starting chunk {s['index'] + 1} of {c['chunk_count']}...")
+
+        # load latent from previous chunk's safetensors
+        latent = None
+        if s.get("last_latent_path") is not None:
+            latent_data = safetensors.torch.load_file(s["last_latent_path"])
+            latent_tensor = latent_data.get("latent")
+            if latent_tensor is not None:
+                latent = {"samples": latent_tensor}
 
         out_images = []
         out_masks = []
@@ -365,11 +378,13 @@ class ChunkerRepeat(io.ComfyNode):
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),
                 "fps": format_fps(fps),
+                "latent": format_latent(latent),
             },
             "output_label_values": {
                 "images": format_images(out_images_torch),
                 "masks": format_masks(out_masks_torch),
                 "audio": format_audio(out_audio_dict),
+                "latent": format_latent(latent),
             },
         }
 
@@ -378,5 +393,6 @@ class ChunkerRepeat(io.ComfyNode):
             out_images_torch,
             out_masks_torch,
             out_audio_dict,
+            latent,
             ui={"values": [ui_values]},
         )

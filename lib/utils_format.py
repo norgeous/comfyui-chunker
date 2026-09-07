@@ -56,3 +56,9 @@ def format_milliseconds(ms: int) -> str:
     last = len(results) - next(i for i, v in enumerate(results) if v > 0)
     out = [f"{rresults[i]}{runits[i]}" for i in range(first, last)]
     return "".join(out[0:2])
+
+
+def format_latent(latent: Optional[torch.Tensor]) -> str:
+    if latent is None:
+        return "0"
+    return f"{list(latent.shape)}"

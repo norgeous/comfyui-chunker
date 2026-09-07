@@ -7,6 +7,7 @@ from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
+from ..lib.latent_to_rgb import latent_to_images
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video, format_latent
 from ..lib.utils_performance import get_ts
@@ -158,8 +159,8 @@ class ChunkerCombine(io.ComfyNode):
         latent=None,
         store=None,
     ):
-        if images is None and masks is None and audio is None:
-            raise ValueError("At least one of images, masks, or audio must be provided.")
+        if images is None and masks is None and audio is None and latent is None:
+            raise ValueError("At least one of images, masks, audio, or latent must be provided.")
 
         node_label = f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}"
 
@@ -185,17 +186,18 @@ class ChunkerCombine(io.ComfyNode):
                 audio = stretch_audio_to_video(audio, c["chunk_length"], d["fps"])
 
         # Save images, masks and audio to lossless file
-        ts = get_ts()
-        log(f"{node_label}: Save HQ chunk...", end="")
-        chunk_path, _ = av_save(
-            images=images,
-            masks=masks,
-            audio=audio,
-            fps=d["fps"],
-            filename_prefix="chunker-chunk",
-        )
-        s["chunks"].append(chunk_path)
-        print(f"done ({format_milliseconds(get_ts() - ts)})")
+        if images is not None or masks is not None or audio is not None:
+            ts = get_ts()
+            log(f"{node_label}: Save HQ chunk...", end="")
+            chunk_path, _ = av_save(
+                images=images,
+                masks=masks,
+                audio=audio,
+                fps=d["fps"],
+                filename_prefix="chunker-chunk",
+            )
+            s["chunks"].append(chunk_path)
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Save latent to safetensors
         if latent is not None:
@@ -224,13 +226,21 @@ class ChunkerCombine(io.ComfyNode):
 
         # Make preview from inputs
         all_preview_frontend_data = None
+        preview_source_images = images
+        preview_source_masks = masks
         if preview_mode != PreviewMode.DISABLED.value:
+            if preview_source_images is None and latent is not None:
+                ts = get_ts()
+                log(f"{node_label}: Decode latent preview (no VAE)...", end="")
+                preview_source_images = latent_to_images(latent, c["mode"])
+                preview_source_masks = None
+                print(f"done ({format_milliseconds(get_ts() - ts)})")
             ts = get_ts()
             log(f"{node_label}: Make preview...", end="")
             if preview_mode == PreviewMode.VIDEO_WITH_DEBUG.value:
-                preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(images, masks, audio, d, c, overlap_blend_mode, seed_info)
+                preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(preview_source_images, preview_source_masks, audio, d, c, overlap_blend_mode, seed_info)
             else:
-                preview_video_chunk = combine_images_and_masks(images, masks)
+                preview_video_chunk = combine_images_and_masks(preview_source_images, preview_source_masks)
                 preview_masks = preview_video_chunk[:, :, :, 3] if preview_video_chunk.shape[3] == 4 else None
                 preview_images = preview_video_chunk[:, :, :, :3]
                 preview_audio = audio
@@ -275,21 +285,26 @@ class ChunkerCombine(io.ComfyNode):
         if is_done:
             connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.dynprompt, self.hidden.unique_id)
 
-            ts = get_ts()
-            log(f"{node_label}: Combine all chunks...", end="")
-            out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
-                inputs=s["chunks"],
-                filename_prefix="chunker-chunk-all",
-                overlap_frame_count=c["overlap_length"],
-                video_blend_mode=BlendMode(overlap_blend_mode),
-                audio_blend_mode=BlendMode(overlap_blend_mode),
-                profile=Profile.COMFY,
-                need_images=1 in connected,
-                need_masks=2 in connected,
-                need_audio=3 in connected,
-            )
-            print(f"done ({format_milliseconds(get_ts() - ts)})")
-            out_video = VideoFromFile(out_video_path)
+            out_video = None
+            out_images_torch = None
+            out_masks_torch = None
+            out_audio_dict = None
+            if len(s["chunks"]) > 0:
+                ts = get_ts()
+                log(f"{node_label}: Combine all chunks...", end="")
+                out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
+                    inputs=s["chunks"],
+                    filename_prefix="chunker-chunk-all",
+                    overlap_frame_count=c["overlap_length"],
+                    video_blend_mode=BlendMode(overlap_blend_mode),
+                    audio_blend_mode=BlendMode(overlap_blend_mode),
+                    profile=Profile.COMFY,
+                    need_images=1 in connected,
+                    need_masks=2 in connected,
+                    need_audio=3 in connected,
+                )
+                print(f"done ({format_milliseconds(get_ts() - ts)})")
+                out_video = VideoFromFile(out_video_path)
 
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],

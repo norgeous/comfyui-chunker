@@ -324,6 +324,7 @@ app.registerExtension({
             videoTag.classList.remove('hdr-gradient', 'checkerboard');
             videoTag.classList.add(getBackgroundClass(video_path));
             videoTag.src = `/api/view?${videoParams.toString()}`;
+            videoTag.muted = true;
           }
         });
         chainCallback(nodeType.prototype, "onSerialize", function (data) {

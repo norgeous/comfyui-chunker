@@ -378,7 +378,7 @@ class ChunkerCombine(io.ComfyNode):
         new_repeat = graph.lookup_node(d["start_node_id"])
         new_repeat.set_input("store", {
             "index": d["index"] + 1,
-            "last_chunk_path": s["chunks"][-1],
+            "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None,
             "last_latent_path": s.get("last_latent_path"),
             "ts_chunk_starts": d["ts_chunk_starts"],
         })

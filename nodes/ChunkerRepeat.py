@@ -539,11 +539,11 @@ class ChunkerRepeat(io.ComfyNode):
         if (output_latent is not None and c["mode"] == "minimax-h3"
                 and overlap_latent_count > 0
                 and hasattr(output_latent["samples"], "tensors")):
-            out_video = output_latent["samples"].tensors[0]
-            out_audio = output_latent["samples"].tensors[1] if len(output_latent["samples"].tensors) > 1 else None
-            if out_audio is not None:
+            overlap_out_video = output_latent["samples"].tensors[0]
+            overlap_out_audio = output_latent["samples"].tensors[1] if len(output_latent["samples"].tensors) > 1 else None
+            if overlap_out_audio is not None:
                 output_latent["noise_mask"] = build_overlap_noise_mask(
-                    out_video, out_audio, overlap_latent_count, audio_overlap_count)
+                    overlap_out_video, overlap_out_audio, overlap_latent_count, audio_overlap_count)
 
         # finalise out images, resize and concat together
         out_images_torch = None

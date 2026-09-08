@@ -279,7 +279,7 @@ class ChunkerRepeat(io.ComfyNode):
 
         # load latent overlap from previous chunk's safetensors
         overlap_latent = None
-        overlap_latent_count = 0
+        video_overlap_latent_count = 0
         audio_overlap_start = 0
         audio_overlap_end = 0
         video_overlap_count = 0
@@ -462,18 +462,18 @@ class ChunkerRepeat(io.ComfyNode):
             # Calculate overlap latent frame count for trimming main chunk
             if overlap_latent is not None:
                 if hasattr(overlap_latent["samples"], "tensors"):  # NestedTensor
-                    overlap_latent_count = overlap_latent["samples"].tensors[0].shape[2]
+                    video_overlap_latent_count = overlap_latent["samples"].tensors[0].shape[2]
                 else:
-                    overlap_latent_count = overlap_latent["samples"].shape[2]
+                    video_overlap_latent_count = overlap_latent["samples"].shape[2]
             else:
-                overlap_latent_count = 0
+                video_overlap_latent_count = 0
 
             if hasattr(full_input_latent, "tensors"):  # NestedTensor
                 video_t = full_input_latent.tensors[0]  # [B, 24, T, H, W]
                 audio_t = full_input_latent.tensors[1]  # [B, 32, 2, T]
                 
-                video_chunk = video_t[:, :, video_latent_start + overlap_latent_count:video_latent_end, :, :]
-                audio_chunk = audio_t[:, :, :, audio_latent_start + overlap_latent_count:audio_latent_end] if audio_latents_per_sec > 0 else None
+                video_chunk = video_t[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
+                audio_chunk = audio_t[:, :, :, audio_latent_start + video_overlap_latent_count:audio_latent_end] if audio_latents_per_sec > 0 else None
                 
                 chunk_tensors = []
                 if video_chunk.shape[2] > 0:
@@ -488,7 +488,7 @@ class ChunkerRepeat(io.ComfyNode):
                     input_latent_chunk = None
             else:
                 # Regular tensor (video only)
-                input_latent_chunk = full_input_latent[:, :, video_latent_start + overlap_latent_count:video_latent_end, :, :]
+                input_latent_chunk = full_input_latent[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
 
         if w is None:
             w = 512
@@ -556,13 +556,13 @@ class ChunkerRepeat(io.ComfyNode):
         # The mask ramps linearly from 0 at the overlap start to 1 by the overlap end, then
         # stays 1 over the new frames. Only meaningful for H3's packed NestedTensor latent.
         if (output_latent is not None and c["mode"] == "minimax-h3"
-                and overlap_latent_count > 0
+                and video_overlap_latent_count > 0
                 and hasattr(output_latent["samples"], "tensors")):
             overlap_out_video = output_latent["samples"].tensors[0]
             overlap_out_audio = output_latent["samples"].tensors[1] if len(output_latent["samples"].tensors) > 1 else None
             if overlap_out_audio is not None:
                 output_latent["noise_mask"] = build_overlap_noise_mask(
-                    overlap_out_video, overlap_out_audio, overlap_latent_count, audio_overlap_count)
+                    overlap_out_video, overlap_out_audio, video_overlap_latent_count, audio_overlap_count)
 
         # finalise out images, resize and concat together
         out_images_torch = None
@@ -588,8 +588,8 @@ class ChunkerRepeat(io.ComfyNode):
             "index": s["index"],
             "chunker_config": c,
             "chunk_lengths": chunk_lengths,
-            "overlap_latent_count": overlap_latent_count,
-            "audio_latent_overlap_count": audio_overlap_count,
+            "video_overlap_latent_count": video_overlap_latent_count,
+            "audio_overlap_latent_count": audio_overlap_count,
             "original_fps": source_fps,
             "fps": settings["fps"],
             "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,

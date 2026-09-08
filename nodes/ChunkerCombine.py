@@ -7,7 +7,7 @@ from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
-from ..lib.latent_to_rgb import latent_to_images
+from ..lib.latent_to_rgb import latent_to_images, latent_decode_taeh3
 from ..lib.utils_latent_combine import concat_chunk_latents
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video, format_latent
@@ -226,8 +226,8 @@ class ChunkerCombine(io.ComfyNode):
             safetensors.torch.save_file(save_dict, latent_path, metadata={"type": latent_type})
             s["last_latent_path"] = latent_path
             s.setdefault("latent_paths", []).append(latent_path)
-            s.setdefault("latent_overlaps", []).append(d.get("overlap_latent_count", 0))
-            s.setdefault("audio_overlaps", []).append(d.get("audio_latent_overlap_count", 0))
+            s.setdefault("latent_overlaps", []).append(d.get("video_overlap_latent_count", 0))
+            s.setdefault("audio_overlaps", []).append(d.get("audio_overlap_latent_count", 0))
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Identify nodes to repeat and collect seed info from prompt
@@ -243,7 +243,10 @@ class ChunkerCombine(io.ComfyNode):
             if preview_source_images is None and latent is not None:
                 ts = get_ts()
                 log(f"{node_label}: Decode latent preview (no VAE)...", end="")
-                preview_source_images = latent_to_images(latent, c["mode"])
+                preview_source_images = latent_decode_taeh3(latent, c["mode"])
+                if preview_source_images is None:
+                    log(f"{node_label}: taeh3 unavailable for preview, using latent_to_images")
+                    preview_source_images = latent_to_images(latent, c["mode"])
                 preview_source_masks = None
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
             ts = get_ts()

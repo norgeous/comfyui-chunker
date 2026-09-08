@@ -2,6 +2,7 @@ import math
 from typing import Optional
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 # MiniMax H3 video VAE temporal constants (comfy/ldm/minimax/vae.py)
@@ -140,3 +141,116 @@ def latent_to_images(latent, mode: str = "default", target_w: Optional[int] = No
         rgb = resize_image(rgb, target_w, target_h)
 
     return rgb
+
+
+_taeh3_decoder = None
+
+
+def _build_taeh3_decoder(sd: dict) -> nn.Sequential:
+    """Rebuild the small 2D taeh3 decoder from its flat positional state dict.
+
+    The `taeh3.safetensors` file in `models/vae_approx` is a 24-channel, 96-wide tiny
+    autoencoder decoder with 4x spatial upsampling. Keys are positional module indices:
+    `N.conv.0.weight` is a residual Block, `N.weight` a bare conv, and the gaps between
+    indices are parameterless (Clamp at 0, ReLU at 2, upsamples elsewhere).
+    """
+    from comfy.taesd.taesd import Block, Clamp, conv
+
+    by_index = {}
+    for k, v in sd.items():
+        head, _, rest = k.partition(".")
+        if not head.isdigit():
+            raise ValueError(f"not a flat TAE decoder state dict (unexpected key '{k}')")
+        by_index.setdefault(int(head), {})[rest] = v
+
+    modules = []
+    for i in range(max(by_index) + 1):
+        entry = by_index.get(i)
+        if entry is None:
+            modules.append(
+                Clamp() if i == 0 else nn.ReLU() if i == 2 else nn.Upsample(scale_factor=2))
+        elif "conv.0.weight" in entry:
+            w = entry["conv.0.weight"]
+            modules.append(Block(w.shape[1], w.shape[0]))
+        elif "weight" in entry:
+            w = entry["weight"]
+            modules.append(conv(w.shape[1], w.shape[0], bias="bias" in entry))
+        else:
+            raise ValueError(f"unrecognized TAE decoder module at index {i}: {sorted(entry)}")
+    return nn.Sequential(*modules)
+
+
+def _get_taeh3_decoder() -> Optional[nn.Sequential]:
+    global _taeh3_decoder
+    if _taeh3_decoder is not None:
+        return _taeh3_decoder
+    try:
+        import folder_paths
+        path = folder_paths.get_full_path("vae_approx", "taeh3.safetensors")
+        if path is None:
+            return None
+        import comfy.model_management
+        import comfy.utils
+        sd = comfy.utils.load_torch_file(path, safe_load=True)
+        decoder = _build_taeh3_decoder(sd)
+        decoder.load_state_dict(sd)
+        decoder = decoder.eval().to(comfy.model_management.vae_device(), comfy.model_management.vae_dtype())
+        _taeh3_decoder = decoder
+        return decoder
+    except Exception:
+        _taeh3_decoder = None
+        return None
+
+
+def latent_decode_taeh3(latent, mode: str = "default", max_tokens: Optional[int] = None) -> Optional[torch.Tensor]:
+    """Decode a MiniMax H3 latent with the taeh3 tiny autoencoder.
+
+    Returns images as `[N, H, W, C]` in [0, 1] with the same temporal frame count and
+    spatial size as `latent_to_images`, so downstream chunker consumers behave the same.
+    Returns None (fallback to `latent_to_images`) when taeh3 is unavailable or the decode
+    fails for any reason.
+    """
+    if mode != "minimax-h3":
+        return None
+    decoder = _get_taeh3_decoder()
+    if decoder is None:
+        return None
+    video = _extract_video(latent)
+    if video is None:
+        return None
+    if decoder[1].weight.shape[1] != video.shape[1]:
+        return None
+
+    try:
+        b, c, t, h, w = video.shape
+        if t == 0:
+            return None
+        frames = []
+        for i in range(t):
+            if max_tokens is not None and i >= max_tokens:
+                break
+            with torch.no_grad():
+                out = decoder(video[:, :, i].to(decoder[1].weight.device, decoder[1].weight.dtype))
+            frames.append(out[0].movedim(0, -1).to(device=video.device, dtype=video.dtype).clamp(0, 1))
+        rgb = torch.stack(frames, dim=0)
+
+        target_frames = b * _frames_from_tokens(t, mode)
+        if rgb.shape[0] != target_frames:
+            src = rgb.shape[0]
+            if target_frames == 1:
+                idx = torch.zeros(1, dtype=torch.long, device=rgb.device)
+            else:
+                idx = (torch.arange(target_frames, device=rgb.device) * (src - 1) / (target_frames - 1)).round().long()
+                if int(idx.max().item()) >= src:
+                    idx = idx.clamp(max=src - 1)
+            rgb = rgb[idx]
+
+        target_w = w * 16
+        target_h = h * 16
+        if rgb.shape[2] != target_w or rgb.shape[1] != target_h:
+            from .utils_tensor import resize_image
+            rgb = resize_image(rgb, target_w, target_h)
+
+        return rgb
+    except Exception:
+        return None

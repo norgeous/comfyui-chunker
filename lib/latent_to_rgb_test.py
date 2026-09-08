@@ -1,7 +1,7 @@
 import torch
 import pytest
 
-from lib.latent_to_rgb import latent_to_images
+from lib.latent_to_rgb import latent_to_images, latent_decode_taeh3
 
 pytest.importorskip("comfy.nested_tensor")
 
@@ -79,3 +79,24 @@ def test_none_for_non_video_latent():
     latent = {"samples": NestedTensor([torch.randn(1, 32, 2, 85)]), "type": "h3"}
     assert latent_to_images(latent, "minimax-h3") is None
     assert latent_to_images(None, "default") is None
+
+
+def test_taeh3_decode_matches_latent_to_images():
+    """taeh3 should return the same shape as the Latent2RGB fallback for H3 latents."""
+    video = torch.randn(1, 24, 32, 8, 22)
+    images = latent_decode_taeh3({"samples": video}, "minimax-h3")
+    if images is None:
+        pytest.skip("taeh3.safetensors not available in models/vae_approx")
+    expected = latent_to_images({"samples": video}, "minimax-h3")
+    assert tuple(images.shape) == tuple(expected.shape), (
+        f"taeh3 {tuple(images.shape)} should match latent_to_images {tuple(expected.shape)}")
+    assert bool((images >= 0).all() and (images <= 1).all())
+    assert not torch.isnan(images).any()
+    assert not torch.isinf(images).any()
+
+
+def test_taeh3_fallback_for_non_h3_modes():
+    assert latent_decode_taeh3({"samples": torch.randn(1, 16, 21, 6, 8)}, "wan2") is None
+    assert latent_decode_taeh3({"samples": torch.randn(1, 4, 8, 8)}, "default") is None
+    # channel mismatch is not H3's 24 -> fallback
+    assert latent_decode_taeh3({"samples": torch.randn(1, 16, 32, 8, 22)}, "minimax-h3") is None

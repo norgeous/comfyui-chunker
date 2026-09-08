@@ -11,13 +11,17 @@ def format_masks(masks: Optional[torch.Tensor]) -> str:
 
 
 def format_audio(audio: Optional[dict]) -> str:
-    if audio is None:
+    if audio is None or not isinstance(audio, dict):
         return "\u2205"
-    duration = audio["waveform"].shape[2] / audio["sample_rate"]
-    sample_rate_k = audio["sample_rate"] / 1000.0
+    waveform = audio.get("waveform")
+    sample_rate = audio.get("sample_rate")
+    if waveform is None or not sample_rate:
+        return "\u2205"
+    duration = waveform.shape[-1] / sample_rate
+    sample_rate_k = sample_rate / 1000.0
     dur_str = f"{duration:.3f}" if duration % 1 else f"{duration:.0f}"
     sr_str = f"{sample_rate_k:.1f}" if sample_rate_k % 1 else f"{sample_rate_k:.0f}"
-    channels = audio["waveform"].shape[1] if audio["waveform"].dim() > 1 else 1
+    channels = waveform.shape[-2] if waveform.dim() > 1 else 1
     icon = "\U0001F4FE" if channels > 1 else "\U0001F56C"
     return f"{dur_str}s ({sr_str}㎑ {icon})"
 

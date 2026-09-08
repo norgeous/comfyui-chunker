@@ -73,6 +73,8 @@ def format_latent(latent: Optional[dict]) -> str:
     if latent_tensor is None:
         return "\u2205"
     
+    suffix = " \U0001F17C" if isinstance(latent, dict) and "noise_mask" in latent else ""
+    
     if hasattr(latent_tensor, "tensors"):  # NestedTensor
         parts = []
         for t in latent_tensor.tensors:
@@ -80,11 +82,11 @@ def format_latent(latent: Optional[dict]) -> str:
                 parts.append(str(t.shape[2]))
             elif t.dim() == 4 and t.shape[2] == 2:  # Audio: [B, C, 2, T]
                 parts.append(str(t.shape[3]))
-        return ", ".join(parts) if parts else "\u2205"
+        return (", ".join(parts) if parts else "\u2205") + suffix
     
     if latent_tensor.dim() == 5:  # Video: [B, C, T, H, W]
-        return str(latent_tensor.shape[2])
+        return str(latent_tensor.shape[2]) + suffix
     elif latent_tensor.dim() == 4 and latent_tensor.shape[2] == 2:  # Audio: [B, C, 2, T]
-        return str(latent_tensor.shape[3])
+        return str(latent_tensor.shape[3]) + suffix
     
-    return "\u2205"
+    return "\u2205" + suffix

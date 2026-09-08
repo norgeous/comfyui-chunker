@@ -141,8 +141,8 @@ class ChunkerCombine(io.ComfyNode):
                     tooltip="Combined audio from all chunks",
                 ),
                 io.Float.Output(
-                    "fps",
-                    tooltip="FPS",
+                    "original_fps",
+                    tooltip="Original FPS",
                 ),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt, io.Hidden.prompt],
@@ -346,7 +346,7 @@ class ChunkerCombine(io.ComfyNode):
                     "images": format_images(out_images_torch),
                     "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
-                    "fps": format_fps(d["fps"]),
+                    "original_fps": format_fps(d["original_fps"]),
                     "latent": format_latent(out_latent),
                 },
                 "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
@@ -365,7 +365,7 @@ class ChunkerCombine(io.ComfyNode):
                     out_images_torch,
                     out_masks_torch,
                     out_audio_dict,
-                    float(d["fps"]),
+                    float(d["original_fps"]),
                 )
             }
 
@@ -428,7 +428,7 @@ class ChunkerCombine(io.ComfyNode):
                     "images": None,
                     "masks": None,
                     "audio": None,
-                    "fps": None,
+                    "original_fps": None,
                     "latent": None,
                 },
             "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),

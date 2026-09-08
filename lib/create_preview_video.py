@@ -57,7 +57,7 @@ def get_overlay_config(
         },
     )
     bottom_right_lines = [
-        f"{w} x {h} @ {fps:.2f}FPS",
+        f"{w}\u00d7{h} @ {fps:.2f}FPS",
         audio_layout,
         f"chunk_length: {chunk_length}",
         f"overlap_length: {overlap}",

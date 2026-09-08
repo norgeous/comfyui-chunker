@@ -500,18 +500,39 @@ class ChunkerRepeat(io.ComfyNode):
         if overlap_latent is not None and input_latent_chunk is not None:
             # Prepend overlap to input chunk
             if hasattr(overlap_latent["samples"], "tensors") and hasattr(input_latent_chunk, "tensors"):
-                # Both NestedTensor
-                overlap_video = overlap_latent["samples"].tensors[0]
-                overlap_audio = overlap_latent["samples"].tensors[1] if len(overlap_latent["samples"].tensors) > 1 else None
-                input_video = input_latent_chunk.tensors[0]
-                input_audio = input_latent_chunk.tensors[1] if len(input_latent_chunk.tensors) > 1 else None
-                
-                combined_video = torch.cat([overlap_video, input_video], dim=2)
-                combined_tensors = [combined_video]
+                # Both NestedTensor — find video (5D) and audio (4D) by dimension
+                overlap_video = overlap_audio = None
+                for t in overlap_latent["samples"].tensors:
+                    if t.dim() == 5:
+                        overlap_video = t
+                    elif t.dim() == 4:
+                        overlap_audio = t
+                input_video = input_audio = None
+                for t in input_latent_chunk.tensors:
+                    if t.dim() == 5:
+                        input_video = t
+                    elif t.dim() == 4:
+                        input_audio = t
+
+                combined_video = None
+                if overlap_video is not None and input_video is not None:
+                    combined_video = torch.cat([overlap_video, input_video], dim=2)
+                elif overlap_video is not None:
+                    combined_video = overlap_video
+                elif input_video is not None:
+                    combined_video = input_video
+
+                combined_tensors = []
+                if combined_video is not None:
+                    combined_tensors.append(combined_video)
                 if overlap_audio is not None and input_audio is not None:
                     combined_audio = torch.cat([overlap_audio, input_audio], dim=3)
                     combined_tensors.append(combined_audio)
-                
+                elif overlap_audio is not None:
+                    combined_tensors.append(overlap_audio)
+                elif input_audio is not None:
+                    combined_tensors.append(input_audio)
+
                 from comfy.nested_tensor import NestedTensor
                 output_latent = {"samples": NestedTensor(combined_tensors)}
                 if "type" in overlap_latent:

@@ -105,10 +105,10 @@ class ChunkerRepeat(io.ComfyNode):
                     tooltip="audio (optional)",
                 ),
                 io.Float.Input(
-                    "fps",
+                    "original_fps",
                     optional=True,
                     force_input=True,
-                    tooltip="The default FPS of 30 is overridden when `mode` is not default (see mode tooltip). If you supply a value it overrides the FPS value from mode",
+                    tooltip="Override the resolved FPS. If not supplied, FPS is taken from the input video, or falls back to the mode default.",
                 ),
                 io.DynamicCombo.Input(
                     "mode",
@@ -210,7 +210,7 @@ class ChunkerRepeat(io.ComfyNode):
         masks=None,
         audio=None,
         latent=None,
-        fps=None,
+        original_fps=None,
         store=None,
     ) -> io.NodeOutput:
         ts_chunk_start = get_ts()
@@ -233,7 +233,7 @@ class ChunkerRepeat(io.ComfyNode):
             video_fps = float(video.get_frame_rate())
             video_frame_count = video.get_frame_count()
 
-        out_fps = fps
+        out_fps = original_fps
         if out_fps is None:
             out_fps = video_fps if video_fps is not None else settings["fps"]
 
@@ -399,7 +399,7 @@ class ChunkerRepeat(io.ComfyNode):
                     out_masks.append(video_masks)
                 if video_audio_dict is not None:
                     out_audio.append(video_audio_dict)
-                if fps is None and loaded_fps:
+                if original_fps is None and loaded_fps:
                     out_fps = loaded_fps
 
         # prepare chunk of images from input
@@ -571,7 +571,8 @@ class ChunkerRepeat(io.ComfyNode):
             "chunk_lengths": chunk_lengths,
             "overlap_latent_count": overlap_latent_count,
             "audio_latent_overlap_count": audio_overlap_count,
-            "fps": out_fps,
+            "original_fps": out_fps,
+            "fps": settings["fps"],
             "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,
             "ts_chunk_starts": [
                 *s["ts_chunk_starts"],
@@ -585,7 +586,7 @@ class ChunkerRepeat(io.ComfyNode):
                 "images": format_images(images),
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),
-                "fps": format_fps(fps),
+                "original_fps": format_fps(original_fps),
                 "latent": format_latent(latent),
             },
             "output_label_values": {

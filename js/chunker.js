@@ -79,7 +79,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   min-height: 100px;
   height: calc(100% - ${statusHeight}px);
   &.hdr-gradient {
-    background: linear-gradient(-45deg in oklab, oklch(30% 0.5 340), oklch(30% 0.5 200));
+    background: linear-gradient(-45deg in oklab, oklch(30% 0.5 65), oklch(30% 0.5 200));
     background-size: 400% 400%;
     animation: scrollLeftRight 30s infinite;
   }

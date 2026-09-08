@@ -323,8 +323,6 @@ class ChunkerRepeat(io.ComfyNode):
                     video_overlap_count = video_overlap_end - video_overlap_start
                     audio_overlap_count = audio_overlap_end - audio_overlap_start
 
-                    log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Latent overlap indexes: overlap_pixel=[{overlap_pixel_start}, {overlap_pixel_end}], video_latent_count={video_overlap_count}, audio_latent_count={audio_overlap_count}")
-
                     # Slice overlap from the end of previous chunk's latent
                     if hasattr(full_latent_tensor, "tensors"):  # NestedTensor
                         video_t = full_latent_tensor.tensors[0]  # [B, 24, T, H, W]
@@ -459,8 +457,6 @@ class ChunkerRepeat(io.ComfyNode):
             
             video_latent_end -= boundary_drop
 
-            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Chunk latent indexes: video_latent=[{video_latent_start}, {video_latent_end}], audio_latent=[{audio_latent_start}, {audio_latent_end}], boundary_drop={boundary_drop}")
-
             audio_latents_per_sec = settings["audio_latents_per_second"]
             audio_latent_start = round(start / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
             audio_latent_end = round(end / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
@@ -473,8 +469,6 @@ class ChunkerRepeat(io.ComfyNode):
                     overlap_latent_count = overlap_latent["samples"].shape[2]
             else:
                 overlap_latent_count = 0
-
-            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: overlap_latent_count={overlap_latent_count}")
 
             if hasattr(full_input_latent, "tensors"):  # NestedTensor
                 video_t = full_input_latent.tensors[0]  # [B, 24, T, H, W]

@@ -108,7 +108,7 @@ class ChunkerRepeat(io.ComfyNode):
                     "original_fps",
                     optional=True,
                     force_input=True,
-                    tooltip="Override the resolved FPS. If not supplied, FPS is taken from the input video, or falls back to the mode default.",
+                    tooltip="Passthrough: the FPS of the input video, or a manual override. Not used for processing; the mode's FPS is used.",
                 ),
                 io.DynamicCombo.Input(
                     "mode",
@@ -233,9 +233,7 @@ class ChunkerRepeat(io.ComfyNode):
             video_fps = float(video.get_frame_rate())
             video_frame_count = video.get_frame_count()
 
-        out_fps = original_fps
-        if out_fps is None:
-            out_fps = video_fps if video_fps is not None else settings["fps"]
+        source_fps = original_fps if original_fps is not None else video_fps
 
         # resolve total_length from repeat_until
         tl_type = repeat_until["repeat_until"]
@@ -248,7 +246,7 @@ class ChunkerRepeat(io.ComfyNode):
                 len(images) if images is not None else 0,
                 len(masks) if masks is not None else 0,
                 video_frame_count if video_frame_count is not None else 0,
-                audio["waveform"].shape[-1] // math.floor(audio["sample_rate"] / out_fps) if audio is not None else 0,
+                audio["waveform"].shape[-1] // math.floor(audio["sample_rate"] / settings["fps"]) if audio is not None else 0,
             )
         else:  # total_length
             total_length = repeat_until["total_length"]
@@ -312,8 +310,8 @@ class ChunkerRepeat(io.ComfyNode):
                         overlap_pixel_start, overlap_pixel_end, c["total_length"], expected_total_latents
                     )
                     audio_latents_per_sec = settings["audio_latents_per_second"]
-                    audio_overlap_start = round(overlap_pixel_start / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-                    audio_overlap_end = round(overlap_pixel_end / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+                    audio_overlap_start = round(overlap_pixel_start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+                    audio_overlap_end = round(overlap_pixel_end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
                     
                     # H3 VAE uses token_overlap=2 for 5-frame overlap
                     token_overlap = settings.get("token_overlap", 2)
@@ -399,8 +397,8 @@ class ChunkerRepeat(io.ComfyNode):
                     out_masks.append(video_masks)
                 if video_audio_dict is not None:
                     out_audio.append(video_audio_dict)
-                if original_fps is None and loaded_fps:
-                    out_fps = loaded_fps
+                if original_fps is None and source_fps is None and loaded_fps:
+                    source_fps = loaded_fps
 
         # prepare chunk of images from input
         if images is not None:
@@ -418,7 +416,7 @@ class ChunkerRepeat(io.ComfyNode):
 
         # prepare chunk of audio from input
         if audio is not None:
-            samples_per_frame = math.floor(audio["sample_rate"] / out_fps)
+            samples_per_frame = math.floor(audio["sample_rate"] / settings["fps"])
             samples_already_collected = (
                 out_audio[0]["waveform"].shape[-1]
                 if len(out_audio) > 0 else 0
@@ -443,8 +441,8 @@ class ChunkerRepeat(io.ComfyNode):
             pixel_to_latent = settings["pixel_to_latent_range"]
             video_latent_start, video_latent_end = pixel_to_latent(start, end, c["total_length"], expected_total_latents)
             audio_latents_per_sec = settings["audio_latents_per_second"]
-            audio_latent_start = round(start / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            audio_latent_end = round(end / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+            audio_latent_start = round(start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+            audio_latent_end = round(end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
             
             # Apply boundary token drop for partial clips (H3 VAE token_drop at clip boundaries)
             boundary_drop = 0
@@ -458,8 +456,8 @@ class ChunkerRepeat(io.ComfyNode):
             video_latent_end -= boundary_drop
 
             audio_latents_per_sec = settings["audio_latents_per_second"]
-            audio_latent_start = round(start / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            audio_latent_end = round(end / out_fps * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+            audio_latent_start = round(start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+            audio_latent_end = round(end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
             
             # Calculate overlap latent frame count for trimming main chunk
             if overlap_latent is not None:
@@ -571,7 +569,7 @@ class ChunkerRepeat(io.ComfyNode):
             "chunk_lengths": chunk_lengths,
             "overlap_latent_count": overlap_latent_count,
             "audio_latent_overlap_count": audio_overlap_count,
-            "original_fps": out_fps,
+            "original_fps": source_fps,
             "fps": settings["fps"],
             "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,
             "ts_chunk_starts": [

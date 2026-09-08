@@ -49,7 +49,7 @@ class ChunkerData(io.ComfyNode):
                 ),
                 io.Float.Output(
                     "original_fps",
-                    tooltip="Resolved FPS (user override > video FPS > mode default)",
+                    tooltip="Passthrough: input FPS or video FPS (never defaults to mode)",
                 ),
                 io.Boolean.Output(
                     "is_i2v",

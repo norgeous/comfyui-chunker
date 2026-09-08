@@ -142,7 +142,7 @@ class ChunkerCombine(io.ComfyNode):
                 ),
                 io.Float.Output(
                     "original_fps",
-                    tooltip="Original FPS",
+                    tooltip="Passthrough: input FPS or video FPS",
                 ),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt, io.Hidden.prompt],

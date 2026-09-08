@@ -8,6 +8,7 @@ from ..lib.av_load import av_load
 from ..lib.utils_comfy import concat_audios
 from ..lib.utils_tensor import resize_image, resize_mask
 from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_video, format_latent)
+from ..lib.utils_latent_combine import build_overlap_noise_mask
 from ..lib.utils_performance import get_ts
 from enum import Enum
 
@@ -83,6 +84,11 @@ class ChunkerRepeat(io.ComfyNode):
                     optional=True,
                     tooltip="video (optional)",
                 ),
+                io.Latent.Input(
+                    "latent",
+                    optional=True,
+                    tooltip="latent (optional)",
+                ),
                 io.Image.Input(
                     "images",
                     optional=True,
@@ -97,11 +103,6 @@ class ChunkerRepeat(io.ComfyNode):
                     "audio",
                     optional=True,
                     tooltip="audio (optional)",
-                ),
-                io.Latent.Input(
-                    "latent",
-                    optional=True,
-                    tooltip="Input latent chunk (optional)",
                 ),
                 io.Float.Input(
                     "fps",
@@ -178,23 +179,22 @@ class ChunkerRepeat(io.ComfyNode):
                     "chunker_data",
                     tooltip=("Connect \"chunker_data\" to the \"ChunkerCombine\" node"),
                 ),
+                io.Latent.Output(
+                    "latent",
+                    tooltip="Chunk of latent. First chunk is from input, subsequent chunks contain overlap + input",
+                ),
                 io.Image.Output(
                     "images",
-                    tooltip="Chunk of images",
+                    tooltip="Chunk of images. First chunk is from input, subsequent chunks contain overlap + input",
                 ),
                 io.Mask.Output(
                     "masks",
-                    tooltip="Chunk of masks",
+                    tooltip="Chunk of masks. First chunk is from input, subsequent chunks contain overlap + input",
                 ),
                 io.Audio.Output(
                     "audio",
-                    tooltip="Chunk of audio",
+                    tooltip="Chunk of audio. First chunk is from input, subsequent chunks contain overlap + input",
                 ),
-                io.Latent.Output(
-                    "latent",
-                    tooltip="Latent from previous chunk",
-                ),
-
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt],
         )
@@ -533,6 +533,18 @@ class ChunkerRepeat(io.ComfyNode):
             # Only overlap (no input latent for this chunk)
             output_latent = overlap_latent
 
+        # Pin the preserved overlap region so a partial-denoise pass does not rewrite it.
+        # The mask ramps linearly from 0 at the overlap start to 1 by the overlap end, then
+        # stays 1 over the new frames. Only meaningful for H3's packed NestedTensor latent.
+        if (output_latent is not None and c["mode"] == "minimax-h3"
+                and overlap_latent_count > 0
+                and hasattr(output_latent["samples"], "tensors")):
+            out_video = output_latent["samples"].tensors[0]
+            out_audio = output_latent["samples"].tensors[1] if len(output_latent["samples"].tensors) > 1 else None
+            if out_audio is not None:
+                output_latent["noise_mask"] = build_overlap_noise_mask(
+                    out_video, out_audio, overlap_latent_count, audio_overlap_count)
+
         # finalise out images, resize and concat together
         out_images_torch = None
         if len(out_images) > 0:
@@ -586,9 +598,9 @@ class ChunkerRepeat(io.ComfyNode):
 
         return io.NodeOutput(
             chunker_data,
+            output_latent,
             out_images_torch,
             out_masks_torch,
             out_audio_dict,
-            output_latent,
             ui={"values": [ui_values]},
         )

@@ -68,6 +68,11 @@ class ChunkerCombine(io.ComfyNode):
                     "chunker_data",
                     tooltip="Connect chunker_data from ChunkerRepeat node to here",
                 ),
+                io.Latent.Input(
+                    "latent",
+                    optional=True,
+                    tooltip="Processed chunk of latent",
+                ),
                 io.Image.Input(
                     "images",
                     optional=True,
@@ -82,11 +87,6 @@ class ChunkerCombine(io.ComfyNode):
                     "audio",
                     optional=True,
                     tooltip="Processed chunk of audio",
-                ),
-                io.Latent.Input(
-                    "latent",
-                    optional=True,
-                    tooltip="Processed chunk of latent",
                 ),
                 io.Combo.Input(
                     "overlap_blend_mode",
@@ -124,6 +124,10 @@ class ChunkerCombine(io.ComfyNode):
                     "video",
                     tooltip="Combined video file",
                 ),
+                io.Latent.Output(
+                    "latent",
+                    tooltip="Combined latent from all chunks (overlap tokens removed)",
+                ),
                 io.Image.Output(
                     "images",
                     tooltip="Combined images from all chunks",
@@ -139,10 +143,6 @@ class ChunkerCombine(io.ComfyNode):
                 io.Float.Output(
                     "fps",
                     tooltip="FPS",
-                ),
-                io.Latent.Output(
-                    "latent",
-                    tooltip="Combined latent from all chunks (overlap tokens removed)",
                 ),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt, io.Hidden.prompt],
@@ -318,7 +318,7 @@ class ChunkerCombine(io.ComfyNode):
                 out_video = VideoFromFile(out_video_path)
 
             out_latent = None
-            if 5 in connected and len(s.get("latent_paths", [])) == c["chunk_count"]:
+            if 1 in connected and len(s.get("latent_paths", [])) == c["chunk_count"]:
                 ts = get_ts()
                 log(f"{node_label}: Combine all latents...", end="")
                 combined_latent_tensor, latent_type = concat_chunk_latents(
@@ -361,11 +361,11 @@ class ChunkerCombine(io.ComfyNode):
                 "ui": {"values": [ui_values]},
                 "result": (
                     out_video,
+                    out_latent,
                     out_images_torch,
                     out_masks_torch,
                     out_audio_dict,
                     float(d["fps"]),
-                    out_latent,
                 )
             }
 
@@ -441,11 +441,11 @@ class ChunkerCombine(io.ComfyNode):
 
         return io.NodeOutput(
             new_combine.out(0), # video
-            new_combine.out(1), # images
-            new_combine.out(2), # masks
-            new_combine.out(3), # audio
-            new_combine.out(4), # fps
-            new_combine.out(5), # latent
+            new_combine.out(1), # latent
+            new_combine.out(2), # images
+            new_combine.out(3), # masks
+            new_combine.out(4), # audio
+            new_combine.out(5), # fps
             ui={"values": [ui_values]},
             expand=graph.finalize(),
         )

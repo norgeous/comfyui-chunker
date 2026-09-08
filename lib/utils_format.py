@@ -3,16 +3,16 @@ import torch
 
 
 def format_images(images: Optional[torch.Tensor]) -> str:
-    return len(images) if images is not None else "0"
+    return len(images) if images is not None else "∅"
 
 
 def format_masks(masks: Optional[torch.Tensor]) -> str:
-    return len(masks) if masks is not None else "0"
+    return len(masks) if masks is not None else "∅"
 
 
 def format_audio(audio: Optional[dict]) -> str:
     if audio is None:
-        return "0"
+        return "∅"
     duration = audio["waveform"].shape[2] / audio["sample_rate"]
     sample_rate_k = audio["sample_rate"] / 1000.0
     dur_str = f"{duration:.3f}" if duration % 1 else f"{duration:.0f}"
@@ -24,7 +24,7 @@ def format_audio(audio: Optional[dict]) -> str:
 
 def format_fps(fps: Optional[float]) -> str:
     if fps is None:
-        return "0"
+        return "∅"
     return f"{fps:.2f}"
 
 
@@ -34,7 +34,7 @@ def format_boolean(value: bool) -> str:
 
 def format_video(video) -> str:
     if video is None:
-        return "0"
+        return "∅"
     duration = video.get_duration()
     return f"{duration:.3f}s" if duration % 1 else f"{duration:.0f}s"
 
@@ -60,14 +60,14 @@ def format_milliseconds(ms: int) -> str:
 
 def format_latent(latent: Optional[dict]) -> str:
     if latent is None:
-        return "0"
+        return "∅"
     if isinstance(latent, dict):
         latent_tensor = latent.get("samples")
     else:
         latent_tensor = latent
     
     if latent_tensor is None:
-        return "0"
+        return "∅"
     
     if hasattr(latent_tensor, "tensors"):  # NestedTensor
         parts = []
@@ -76,11 +76,11 @@ def format_latent(latent: Optional[dict]) -> str:
                 parts.append(str(t.shape[2]))
             elif t.dim() == 4 and t.shape[2] == 2:  # Audio: [B, C, 2, T]
                 parts.append(str(t.shape[3]))
-        return ", ".join(parts) if parts else "0"
+        return ", ".join(parts) if parts else "∅"
     
     if latent_tensor.dim() == 5:  # Video: [B, C, T, H, W]
         return str(latent_tensor.shape[2])
     elif latent_tensor.dim() == 4 and latent_tensor.shape[2] == 2:  # Audio: [B, C, 2, T]
         return str(latent_tensor.shape[3])
     
-    return "0"
+    return "∅"

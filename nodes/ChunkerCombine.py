@@ -8,6 +8,7 @@ from ..lib.av_combine import av_combine, BlendMode
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
 from ..lib.latent_to_rgb import latent_to_images
+from ..lib.utils_latent_combine import concat_chunk_latents
 from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
 from ..lib.utils_format import format_images, format_masks, format_audio, format_fps, format_milliseconds, format_video, format_latent
 from ..lib.utils_performance import get_ts
@@ -139,6 +140,10 @@ class ChunkerCombine(io.ComfyNode):
                     "fps",
                     tooltip="FPS",
                 ),
+                io.Latent.Output(
+                    "latent",
+                    tooltip="Combined latent from all chunks (overlap tokens removed)",
+                ),
             ],
             hidden=[io.Hidden.unique_id, io.Hidden.dynprompt, io.Hidden.prompt],
             is_output_node=True,
@@ -170,6 +175,9 @@ class ChunkerCombine(io.ComfyNode):
             "chunks": [],
             "previews": [],
             "ts_chunk_ends": [],
+            "latent_paths": [],
+            "latent_overlaps": [],
+            "audio_overlaps": [],
         }
 
         pbar = comfy.utils.ProgressBar(0, node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
@@ -217,6 +225,9 @@ class ChunkerCombine(io.ComfyNode):
             
             safetensors.torch.save_file(save_dict, latent_path, metadata={"type": latent_type})
             s["last_latent_path"] = latent_path
+            s.setdefault("latent_paths", []).append(latent_path)
+            s.setdefault("latent_overlaps", []).append(d.get("overlap_latent_count", 0))
+            s.setdefault("audio_overlaps", []).append(d.get("audio_latent_overlap_count", 0))
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Identify nodes to repeat and collect seed info from prompt
@@ -306,6 +317,18 @@ class ChunkerCombine(io.ComfyNode):
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
                 out_video = VideoFromFile(out_video_path)
 
+            out_latent = None
+            if 5 in connected and len(s.get("latent_paths", [])) == c["chunk_count"]:
+                ts = get_ts()
+                log(f"{node_label}: Combine all latents...", end="")
+                combined_latent_tensor, latent_type = concat_chunk_latents(
+                    s["latent_paths"],
+                    s.get("latent_overlaps"),
+                    s.get("audio_overlaps"),
+                )
+                out_latent = {"samples": combined_latent_tensor, "type": latent_type}
+                print(f"done ({format_milliseconds(get_ts() - ts)})")
+
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],
                 get_ts(),
@@ -324,6 +347,7 @@ class ChunkerCombine(io.ComfyNode):
                     "masks": format_masks(out_masks_torch),
                     "audio": format_audio(out_audio_dict),
                     "fps": format_fps(d["fps"]),
+                    "latent": format_latent(out_latent),
                 },
                 "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
                 "video_path": all_preview_frontend_data,
@@ -341,6 +365,7 @@ class ChunkerCombine(io.ComfyNode):
                     out_masks_torch,
                     out_audio_dict,
                     float(d["fps"]),
+                    out_latent,
                 )
             }
 
@@ -398,13 +423,14 @@ class ChunkerCombine(io.ComfyNode):
                 "audio": format_audio(audio),
                 "latent": format_latent(latent),
             },
-            "output_label_values": {
-                "video": None,
-                "images": None,
-                "masks": None,
-                "audio": None,
-                "fps": None,
-            },
+"output_label_values": {
+                    "video": None,
+                    "images": None,
+                    "masks": None,
+                    "audio": None,
+                    "fps": None,
+                    "latent": None,
+                },
             "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
             "video_path": all_preview_frontend_data,
         }
@@ -419,6 +445,7 @@ class ChunkerCombine(io.ComfyNode):
             new_combine.out(2), # masks
             new_combine.out(3), # audio
             new_combine.out(4), # fps
+            new_combine.out(5), # latent
             ui={"values": [ui_values]},
             expand=graph.finalize(),
         )

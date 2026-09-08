@@ -281,6 +281,9 @@ class ChunkerRepeat(io.ComfyNode):
 
         # load latent overlap from previous chunk's safetensors
         overlap_latent = None
+        overlap_latent_count = 0
+        audio_overlap_start = 0
+        audio_overlap_end = 0
         if s.get("last_latent_path") is not None and overlap_length > 0:
             with safetensors.safe_open(s["last_latent_path"], framework="pt") as f:
                 latent_type = f.metadata().get("type", "standard")
@@ -539,6 +542,8 @@ class ChunkerRepeat(io.ComfyNode):
             "index": s["index"],
             "chunker_config": c,
             "chunk_lengths": chunk_lengths,
+            "overlap_latent_count": overlap_latent_count,
+            "audio_latent_overlap_count": audio_overlap_end - audio_overlap_start,
             "fps": out_fps,
             "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,
             "ts_chunk_starts": [

@@ -1,5 +1,5 @@
 from comfy_api.latest import io
-from ..lib.utils_format import format_boolean, format_fps
+from ..lib.utils_format import format_fps
 
 
 class ChunkerData(io.ComfyNode):
@@ -51,14 +51,6 @@ class ChunkerData(io.ComfyNode):
                     "original_fps",
                     tooltip="Passthrough: input FPS or video FPS (never defaults to mode)",
                 ),
-                io.Boolean.Output(
-                    "is_i2v",
-                    tooltip="True when images count > 0",
-                ),
-                io.Boolean.Output(
-                    "is_first_chunk",
-                    tooltip="True if this is the first chunk (index 0)",
-                ),
             ],
             is_output_node=True,
         )
@@ -69,8 +61,6 @@ class ChunkerData(io.ComfyNode):
         chunker_data,
     ) -> io.NodeOutput:
         c = chunker_data["chunker_config"]
-        is_first_chunk = chunker_data["index"] == 0
-        is_i2v = chunker_data.get("is_i2v", False)
 
         ui_values = {
             "output_label_values": {
@@ -81,8 +71,6 @@ class ChunkerData(io.ComfyNode):
                 "index": chunker_data["index"],
                 "fps": format_fps(chunker_data["fps"]),
                 "original_fps": format_fps(chunker_data["original_fps"]),
-                "is_first_chunk": format_boolean(is_first_chunk),
-                "is_i2v": format_boolean(is_i2v),
             },
         }
 
@@ -95,7 +83,5 @@ class ChunkerData(io.ComfyNode):
             chunker_data["index"],
             float(chunker_data["fps"]),
             float(chunker_data["original_fps"]),
-            is_i2v,
-            is_first_chunk,
             ui={"values": [ui_values]},
         )

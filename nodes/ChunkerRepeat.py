@@ -636,7 +636,6 @@ class ChunkerRepeat(io.ComfyNode):
             "audio_overlap_latent_count": audio_overlap_count,
             "original_fps": source_fps,
             "fps": settings["fps"],
-            "is_i2v": out_images_torch is not None and len(out_images_torch) > 0,
             "ts_chunk_starts": [
                 *s["ts_chunk_starts"],
                 ts_chunk_start,

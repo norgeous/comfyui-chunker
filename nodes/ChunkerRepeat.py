@@ -473,7 +473,7 @@ class ChunkerRepeat(io.ComfyNode):
                 audio_t = full_input_latent.tensors[1]  # [B, 32, 2, T]
                 
                 video_chunk = video_t[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
-                audio_chunk = audio_t[:, :, :, audio_latent_start + video_overlap_latent_count:audio_latent_end] if audio_latents_per_sec > 0 else None
+                audio_chunk = audio_t[:, :, :, audio_latent_start + audio_overlap_count:audio_latent_end] if audio_latents_per_sec > 0 else None
                 
                 chunk_tensors = []
                 if video_chunk.shape[2] > 0:

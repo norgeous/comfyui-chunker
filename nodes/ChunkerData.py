@@ -45,7 +45,11 @@ class ChunkerData(io.ComfyNode):
                 ),
                 io.Float.Output(
                     "fps",
-                    tooltip="FPS",
+                    tooltip="Default FPS of the selected mode",
+                ),
+                io.Float.Output(
+                    "original_fps",
+                    tooltip="Passthrough: input FPS or video FPS (never defaults to mode)",
                 ),
                 io.Boolean.Output(
                     "is_i2v",
@@ -76,6 +80,7 @@ class ChunkerData(io.ComfyNode):
                 "total_length": c["total_length"],
                 "index": chunker_data["index"],
                 "fps": format_fps(chunker_data["fps"]),
+                "original_fps": format_fps(chunker_data["original_fps"]),
                 "is_first_chunk": format_boolean(is_first_chunk),
                 "is_i2v": format_boolean(is_i2v),
             },
@@ -89,6 +94,7 @@ class ChunkerData(io.ComfyNode):
             c["total_length"],
             chunker_data["index"],
             float(chunker_data["fps"]),
+            float(chunker_data["original_fps"]),
             is_i2v,
             is_first_chunk,
             ui={"values": [ui_values]},

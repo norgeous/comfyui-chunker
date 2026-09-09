@@ -299,6 +299,7 @@ class ChunkerCombine(io.ComfyNode):
                     need_images=1 in connected,
                     need_masks=2 in connected,
                     need_audio=3 in connected,
+                    output_fps=d.get("original_fps"),
                 )
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
                 out_video = VideoFromFile(out_video_path)

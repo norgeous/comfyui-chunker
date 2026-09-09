@@ -3,11 +3,15 @@ import torch
 
 
 def format_images(images: Optional[torch.Tensor]) -> str:
-    return len(images) if images is not None else "\u2205"
+    if images is None:
+        return "\u2205"
+    return f"{images.shape[0]}\u00D7{images.shape[2]}\u00D7{images.shape[1]}"
 
 
 def format_masks(masks: Optional[torch.Tensor]) -> str:
-    return len(masks) if masks is not None else "\u2205"
+    if masks is None:
+        return "\u2205"
+    return f"{masks.shape[0]}\u00D7{masks.shape[2]}\u00D7{masks.shape[1]}"
 
 
 def format_audio(audio: Optional[dict]) -> str:
@@ -23,7 +27,7 @@ def format_audio(audio: Optional[dict]) -> str:
     sr_str = f"{sample_rate_k:.1f}" if sample_rate_k % 1 else f"{sample_rate_k:.0f}"
     channels = waveform.shape[-2] if waveform.dim() > 1 else 1
     icon = "\U0001F4FE" if channels > 1 else "\U0001F56C"
-    return f"{dur_str}s ({sr_str}㎑ {icon})"
+    return f"{dur_str}s ({sr_str}\u3391 {icon})"
 
 
 def format_fps(fps: Optional[float]) -> str:
@@ -39,8 +43,13 @@ def format_boolean(value: bool) -> str:
 def format_video(video) -> str:
     if video is None:
         return "\u2205"
-    duration = video.get_duration()
-    return f"{duration:.3f}s" if duration % 1 else f"{duration:.0f}s"
+    try:
+        frame_count = video.get_frame_count()
+        width, height = video.get_dimensions()
+        fps = float(video.get_frame_rate())
+    except (ValueError, ZeroDivisionError):
+        return "\u2205"
+    return f"{frame_count}\u00D7{width}\u00D7{height}@{fps:.2f}fps"
 
 
 def format_milliseconds(ms: int) -> str:

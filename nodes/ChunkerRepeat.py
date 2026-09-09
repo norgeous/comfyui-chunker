@@ -5,7 +5,7 @@ from comfy_api.latest import io
 from ..lib.utils import count, log
 from ..lib.plan_chunks import plan_chunks
 from ..lib.av_load import av_load
-from ..lib.utils_comfy import concat_audios
+from ..lib.utils_comfy import concat_audios, stretch_audio_to_fps
 from ..lib.utils_tensor import resize_image, resize_mask
 from ..lib.utils_format import (format_images, format_masks, format_audio, format_fps, format_video, format_latent)
 from ..lib.utils_latent_combine import build_overlap_noise_mask
@@ -93,7 +93,7 @@ class ChunkerRepeat(io.ComfyNode):
                 io.Audio.Input(
                     "audio",
                     optional=True,
-                    tooltip="audio (optional)",
+                    tooltip="audio (optional). Time-stretched to the mode's fps before chunking when a source fps is known",
                 ),
                 io.Float.Input(
                     "original_fps",
@@ -111,6 +111,22 @@ class ChunkerRepeat(io.ComfyNode):
                                     "chunk_length",
                                     tooltip="Count of images in each chunk",
                                     **mode_settings[member]["chunk_length_settings"],
+                                ),
+                                *(
+                                    [
+                                        io.Vae.Input(
+                                            "video_vae",
+                                            optional=True,
+                                            tooltip="MiniMax H3 video VAE, used to encode reference frames into the packed latent",
+                                        ),
+                                        io.Vae.Input(
+                                            "audio_vae",
+                                            optional=True,
+                                            tooltip="MiniMax H3 audio VAE, used to encode reference audio into the packed latent",
+                                        ),
+                                    ]
+                                    if member == Mode.MINIMAX_H3
+                                    else []
                                 ),
                             ],
                         )
@@ -209,6 +225,8 @@ class ChunkerRepeat(io.ComfyNode):
         selected_mode = Mode(mode["mode"])
         settings = mode_settings[selected_mode]
         chunk_length = mode["chunk_length"]
+        video_vae = mode.get("video_vae")
+        audio_vae = mode.get("audio_vae")
 
         s = store if store is not None else {
             "index": 0,
@@ -225,6 +243,10 @@ class ChunkerRepeat(io.ComfyNode):
             video_frame_count = video.get_frame_count()
 
         source_fps = original_fps if original_fps is not None else video_fps
+
+        # Fit input audio to the mode's fps so chunk slicing stays aligned
+        if audio is not None and source_fps:
+            audio = stretch_audio_to_fps(audio, source_fps, settings["fps"])
 
         # resolve total_length from repeat_until
         tl_type = repeat_until["repeat_until"]
@@ -382,6 +404,8 @@ class ChunkerRepeat(io.ComfyNode):
                 if video_masks is not None:
                     out_masks.append(video_masks)
                 if video_audio_dict is not None:
+                    if source_fps:
+                        video_audio_dict = stretch_audio_to_fps(video_audio_dict, source_fps, settings["fps"])
                     out_audio.append(video_audio_dict)
                 if original_fps is None and source_fps is None and loaded_fps:
                     source_fps = loaded_fps
@@ -556,6 +580,8 @@ class ChunkerRepeat(io.ComfyNode):
             "index": s["index"],
             "chunker_config": c,
             "chunk_lengths": chunk_lengths,
+            "video_vae": video_vae,
+            "audio_vae": audio_vae,
             "video_overlap_latent_count": video_overlap_latent_count,
             "audio_overlap_latent_count": audio_overlap_count,
             "original_fps": source_fps,

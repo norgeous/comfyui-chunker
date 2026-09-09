@@ -8,21 +8,21 @@ import folder_paths
 from comfy_api.latest import AudioInput
 
 
-def stretch_audio_to_video(audio_dict: Optional[dict], num_frames: int, fps: float) -> Optional[dict]:
-    """Time-stretch audio to match video frame count at given fps (preserves pitch)."""
+def stretch_audio_to_fps(audio_dict: Optional[dict], source_fps: float, target_fps: float) -> Optional[dict]:
+    """Time-stretch audio so the same frame count spans source_fps/target_fps x as long (preserves pitch)."""
     if audio_dict is None:
         return None
 
     waveform = audio_dict["waveform"]
     sample_rate = audio_dict["sample_rate"]
 
-    target_samples = int(num_frames * sample_rate / fps)
     current_samples = waveform.shape[-1]
+    target_samples = int(current_samples * source_fps / target_fps)
 
     if current_samples == target_samples:
         return audio_dict
 
-    rate = target_samples / current_samples
+    rate = target_fps / source_fps  # TimeStretch: rate > 1 compresses time
 
     spec = torchaudio.transforms.Spectrogram(n_fft=400, power=None)
     istft = torchaudio.transforms.InverseSpectrogram(n_fft=400)

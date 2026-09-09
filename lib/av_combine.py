@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from .av_load import av_load
 from .av_save import av_save, Profile
+from .utils_comfy import stretch_audio_to_fps
 
 Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], float]
 
@@ -70,6 +71,7 @@ def av_combine(
     need_images: bool = True,
     need_masks: bool = True,
     need_audio: bool = True,
+    output_fps: Optional[float] = None,
 ) -> Tuple[str, dict, Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict]]:
     def _load(item):
         if isinstance(item, str):
@@ -296,12 +298,18 @@ def av_combine(
                 "sample_rate": sr,
             }
 
+    save_fps = fps
+    if output_fps is not None:
+        save_fps = output_fps
+        if final_audio_dict is not None:
+            final_audio_dict = stretch_audio_to_fps(final_audio_dict, fps, output_fps)
+
     output_path, frontend_data = av_save(
         images=final_images,
         masks=final_masks_tensor,
         audio=final_audio_dict,
         filename_prefix=filename_prefix,
-        fps=fps,
+        fps=save_fps,
         profile=profile)
 
     if not need_images:

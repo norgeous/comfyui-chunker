@@ -51,7 +51,7 @@ mode_settings = {
         "fps": 24.0,
         "chunk_length_settings": {"default": 107, "min": 5, "step": 17},  # 17n+5
         "length_to_video_latent_length": lambda length: (length // 17) * 5 + ((length % 17) + 3) // 4, # 5n+2
-        "length_to_audio_latent_length": lambda length: max(0, 28 * ((length - 5) // 17) + math.ceil(((length - 5) // 17) / 3) + 8), # 28n+ceil(n/3)+8
+        "length_to_audio_latent_length": lambda length: 28 * (length // 17) + round((length % 17) * 28 / 17) + math.ceil((length // 17) / 3), # 28n+ceil(n/3)+8
     },
 }
 

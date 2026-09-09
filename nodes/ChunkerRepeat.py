@@ -25,7 +25,7 @@ mode_settings = {
         "dimension_adjuster": lambda length: (length // 2) * 2, # 2n
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
-        "chunk_length": {"default": 100, "min": 1, "step": 1},   # n
+        "chunk_length_settings": {"default": 100, "min": 1, "step": 1},   # n
         "audio_latents_per_second": 0,
         "length_to_latent_length": lambda pixel_length: (pixel_length + 3) // 4,
         "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
@@ -34,7 +34,7 @@ mode_settings = {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
-        "chunk_length": {"default": 81, "min": 1, "step": 4},   # 4n+1
+        "chunk_length_settings": {"default": 81, "min": 1, "step": 4},   # 4n+1
         "audio_latents_per_second": 0,
         "length_to_latent_length": lambda pixel_length: (pixel_length + 3) // 4,
         "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
@@ -43,7 +43,7 @@ mode_settings = {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
-        "chunk_length": {"default": 81, "min": 1, "step": 8},   # 8n+1
+        "chunk_length_settings": {"default": 81, "min": 1, "step": 8},   # 8n+1
         "audio_latents_per_second": 25,
         "length_to_latent_length": lambda pixel_length: (pixel_length + 7) // 8,
         "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
@@ -52,7 +52,7 @@ mode_settings = {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 5) / 17) * 17) + 5, # 17n+5. example: 5, 22, 39, 56, 73
         "fps": 24.0,
-        "chunk_length": {"default": 107, "min": 5, "step": 17},  # 17n+5
+        "chunk_length_settings": {"default": 107, "min": 5, "step": 17},  # 17n+5
         "audio_latents_per_second": 40,
         "length_to_latent_length": lambda pixel_length: max(0, (math.ceil(pixel_length / 17) * 5) - 3),
         "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (
@@ -119,7 +119,7 @@ class ChunkerRepeat(io.ComfyNode):
                                 io.Int.Input(
                                     "chunk_length",
                                     tooltip="Count of images in each chunk",
-                                    **mode_settings[member]["chunk_length"],
+                                    **mode_settings[member]["chunk_length_settings"],
                                 ),
                             ],
                         )

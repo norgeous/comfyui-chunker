@@ -1,6 +1,9 @@
 import torch
 
-from lib.av_encode import encode_video, encode_audio, pack_av_latent, enforce_stereo
+from lib.av_encode import (
+    encode_video, encode_audio, pack_av_latent, enforce_stereo,
+    decode_video, decode_audio, decode_av_latent,
+)
 
 
 class FakeVideoVAE:
@@ -85,3 +88,92 @@ def test_pack_av_latent_video_only():
     nt = pack_av_latent(video)
     assert not hasattr(nt, "tensors")
     assert nt.shape == video.shape
+
+
+class FakeDecodeVideoVAE:
+    def decode(self, z):
+        b, c, t, h, w = z.shape
+        # comfy VAE wrapper returns [B, T, H*16, W*16, 3] in [0, 1]
+        return torch.rand(b, t, h * 16, w * 16, 3)
+
+
+class FakeDecodeAudioVAE:
+    audio_sample_rate = 32000
+
+    def decode(self, z):
+        b, c, s, t = z.shape
+        # comfy VAE wrapper returns [B, L, 2]
+        return torch.zeros(b, t * 800, s)
+
+
+def test_decode_video_shape():
+    vae = FakeDecodeVideoVAE()
+    latent = torch.zeros([1, 24, 10, 4, 4])
+    images = decode_video(vae, latent)
+    assert tuple(images.shape) == (10, 64, 64, 3)
+    assert bool((images >= 0).all() and (images <= 1).all())
+
+
+def test_decode_video_guards():
+    latent = torch.zeros([1, 24, 10, 4, 4])
+    assert decode_video(None, latent) is None
+    assert decode_video(FakeDecodeVideoVAE(), None) is None
+    assert decode_video(FakeDecodeVideoVAE(), torch.zeros([1, 4, 8, 8])) is None
+
+
+def test_decode_audio_dict():
+    vae = FakeDecodeAudioVAE()
+    latent = torch.zeros([1, 32, 2, 40])
+    audio = decode_audio(vae, latent)
+    assert audio is not None
+    assert audio["sample_rate"] == 32000
+    assert tuple(audio["waveform"].shape) == (1, 2, 40 * 800)
+
+
+def test_decode_audio_guards():
+    latent = torch.zeros([1, 32, 2, 40])
+    assert decode_audio(None, latent) is None
+    assert decode_audio(FakeDecodeAudioVAE(), None) is None
+    assert decode_audio(FakeDecodeAudioVAE(), torch.zeros([1, 24, 10, 4, 4])) is None
+
+
+def test_decode_av_latent_nested_both_streams():
+    from comfy.nested_tensor import NestedTensor
+    video = torch.zeros([1, 24, 10, 4, 4])
+    audio = torch.zeros([1, 32, 2, 40])
+    latent = {"samples": NestedTensor([video, audio]), "type": "h3"}
+    images, audio_dict = decode_av_latent(
+        latent, FakeDecodeVideoVAE(), FakeDecodeAudioVAE())
+    assert tuple(images.shape) == (10, 64, 64, 3)
+    assert audio_dict["sample_rate"] == 32000
+    assert tuple(audio_dict["waveform"].shape) == (1, 2, 40 * 800)
+
+
+def test_decode_av_latent_video_only():
+    latent = {"samples": torch.zeros([1, 24, 10, 4, 4])}
+    images, audio_dict = decode_av_latent(latent, FakeDecodeVideoVAE())
+    assert tuple(images.shape) == (10, 64, 64, 3)
+    assert audio_dict is None
+
+
+def test_decode_av_latent_falls_back_on_missing_vae():
+    latent = {"samples": torch.zeros([1, 24, 10, 4, 4])}
+    images, audio_dict = decode_av_latent(latent, None)
+    assert (images, audio_dict) == (None, None)
+    images, audio_dict = decode_av_latent(None, FakeDecodeVideoVAE())
+    assert (images, audio_dict) == (None, None)
+
+
+def test_decode_av_latent_av_vae_failure_keeps_images():
+    from comfy.nested_tensor import NestedTensor
+
+    class BrokenAudioVAE:
+        def decode(self, z):
+            raise RuntimeError("boom")
+
+    video = torch.zeros([1, 24, 10, 4, 4])
+    audio = torch.zeros([1, 32, 2, 40])
+    latent = {"samples": NestedTensor([video, audio]), "type": "h3"}
+    images, audio_dict = decode_av_latent(latent, FakeDecodeVideoVAE(), BrokenAudioVAE())
+    assert tuple(images.shape) == (10, 64, 64, 3)
+    assert audio_dict is None

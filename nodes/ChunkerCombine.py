@@ -5,6 +5,7 @@ from comfy_api.latest import io, VideoFromFile
 from ..lib.utils import log
 from ..lib.av_save import av_save, Profile
 from ..lib.av_combine import av_combine, BlendMode
+from ..lib.av_encode import decode_av_latent
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
 from ..lib.latent_to_rgb import latent_to_images, latent_decode_taeh3
@@ -226,11 +227,20 @@ class ChunkerCombine(io.ComfyNode):
         all_preview_frontend_data = None
         preview_source_images = images
         preview_source_masks = masks
+        preview_audio = audio
         if preview_mode != PreviewMode.DISABLED.value:
             if preview_source_images is None and latent is not None:
                 ts = get_ts()
-                log(f"{node_label}: Decode latent preview (no VAE)...", end="")
-                preview_source_images = latent_decode_taeh3(latent, c["mode"])
+                log(f"{node_label}: Decode latent preview...", end="")
+                preview_source_images, decoded_audio = decode_av_latent(latent, d.get("video_vae"), d.get("audio_vae"))
+                if preview_source_images is not None:
+                    log(f"{node_label}: decoded with video_vae")
+                    if decoded_audio is not None:
+                        preview_audio = decoded_audio
+                        log(f"{node_label}: decoded audio with audio_vae")
+                else:
+                    log(f"{node_label}: VAE decode unavailable, trying taeh3")
+                    preview_source_images = latent_decode_taeh3(latent, c["mode"])
                 if preview_source_images is None:
                     log(f"{node_label}: taeh3 unavailable for preview, using latent_to_images")
                     preview_source_images = latent_to_images(latent, c["mode"])
@@ -239,12 +249,11 @@ class ChunkerCombine(io.ComfyNode):
             ts = get_ts()
             log(f"{node_label}: Make preview...", end="")
             if preview_mode == PreviewMode.VIDEO_WITH_DEBUG.value:
-                preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(preview_source_images, preview_source_masks, audio, d, c, overlap_blend_mode, seed_info)
+                preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(preview_source_images, preview_source_masks, preview_audio, d, c, overlap_blend_mode, seed_info)
             else:
                 preview_video_chunk = combine_images_and_masks(preview_source_images, preview_source_masks)
                 preview_masks = preview_video_chunk[:, :, :, 3] if preview_video_chunk.shape[3] == 4 else None
                 preview_images = preview_video_chunk[:, :, :, :3]
-                preview_audio = audio
                 preview_fps = d["fps"]
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 

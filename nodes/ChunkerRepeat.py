@@ -176,6 +176,26 @@ class ChunkerRepeat(io.ComfyNode):
                         io.DynamicCombo.Option("input_length", []),
                     ],
                 ),
+                io.Int.Input(
+                    "width",
+                    optional=True,
+                    force_input=True,
+                    default=0,
+                    min=0,
+                    max=8192,
+                    step=1,
+                    tooltip="Target chunk image width. 0 = derive from input. Rounded by the mode's dimension_adjuster.",
+                ),
+                io.Int.Input(
+                    "height",
+                    optional=True,
+                    force_input=True,
+                    default=0,
+                    min=0,
+                    max=8192,
+                    step=1,
+                    tooltip="Target chunk image height. 0 = derive from input. Rounded by the mode's dimension_adjuster.",
+                ),
                 io.Custom("*").Input(
                     "store",
                     optional=True,
@@ -218,6 +238,8 @@ class ChunkerRepeat(io.ComfyNode):
         audio=None,
         latent=None,
         original_fps=None,
+        width=None,
+        height=None,
         store=None,
     ) -> io.NodeOutput:
         ts_chunk_start = get_ts()
@@ -272,8 +294,8 @@ class ChunkerRepeat(io.ComfyNode):
         )
         this_chunk_length = chunk_lengths[s["index"]]
 
-        w = None
-        h = None
+        w = settings["dimension_adjuster"](width) if width else None
+        h = settings["dimension_adjuster"](height) if height else None
 
         start = (s["index"] * (chunk_length - overlap_length))
         end = start + chunk_length
@@ -385,8 +407,10 @@ class ChunkerRepeat(io.ComfyNode):
                 path=s["last_chunk_path"],
                 start=-overlap_length,
             )
-            w = overlap_images.shape[2]
-            h = overlap_images.shape[1]
+            if w is None:
+                w = overlap_images.shape[2]
+            if h is None:
+                h = overlap_images.shape[1]
             if overlap_images is not None:
                 out_images.append(overlap_images)
             if overlap_masks is not None:
@@ -627,6 +651,8 @@ class ChunkerRepeat(io.ComfyNode):
                 "audio": format_audio(audio),
                 "original_fps": format_fps(original_fps),
                 "latent": format_latent(latent),
+                "width": str(width) if width else "\u2205",
+                "height": str(height) if height else "\u2205",
             },
             "output_label_values": {
                 "images": format_images(out_images_torch),

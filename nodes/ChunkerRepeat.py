@@ -26,41 +26,32 @@ mode_settings = {
         "length_adjuster": lambda length: length, # n
         "fps": 30.0,
         "chunk_length_settings": {"default": 100, "min": 1, "step": 1},   # n
-        "audio_latents_per_second": 0,
-        "length_to_latent_length": lambda pixel_length: (pixel_length + 3) // 4,
-        "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
+        "length_to_video_latent_length": lambda length: (length + 3) // 4,
+        "length_to_audio_latent_length": lambda length: 0,
     },
     Mode.WAN2: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 4) * 4) + 1, # 4n+1. example: 1, 5, 9, 13, 17
         "fps": 16.0,
         "chunk_length_settings": {"default": 81, "min": 1, "step": 4},   # 4n+1
-        "audio_latents_per_second": 0,
-        "length_to_latent_length": lambda pixel_length: (pixel_length + 3) // 4,
-        "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
+        "length_to_video_latent_length": lambda length: (length + 3) // 4,
+        "length_to_audio_latent_length": lambda length: 0,
     },
     Mode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 1) / 8) * 8) + 1, # 8n+1. example: 1, 9, 17, 25, 33
         "fps": 25.0,
         "chunk_length_settings": {"default": 81, "min": 1, "step": 8},   # 8n+1
-        "audio_latents_per_second": 25,
-        "length_to_latent_length": lambda pixel_length: (pixel_length + 7) // 8,
-        "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (pixel_start * total_latents // total_pixels, pixel_end * total_latents // total_pixels),
+        "length_to_video_latent_length": lambda length: (length + 7) // 8,
+        "length_to_audio_latent_length": lambda length: length,
     },
     Mode.MINIMAX_H3: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
         "length_adjuster": lambda length: (math.ceil((length - 5) / 17) * 17) + 5, # 17n+5. example: 5, 22, 39, 56, 73
         "fps": 24.0,
         "chunk_length_settings": {"default": 107, "min": 5, "step": 17},  # 17n+5
-        "audio_latents_per_second": 40,
-        "length_to_latent_length": lambda pixel_length: max(0, (math.ceil(pixel_length / 17) * 5) - 3),
-        "pixel_to_latent_range": lambda pixel_start, pixel_end, total_pixels, total_latents: (
-            lambda clip_start, clip_end, total_clips: (
-                clip_start * 5,
-                min((clip_end + 1) * 5 - (3 if clip_end == total_clips - 1 else 0), total_latents)
-            )
-        )(pixel_start // 17, (pixel_end - 1) // 17, (total_pixels + 16) // 17),
+        "length_to_video_latent_length": lambda length: (length // 17) * 5 + ((length % 17) + 3) // 4, # 5n+2
+        "length_to_audio_latent_length": lambda length: max(0, 28 * ((length - 5) // 17) + math.ceil(((length - 5) // 17) / 3) + 8), # 28n+ceil(n/3)+8
     },
 }
 
@@ -299,19 +290,14 @@ class ChunkerRepeat(io.ComfyNode):
                     full_latent_tensor = f.get_tensor("latent")
                 
                 if full_latent_tensor is not None:
-                    # Get expected total latent frames for configured total_length
-                    expected_total_latents = settings["length_to_latent_length"](c["total_length"])
-                    
-                    # Use accurate pixel-to-latent mapping for overlap count
-                    pixel_to_latent = settings["pixel_to_latent_range"]
+                    # Compute video and audio latent counts for overlap region
+                    length_to_video = settings["length_to_video_latent_length"]
+                    length_to_audio = settings["length_to_audio_latent_length"]
+                    has_audio = length_to_audio(c["total_length"]) > 0
                     overlap_pixel_start = max(0, start - overlap_length)
                     overlap_pixel_end = start
-                    video_overlap_start, video_overlap_end = pixel_to_latent(
-                        overlap_pixel_start, overlap_pixel_end, c["total_length"], expected_total_latents
-                    )
-                    audio_latents_per_sec = settings["audio_latents_per_second"]
-                    audio_overlap_start = round(overlap_pixel_start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-                    audio_overlap_end = round(overlap_pixel_end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
+                    video_overlap_start, video_overlap_end = length_to_video(overlap_pixel_start), length_to_video(overlap_pixel_end)
+                    audio_overlap_start, audio_overlap_end = length_to_audio(overlap_pixel_start), length_to_audio(overlap_pixel_end)
                     
                     # H3 VAE uses token_overlap=2 for 5-frame overlap
                     token_overlap = settings.get("token_overlap", 2)
@@ -330,11 +316,11 @@ class ChunkerRepeat(io.ComfyNode):
                         video_overlap_start = file_t - video_overlap_count
                         video_overlap_end = file_t
                         video_overlap = video_t[:, :, video_overlap_start:video_overlap_end, :, :]
-                        if audio_latents_per_sec > 0:
+                        if has_audio:
                             audio_file_t = audio_t.shape[3]
                             audio_overlap_start = audio_file_t - audio_overlap_count
                             audio_overlap_end = audio_file_t
-                        audio_overlap = audio_t[:, :, :, audio_overlap_start:audio_overlap_end] if audio_latents_per_sec > 0 else None
+                        audio_overlap = audio_t[:, :, :, audio_overlap_start:audio_overlap_end] if has_audio else None
                         
                         overlap_tensors = []
                         if video_overlap.shape[2] > 0:
@@ -434,31 +420,13 @@ class ChunkerRepeat(io.ComfyNode):
             latent_dict = latent if isinstance(latent, dict) else {"samples": latent}
             full_input_latent = latent_dict["samples"]
             
-            # Get expected total latent frames for configured total_length
-            expected_total_latents = settings["length_to_latent_length"](c["total_length"])
-            
-            # Use accurate pixel-to-latent mapping from mode settings
-            pixel_to_latent = settings["pixel_to_latent_range"]
-            video_latent_start, video_latent_end = pixel_to_latent(start, end, c["total_length"], expected_total_latents)
-            audio_latents_per_sec = settings["audio_latents_per_second"]
-            audio_latent_start = round(start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            audio_latent_end = round(end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            
-            # Apply boundary token drop for partial clips (H3 VAE token_drop at clip boundaries)
-            boundary_drop = 0
-            if c["mode"] == "minimax-h3" and end < c["total_length"]:
-                clip_length = 17
-                vae_ratio_t = 4
-                frames_in_clip = end - ((end - 1) // clip_length) * clip_length
-                if frames_in_clip != clip_length:
-                    boundary_drop = math.ceil((clip_length - frames_in_clip) / vae_ratio_t)
-            
-            video_latent_end -= boundary_drop
+            # Compute video and audio latent ranges from mode settings
+            length_to_video = settings["length_to_video_latent_length"]
+            length_to_audio = settings["length_to_audio_latent_length"]
+            has_audio = length_to_audio(c["total_length"]) > 0
+            video_latent_start, video_latent_end = length_to_video(start), length_to_video(end)
+            audio_latent_start, audio_latent_end = length_to_audio(start), length_to_audio(end)
 
-            audio_latents_per_sec = settings["audio_latents_per_second"]
-            audio_latent_start = round(start / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            audio_latent_end = round(end / settings["fps"] * audio_latents_per_sec) if audio_latents_per_sec > 0 else 0
-            
             # Calculate overlap latent frame count for trimming main chunk
             if overlap_latent is not None:
                 if hasattr(overlap_latent["samples"], "tensors"):  # NestedTensor
@@ -473,7 +441,7 @@ class ChunkerRepeat(io.ComfyNode):
                 audio_t = full_input_latent.tensors[1]  # [B, 32, 2, T]
                 
                 video_chunk = video_t[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
-                audio_chunk = audio_t[:, :, :, audio_latent_start + audio_overlap_count:audio_latent_end] if audio_latents_per_sec > 0 else None
+                audio_chunk = audio_t[:, :, :, audio_latent_start + audio_overlap_count:audio_latent_end] if has_audio else None
                 
                 chunk_tensors = []
                 if video_chunk.shape[2] > 0:

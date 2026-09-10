@@ -145,7 +145,7 @@ def create_preview_video(
     overlap_blend_mode: str,
     seed_info: str = "",
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[dict], float]:
-    previous_count = ((d["index"]) * (c["chunk_length"] - c["overlap_length"]))
+    previous_count = sum(d["chunk_lengths"][:d["index"]]) - d["index"] * c["overlap_length"]
     preview_video_chunk = combine_images_and_masks(images, masks)
     audio_channel_count = audio["waveform"].shape[1] if audio is not None else 0
     audio_layout = ["", "mono", "stereo"][audio_channel_count]

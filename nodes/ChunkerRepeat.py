@@ -304,7 +304,7 @@ class ChunkerRepeat(io.ComfyNode):
 
         c = {
             "mode": selected_mode.value,
-            "chunk_length": chunk_length,
+            "chunk_length": this_chunk_length,
             "overlap_length": overlap_length,
             "total_length": total_length,
             "chunk_count": chunk_count,

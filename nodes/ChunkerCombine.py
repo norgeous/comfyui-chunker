@@ -15,7 +15,7 @@ from ..lib.utils_format import format_images, format_masks, format_audio, format
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
-from ..lib.utils_comfy import get_next_save_path
+from ..lib.utils_comfy import get_next_save_path, stretch_audio_to_fps
 
 
 def _detect_connected_outputs(prompt, dynprompt, node_id: str) -> set[int]:
@@ -314,7 +314,7 @@ class ChunkerCombine(io.ComfyNode):
                 out_video = VideoFromFile(out_video_path)
 
             out_latent = None
-            if 1 in connected and len(s.get("latent_paths", [])) == c["chunk_count"]:
+            if len(s.get("latent_paths", [])) == c["chunk_count"] and (1 in connected or len(s["chunks"]) == 0):
                 ts = get_ts()
                 log(f"{node_label}: Combine all latents...", end="")
                 combined_latent_tensor, latent_type = concat_chunk_latents(
@@ -324,6 +324,37 @@ class ChunkerCombine(io.ComfyNode):
                 )
                 out_latent = {"samples": combined_latent_tensor, "type": latent_type}
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
+
+            if out_video is None and out_latent is not None:
+                # Latent-only workflow (no image/mask/audio chunks): decode the combined latent
+                # back to video, images and audio, normalising the audio to the original FPS.
+                ts = get_ts()
+                log(f"{node_label}: Decode combined latent...", end="")
+                decoded_images, decoded_audio = decode_av_latent(out_latent, d.get("video_vae"), d.get("audio_vae"))
+                if decoded_images is None:
+                    log(f"{node_label}: VAE decode unavailable, trying taeh3")
+                    decoded_images = latent_decode_taeh3(out_latent, c["mode"])
+                if decoded_images is None:
+                    log(f"{node_label}: taeh3 unavailable, using latent_to_images")
+                    decoded_images = latent_to_images(out_latent, c["mode"])
+                if decoded_images is not None:
+                    decoded_images = decoded_images.detach().cpu().float()
+                    av_audio = decoded_audio
+                    if av_audio is not None:
+                        av_audio["waveform"] = av_audio["waveform"].detach().cpu()
+                        if d.get("original_fps") is not None:
+                            av_audio = stretch_audio_to_fps(av_audio, d["fps"], d["original_fps"])
+                    out_video_path, _ = av_save(
+                        images=decoded_images,
+                        audio=av_audio,
+                        fps=d.get("original_fps") or d["fps"],
+                        filename_prefix="chunker-decode-all",
+                        profile=Profile.COMFY,
+                    )
+                    out_video = VideoFromFile(out_video_path)
+                    out_images_torch = decoded_images if 2 in connected else None
+                    out_audio_dict = av_audio if 4 in connected else None
+                    print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],

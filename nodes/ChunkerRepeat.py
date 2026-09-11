@@ -536,15 +536,8 @@ class ChunkerRepeat(io.ComfyNode):
                 else:
                     input_latent_chunk = None
             else:
-                # Regular tensor (video only)
+                # Regular tensor (video only); zero audio is appended below if the mode uses it
                 input_latent_chunk = full_input_latent[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
-                if selected_mode == Mode.MINIMAX_H3:
-                    # No audio stream in the pre-encoded latent: append a zero audio latent
-                    audio_tokens = max(0, (audio_latent_end - audio_latent_start) - audio_overlap_count)
-                    audio_zero = settings["generate_empty_audio_latent"](audio_tokens, input_latent_chunk.shape[0], input_latent_chunk.device)
-                    if audio_zero is not None and audio_zero.shape[3] > 0:
-                        from comfy.nested_tensor import NestedTensor
-                        input_latent_chunk = NestedTensor((input_latent_chunk, audio_zero))
         elif (
             video_vae is not None
             and out_images_torch is not None
@@ -569,26 +562,31 @@ class ChunkerRepeat(io.ComfyNode):
                 input_latent_chunk = pack_av_latent(encoded_video, encoded_audio)
             else:
                 input_latent_chunk = encoded_video
-                if selected_mode == Mode.MINIMAX_H3:
-                    # No audio to encode: append a zero audio latent
-                    audio_tokens = max(0, settings["length_to_audio_latent_length"](this_chunk_length) - audio_overlap_count)
-                    audio_zero = settings["generate_empty_audio_latent"](audio_tokens, encoded_video.shape[0], encoded_video.device)
-                    if audio_zero is not None and audio_zero.shape[3] > 0:
-                        from comfy.nested_tensor import NestedTensor
-                        input_latent_chunk = NestedTensor((encoded_video, audio_zero))
+                # zero audio is appended below if the mode uses it
         elif video_vae is not None and out_images_torch is not None and out_audio_dict is not None and audio_vae is None:
             log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Skipping VAE encode for chunk {s['index'] + 1}; audio present without an audio_vae")
 
-        # No visual/audio source and no pre-encoded latent: generate an empty AV latent from zeros
-        elif selected_mode == Mode.MINIMAX_H3 and input_latent_chunk is None:
-            T_video = settings["length_to_video_latent_length"](this_chunk_length)
-            T_audio = settings["length_to_audio_latent_length"](this_chunk_length)
-            dev = comfy.model_management.intermediate_device()
-            video_zero = settings["generate_empty_video_latent"](T_video, w, h, 1, dev)
-            audio_zero = settings["generate_empty_audio_latent"](T_audio, 1, dev)
-            from comfy.nested_tensor import NestedTensor
-            input_latent_chunk = NestedTensor((video_zero, audio_zero))
-            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: No input video/images/audio; generating empty AV latent")
+        # Normalise the chunk latent to the expected token counts for this chunk's new
+        # content (`this_chunk_length` includes the overlap head pixels; the overlap
+        # tokens are prepended from the previous chunk and subtracted here). Streams
+        # supplied shorter than expected are extended, missing streams the mode defines
+        # (audio for H3/LTX2) are created, and a chunk with no source at all becomes a
+        # fully empty latent.
+        expected_video = max(0, settings["length_to_video_latent_length"](this_chunk_length) - video_overlap_latent_count)
+        expected_audio = max(0, settings["length_to_audio_latent_length"](this_chunk_length) - audio_overlap_count)
+        from ..lib.utils_latent_pad import pad_latent_to_length
+        input_latent_chunk, video_pad_tokens, audio_pad_tokens = pad_latent_to_length(
+            input_latent_chunk,
+            expected_video,
+            expected_audio,
+            settings["generate_empty_video_latent"],
+            settings["generate_empty_audio_latent"],
+            comfy.model_management.intermediate_device(),
+            width=w,
+            height=h,
+        )
+        if video_pad_tokens > 0 or audio_pad_tokens > 0:
+            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Extended chunk {s['index'] + 1} with {video_pad_tokens} video / {audio_pad_tokens} audio empty latent tokens")
 
         # Combine overlap_latent + input_latent_chunk
         output_latent = None

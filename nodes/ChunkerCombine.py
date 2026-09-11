@@ -231,7 +231,7 @@ class ChunkerCombine(io.ComfyNode):
         if preview_mode != PreviewMode.DISABLED.value:
             if preview_source_images is None and latent is not None:
                 ts = get_ts()
-                log(f"{node_label}: Decode latent preview...", end="")
+                log(f"{node_label}: Decode latent preview...")
                 preview_source_images, decoded_audio = decode_av_latent(latent, d.get("video_vae"), d.get("audio_vae"))
                 if preview_source_images is not None:
                     log(f"{node_label}: decoded with video_vae")
@@ -392,7 +392,7 @@ class ChunkerCombine(io.ComfyNode):
                     out_images_torch,
                     out_masks_torch,
                     out_audio_dict,
-                    float(d["original_fps"]),
+                    d["original_fps"],
                 )
             }
 

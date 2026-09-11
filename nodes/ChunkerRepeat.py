@@ -1,6 +1,7 @@
 import torch
 import math
 import safetensors.torch
+import comfy.model_management
 from comfy_api.latest import io
 from ..lib.utils import count, log
 from ..lib.plan_chunks import plan_chunks
@@ -28,6 +29,8 @@ mode_settings = {
         "chunk_length_settings": {"default": 100, "min": 1, "step": 1},   # n
         "length_to_video_latent_length": lambda length: (length + 3) // 4,
         "length_to_audio_latent_length": lambda length: 0,
+        "generate_empty_video_latent": lambda tokens, width, height, batch_size, device: torch.zeros([batch_size, 4, tokens, height // 8, width // 8], device=device),
+        "generate_empty_audio_latent": lambda tokens, batch_size, device: None,
     },
     Mode.WAN2: {
         "dimension_adjuster": lambda length: (length // 16) * 16, # 16n
@@ -36,6 +39,8 @@ mode_settings = {
         "chunk_length_settings": {"default": 81, "min": 1, "step": 4},   # 4n+1
         "length_to_video_latent_length": lambda length: (length + 3) // 4,
         "length_to_audio_latent_length": lambda length: 0,
+        "generate_empty_video_latent": lambda tokens, width, height, batch_size, device: torch.zeros([batch_size, 16, tokens, height // 8, width // 8], device=device),
+        "generate_empty_audio_latent": lambda tokens, batch_size, device: None,
     },
     Mode.LTX2: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
@@ -44,6 +49,8 @@ mode_settings = {
         "chunk_length_settings": {"default": 81, "min": 1, "step": 8},   # 8n+1
         "length_to_video_latent_length": lambda length: (length + 7) // 8,
         "length_to_audio_latent_length": lambda length: length,
+        "generate_empty_video_latent": lambda tokens, width, height, batch_size, device: torch.zeros([batch_size, 128, tokens, height // 32, width // 32], device=device),
+        "generate_empty_audio_latent": lambda tokens, batch_size, device: torch.zeros([batch_size, 8, tokens, 16], device=device),
     },
     Mode.MINIMAX_H3: {
         "dimension_adjuster": lambda length: (length // 32) * 32, # 32n
@@ -52,6 +59,8 @@ mode_settings = {
         "chunk_length_settings": {"default": 107, "min": 5, "step": 17},  # 17n+5
         "length_to_video_latent_length": lambda length: (length // 17) * 5 + ((length % 17) + 3) // 4, # 5n+2
         "length_to_audio_latent_length": lambda length: 28 * (length // 17) + round((length % 17) * 28 / 17) + math.ceil((length // 17) / 3), # 28n+ceil(n/3)+8
+        "generate_empty_video_latent": lambda tokens, width, height, batch_size, device: torch.zeros([batch_size, 24, tokens, height // 16, width // 16], device=device),
+        "generate_empty_audio_latent": lambda tokens, batch_size, device: torch.zeros([batch_size, 32, 2, tokens], device=device),
     },
 }
 
@@ -359,17 +368,17 @@ class ChunkerRepeat(io.ComfyNode):
                     # Slice overlap from the end of previous chunk's latent
                     if hasattr(full_latent_tensor, "tensors"):  # NestedTensor
                         video_t = full_latent_tensor.tensors[0]  # [B, 24, T, H, W]
-                        audio_t = full_latent_tensor.tensors[1]  # [B, 32, 2, T]
+                        audio_t = full_latent_tensor.tensors[1] if len(full_latent_tensor.tensors) > 1 else None  # [B, 32, 2, T]
 
                         file_t = video_t.shape[2]
                         video_overlap_start = file_t - video_overlap_count
                         video_overlap_end = file_t
                         video_overlap = video_t[:, :, video_overlap_start:video_overlap_end, :, :]
-                        if has_audio:
+                        if audio_t is not None and has_audio and audio_overlap_count > 0:
                             audio_file_t = audio_t.shape[3]
                             audio_overlap_start = audio_file_t - audio_overlap_count
                             audio_overlap_end = audio_file_t
-                        audio_overlap = audio_t[:, :, :, audio_overlap_start:audio_overlap_end] if has_audio else None
+                        audio_overlap = audio_t[:, :, :, audio_overlap_start:audio_overlap_end] if audio_t is not None else None
 
                         overlap_tensors = []
                         if video_overlap.shape[2] > 0:
@@ -529,6 +538,13 @@ class ChunkerRepeat(io.ComfyNode):
             else:
                 # Regular tensor (video only)
                 input_latent_chunk = full_input_latent[:, :, video_latent_start + video_overlap_latent_count:video_latent_end, :, :]
+                if selected_mode == Mode.MINIMAX_H3:
+                    # No audio stream in the pre-encoded latent: append a zero audio latent
+                    audio_tokens = max(0, (audio_latent_end - audio_latent_start) - audio_overlap_count)
+                    audio_zero = settings["generate_empty_audio_latent"](audio_tokens, input_latent_chunk.shape[0], input_latent_chunk.device)
+                    if audio_zero is not None and audio_zero.shape[3] > 0:
+                        from comfy.nested_tensor import NestedTensor
+                        input_latent_chunk = NestedTensor((input_latent_chunk, audio_zero))
         elif (
             video_vae is not None
             and out_images_torch is not None
@@ -553,8 +569,26 @@ class ChunkerRepeat(io.ComfyNode):
                 input_latent_chunk = pack_av_latent(encoded_video, encoded_audio)
             else:
                 input_latent_chunk = encoded_video
+                if selected_mode == Mode.MINIMAX_H3:
+                    # No audio to encode: append a zero audio latent
+                    audio_tokens = max(0, settings["length_to_audio_latent_length"](this_chunk_length) - audio_overlap_count)
+                    audio_zero = settings["generate_empty_audio_latent"](audio_tokens, encoded_video.shape[0], encoded_video.device)
+                    if audio_zero is not None and audio_zero.shape[3] > 0:
+                        from comfy.nested_tensor import NestedTensor
+                        input_latent_chunk = NestedTensor((encoded_video, audio_zero))
         elif video_vae is not None and out_images_torch is not None and out_audio_dict is not None and audio_vae is None:
             log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Skipping VAE encode for chunk {s['index'] + 1}; audio present without an audio_vae")
+
+        # No visual/audio source and no pre-encoded latent: generate an empty AV latent from zeros
+        elif selected_mode == Mode.MINIMAX_H3 and input_latent_chunk is None:
+            T_video = settings["length_to_video_latent_length"](this_chunk_length)
+            T_audio = settings["length_to_audio_latent_length"](this_chunk_length)
+            dev = comfy.model_management.intermediate_device()
+            video_zero = settings["generate_empty_video_latent"](T_video, w, h, 1, dev)
+            audio_zero = settings["generate_empty_audio_latent"](T_audio, 1, dev)
+            from comfy.nested_tensor import NestedTensor
+            input_latent_chunk = NestedTensor((video_zero, audio_zero))
+            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: No input video/images/audio; generating empty AV latent")
 
         # Combine overlap_latent + input_latent_chunk
         output_latent = None
@@ -634,7 +668,7 @@ class ChunkerRepeat(io.ComfyNode):
             "audio_vae": audio_vae,
             "video_overlap_latent_count": video_overlap_latent_count,
             "audio_overlap_latent_count": audio_overlap_count,
-            "original_fps": source_fps,
+            "original_fps": float(source_fps) if source_fps is not None else None,
             "fps": settings["fps"],
             "ts_chunk_starts": [
                 *s["ts_chunk_starts"],

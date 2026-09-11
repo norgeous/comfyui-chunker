@@ -82,6 +82,6 @@ class ChunkerData(io.ComfyNode):
             c["total_length"],
             chunker_data["index"],
             float(chunker_data["fps"]),
-            float(chunker_data["original_fps"]),
+            chunker_data["original_fps"],
             ui={"values": [ui_values]},
         )

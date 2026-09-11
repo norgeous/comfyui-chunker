@@ -207,7 +207,7 @@ class ChunkerRepeat(io.ComfyNode):
                 ),
                 io.Boolean.Input(
                     "crop",
-                    default=False,
+                    default=True,
                     tooltip="True = center-crop images/masks to the target aspect ratio; False = letterbox (pad) to fit",
                 ),
                 io.Custom("*").Input(
@@ -254,7 +254,7 @@ class ChunkerRepeat(io.ComfyNode):
         original_fps=None,
         width=None,
         height=None,
-        crop=False,
+        crop=True,
         store=None,
     ) -> io.NodeOutput:
         ts_chunk_start = get_ts()

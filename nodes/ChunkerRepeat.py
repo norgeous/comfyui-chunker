@@ -205,6 +205,11 @@ class ChunkerRepeat(io.ComfyNode):
                     step=1,
                     tooltip="Target chunk image height. 0 = derive from input. Rounded by the mode's dimension_adjuster.",
                 ),
+                io.Boolean.Input(
+                    "crop",
+                    default=False,
+                    tooltip="True = center-crop images/masks to the target aspect ratio; False = letterbox (pad) to fit",
+                ),
                 io.Custom("*").Input(
                     "store",
                     optional=True,
@@ -249,6 +254,7 @@ class ChunkerRepeat(io.ComfyNode):
         original_fps=None,
         width=None,
         height=None,
+        crop=False,
         store=None,
     ) -> io.NodeOutput:
         ts_chunk_start = get_ts()
@@ -489,14 +495,14 @@ class ChunkerRepeat(io.ComfyNode):
         out_images_torch = None
         if len(out_images) > 0:
             out_images_resized = list(
-                map(lambda tensor: resize_image(tensor, w, h, pad=True), out_images))
+                map(lambda tensor: resize_image(tensor, w, h, pad=not crop), out_images))
             out_images_torch = torch.cat(out_images_resized)
 
         # finalise out masks, resize and concat together
         out_masks_torch = None
         if len(out_masks) > 0:
             out_masks_resized = list(
-                map(lambda tensor: resize_mask(tensor, w, h, pad=True), out_masks))
+                map(lambda tensor: resize_mask(tensor, w, h, pad=not crop), out_masks))
             out_masks_torch = torch.cat(out_masks_resized)
 
         # finalise out audio, concat together

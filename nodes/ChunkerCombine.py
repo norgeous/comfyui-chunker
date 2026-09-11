@@ -329,7 +329,7 @@ class ChunkerCombine(io.ComfyNode):
                 # Latent-only workflow (no image/mask/audio chunks): decode the combined latent
                 # back to video, images and audio, normalising the audio to the original FPS.
                 ts = get_ts()
-                log(f"{node_label}: Decode combined latent...", end="")
+                log(f"{node_label}: Decode combined latent...")
                 decoded_images, decoded_audio = decode_av_latent(out_latent, d.get("video_vae"), d.get("audio_vae"))
                 if decoded_images is None:
                     log(f"{node_label}: VAE decode unavailable, trying taeh3")

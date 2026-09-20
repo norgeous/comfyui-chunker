@@ -165,6 +165,29 @@ class ChunkerCombine(io.ComfyNode):
 
         pbar = comfy.utils.ProgressBar(0, node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
 
+        # Save latent to safetensors
+        if latent is not None:
+            ts = get_ts()
+            log(f"{node_label}: Save latent...", end="")
+            latent_path, _ = get_next_save_path("chunker-latent", "safetensors")
+            latent_dict = latent if isinstance(latent, dict) else {"samples": latent}
+            latent_tensor = latent_dict.get("samples")
+            latent_type = latent_dict.get("type", "standard")
+            
+            save_dict = {}
+            if hasattr(latent_tensor, "tensors"):  # NestedTensor
+                for i, t in enumerate(latent_tensor.tensors):
+                    save_dict[f"latent_{i}"] = t
+            else:
+                save_dict["latent"] = latent_tensor
+            
+            safetensors.torch.save_file(save_dict, latent_path, metadata={"type": latent_type})
+            s["last_latent_path"] = latent_path
+            s.setdefault("latent_paths", []).append(latent_path)
+            s.setdefault("latent_overlaps", []).append(d.get("video_overlap_latent_count", 0))
+            s.setdefault("audio_overlaps", []).append(d.get("audio_overlap_latent_count", 0))
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
+
         # Latent-only workflow + user VAE: decode the chunk latent so the normal
         # images/audio path saves it as a HQ chunk; the existing preview code then
         # reuses it instead of decoding again.
@@ -193,29 +216,6 @@ class ChunkerCombine(io.ComfyNode):
                 filename_prefix="chunker-chunk",
             )
             s["chunks"].append(chunk_path)
-            print(f"done ({format_milliseconds(get_ts() - ts)})")
-
-        # Save latent to safetensors
-        if latent is not None:
-            ts = get_ts()
-            log(f"{node_label}: Save latent...", end="")
-            latent_path, _ = get_next_save_path("chunker-latent", "safetensors")
-            latent_dict = latent if isinstance(latent, dict) else {"samples": latent}
-            latent_tensor = latent_dict.get("samples")
-            latent_type = latent_dict.get("type", "standard")
-            
-            save_dict = {}
-            if hasattr(latent_tensor, "tensors"):  # NestedTensor
-                for i, t in enumerate(latent_tensor.tensors):
-                    save_dict[f"latent_{i}"] = t
-            else:
-                save_dict["latent"] = latent_tensor
-            
-            safetensors.torch.save_file(save_dict, latent_path, metadata={"type": latent_type})
-            s["last_latent_path"] = latent_path
-            s.setdefault("latent_paths", []).append(latent_path)
-            s.setdefault("latent_overlaps", []).append(d.get("video_overlap_latent_count", 0))
-            s.setdefault("audio_overlaps", []).append(d.get("audio_overlap_latent_count", 0))
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # Identify nodes to repeat and collect seed info from prompt

@@ -15,7 +15,7 @@ from ..lib.utils_format import format_images, format_masks, format_audio, format
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
 from ..lib.execution_monitor import get_execution_start_time
-from ..lib.utils_comfy import get_next_save_path, stretch_audio_to_fps
+from ..lib.utils_comfy import get_next_save_path
 
 
 def collect_seed_info(dynprompt, clone_ids: list[str]) -> str:
@@ -141,14 +141,14 @@ class ChunkerCombine(io.ComfyNode):
         overlap_blend_mode,
         increment_seeds,
         preview_mode,
+        latent=None,
         images=None,
         masks=None,
         audio=None,
-        latent=None,
         store=None,
     ):
         if images is None and masks is None and audio is None and latent is None:
-            raise ValueError("At least one of images, masks, audio, or latent must be provided.")
+            raise ValueError("At least one of latent, images, masks, or audio must be provided.")
 
         node_label = f"ChunkerCombine#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}"
 
@@ -164,6 +164,18 @@ class ChunkerCombine(io.ComfyNode):
         }
 
         pbar = comfy.utils.ProgressBar(0, node_id=self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
+
+        # Latent-only workflow + user VAE: decode the chunk latent so the normal
+        # images/audio path saves it as a HQ chunk; the existing preview code then
+        # reuses it instead of decoding again.
+        if images is None and masks is None and audio is None and latent is not None and d.get("video_vae"):
+            ts = get_ts()
+            log(f"{node_label}: Decode latent...", end="")
+            decoded_images, decoded_audio = decode_av_latent(latent, d.get("video_vae"), d.get("audio_vae"))
+            if decoded_images is not None:
+                images = decoded_images
+                audio = decoded_audio
+            print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
@@ -308,37 +320,6 @@ class ChunkerCombine(io.ComfyNode):
                 out_latent = {"samples": combined_latent_tensor, "type": latent_type}
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
 
-            if out_video is None and out_latent is not None:
-                # Latent-only workflow (no image/mask/audio chunks): decode the combined latent
-                # back to video, images and audio, normalising the audio to the original FPS.
-                ts = get_ts()
-                log(f"{node_label}: Decode combined latent...")
-                decoded_images, decoded_audio = decode_av_latent(out_latent, d.get("video_vae"), d.get("audio_vae"))
-                if decoded_images is None:
-                    log(f"{node_label}: VAE decode unavailable, trying taeh3")
-                    decoded_images = latent_decode_taeh3(out_latent, c["mode"])
-                if decoded_images is None:
-                    log(f"{node_label}: taeh3 unavailable, using latent_to_images")
-                    decoded_images = latent_to_images(out_latent, c["mode"])
-                if decoded_images is not None:
-                    decoded_images = decoded_images.detach().cpu().float()
-                    av_audio = decoded_audio
-                    if av_audio is not None:
-                        av_audio["waveform"] = av_audio["waveform"].detach().cpu()
-                        if d.get("original_fps") is not None:
-                            av_audio = stretch_audio_to_fps(av_audio, d["fps"], d["original_fps"])
-                    out_video_path, _ = av_save(
-                        images=decoded_images,
-                        audio=av_audio,
-                        fps=d.get("original_fps") or d["fps"],
-                        filename_prefix="chunker-decode-all",
-                        profile=Profile.COMFY,
-                    )
-                    out_video = VideoFromFile(out_video_path)
-                    out_images_torch = decoded_images
-                    out_audio_dict = av_audio
-                    print(f"done ({format_milliseconds(get_ts() - ts)})")
-
             s["ts_chunk_ends"] = [
                 *s["ts_chunk_ends"],
                 get_ts(),
@@ -428,19 +409,19 @@ class ChunkerCombine(io.ComfyNode):
 
         ui_values = {
             "input_label_values": {
+                "latent": format_latent(latent),
                 "images": format_images(images),
                 "masks": format_masks(masks),
                 "audio": format_audio(audio),
-                "latent": format_latent(latent),
             },
-"output_label_values": {
-                    "video": None,
-                    "images": None,
-                    "masks": None,
-                    "audio": None,
-                    "original_fps": None,
-                    "latent": None,
-                },
+            "output_label_values": {
+                "video": None,
+                "latent": None,
+                "images": None,
+                "masks": None,
+                "audio": None,
+                "original_fps": None,
+            },
             "bar": calculate_progress_bar(get_execution_start_time(), d["ts_chunk_starts"], s["ts_chunk_ends"], c["chunk_count"], d["chunk_lengths"]),
             "video_path": all_preview_frontend_data,
         }

@@ -8,7 +8,8 @@ from lib.av_save import av_save, Profile
 
 def test_create_preview_video_with_images_masks_audio():
     images, masks, audio = create_source_tensors()
-    d = {"index": 0, "fps": 15.0, "seed_info": ""}
+    d = {"index": 0, "fps": 15.0, "seed_info": "",
+         "chunk_lengths": [30] * 2}
     c = {
         "chunk_length": 30,
         "overlap_length": 10,

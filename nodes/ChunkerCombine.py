@@ -18,18 +18,6 @@ from ..lib.execution_monitor import get_execution_start_time
 from ..lib.utils_comfy import get_next_save_path, stretch_audio_to_fps
 
 
-def _detect_connected_outputs(prompt, dynprompt, node_id: str) -> set[int]:
-    root_id = dynprompt.get_display_node_id(node_id)
-    connected = set()
-    for nid, info in prompt.items():
-        if nid == root_id:
-            continue
-        for val in info.get("inputs", {}).values():
-            if isinstance(val, list) and len(val) == 2 and val[0] == root_id:
-                connected.add(int(val[1]))
-    return connected
-
-
 def collect_seed_info(dynprompt, clone_ids: list[str]) -> str:
     seed_node_ids = [id for id in get_ids_by_partial_names(dynprompt, ["Sampler", "Noise"]) if id in clone_ids]
     lines = []
@@ -289,8 +277,6 @@ class ChunkerCombine(io.ComfyNode):
 
         # if no more chunks needed, return early
         if is_done:
-            connected = _detect_connected_outputs(self.hidden.prompt, self.hidden.dynprompt, self.hidden.unique_id)
-
             out_video = None
             out_images_torch = None
             out_masks_torch = None
@@ -305,16 +291,13 @@ class ChunkerCombine(io.ComfyNode):
                     video_blend_mode=BlendMode(overlap_blend_mode),
                     audio_blend_mode=BlendMode(overlap_blend_mode),
                     profile=Profile.COMFY,
-                    need_images=1 in connected,
-                    need_masks=2 in connected,
-                    need_audio=3 in connected,
                     output_fps=d.get("original_fps"),
                 )
                 print(f"done ({format_milliseconds(get_ts() - ts)})")
                 out_video = VideoFromFile(out_video_path)
 
             out_latent = None
-            if len(s.get("latent_paths", [])) == c["chunk_count"] and (1 in connected or len(s["chunks"]) == 0):
+            if len(s.get("latent_paths", [])) == c["chunk_count"]:
                 ts = get_ts()
                 log(f"{node_label}: Combine all latents...", end="")
                 combined_latent_tensor, latent_type = concat_chunk_latents(
@@ -352,8 +335,8 @@ class ChunkerCombine(io.ComfyNode):
                         profile=Profile.COMFY,
                     )
                     out_video = VideoFromFile(out_video_path)
-                    out_images_torch = decoded_images if 2 in connected else None
-                    out_audio_dict = av_audio if 4 in connected else None
+                    out_images_torch = decoded_images
+                    out_audio_dict = av_audio
                     print(f"done ({format_milliseconds(get_ts() - ts)})")
 
             s["ts_chunk_ends"] = [

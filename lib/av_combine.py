@@ -68,9 +68,6 @@ def av_combine(
     video_blend_mode: BlendMode = BlendMode.LINEAR,
     audio_blend_mode: BlendMode = BlendMode.EQUAL_POWER,
     profile: Profile = Profile.HQ,
-    need_images: bool = True,
-    need_masks: bool = True,
-    need_audio: bool = True,
     output_fps: Optional[float] = None,
 ) -> Tuple[str, dict, Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict]]:
     def _load(item):
@@ -311,12 +308,5 @@ def av_combine(
         filename_prefix=filename_prefix,
         fps=save_fps,
         profile=profile)
-
-    if not need_images:
-        final_images = None
-    if not need_masks:
-        final_masks_tensor = None
-    if not need_audio:
-        final_audio_dict = None
 
     return (output_path, frontend_data, final_images, final_masks_tensor, final_audio_dict)

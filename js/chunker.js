@@ -79,7 +79,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   min-height: 100px;
   height: calc(100% - ${statusHeight}px);
   &.hdr-gradient {
-    background: linear-gradient(-45deg in oklab, oklch(30% 0.5 340), oklch(30% 0.5 200));
+    background: linear-gradient(-45deg in oklab, oklch(10% 0.5 65), oklch(10% 0.5 200));
     background-size: 400% 400%;
     animation: scrollLeftRight 30s infinite;
   }
@@ -140,7 +140,7 @@ const getBackgroundClass = (videoPath) => {
 
 // Workaround for a frontend bug in migrateWidgetsValues (Comfy-Org/ComfyUI_frontend):
 // during node configure it strips legacy pre-1.16 dummy widget values by
-// positionally matching static input defs against widgets_values. fps has
+// positionally matching static input defs against widgets_values. original_fps has
 // force_input=True, creating a phantom "forceInput" entry in the boolean array.
 // When repeat_until is "input_length" (no DynamicCombo children), the widget
 // count (4) coincides with the inputDefs count (4), so the migration strips

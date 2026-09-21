@@ -168,7 +168,7 @@ class ChunkerCombine(io.ComfyNode):
         # Save latent to safetensors
         if latent is not None:
             ts = get_ts()
-            log(f"{node_label}: Save latent...", end="")
+            log(f"{node_label}: Save latent ({format_latent(latent)}) to .safetensors... ", end="")
             latent_path, _ = get_next_save_path("chunker-latent", "safetensors")
             latent_dict = latent if isinstance(latent, dict) else {"samples": latent}
             latent_tensor = latent_dict.get("samples")
@@ -193,21 +193,22 @@ class ChunkerCombine(io.ComfyNode):
         # reuses it instead of decoding again.
         if images is None and masks is None and audio is None and latent is not None and d.get("video_vae"):
             ts = get_ts()
-            log(f"{node_label}: Decode latent...", end="")
+            log(f"{node_label}: Decode latent;")
             decoded_images, decoded_audio = decode_av_latent(latent, d.get("video_vae"), d.get("audio_vae"))
             if decoded_images is not None:
                 images = decoded_images
                 audio = decoded_audio
+            log(f"{node_label}: Decode latent... ", end="")
             print(f"done ({format_milliseconds(get_ts() - ts)})")
 
         # lanczos resize masks to match images size
         if images is not None and masks is not None:
             masks = resize_mask(masks, images.shape[2], images.shape[1])
 
-        # Save images, masks and audio to lossless file
+        # Save images, masks and audio to file
         if images is not None or masks is not None or audio is not None:
             ts = get_ts()
-            log(f"{node_label}: Save HQ chunk...", end="")
+            log(f"{node_label}: Save chunk of images ({format_images(images)}), masks ({format_masks(masks)}) and audio ({format_audio(audio)}) to HQ mp4... ", end="")
             chunk_path, _ = av_save(
                 images=images,
                 masks=masks,
@@ -247,7 +248,7 @@ class ChunkerCombine(io.ComfyNode):
                 preview_source_masks = None
                 log(f"{node_label}: Decode latent for preview... done ({format_milliseconds(get_ts() - ts)})")
             ts = get_ts()
-            log(f"{node_label}: Make preview...", end="")
+            log(f"{node_label}: Make chunk preview images with overlay... ", end="")
             if preview_mode == PreviewMode.VIDEO_WITH_DEBUG.value:
                 preview_images, preview_masks, preview_audio, preview_fps = create_preview_video(preview_source_images, preview_source_masks, preview_audio, d, c, overlap_blend_mode, seed_info)
             else:
@@ -259,7 +260,7 @@ class ChunkerCombine(io.ComfyNode):
 
             # Save preview to web file
             ts = get_ts()
-            log(f"{node_label}: Save web preview...", end="")
+            log(f"{node_label}: Save chunk preview for web... ", end="")
             preview_path, _ = av_save(
                 images=preview_images,
                 masks=preview_masks,
@@ -273,7 +274,7 @@ class ChunkerCombine(io.ComfyNode):
 
             # Combine all preview chunks to a new file, blending the overlaps
             ts = get_ts()
-            log(f"{node_label}: Combine all previews...", end="")
+            log(f"{node_label}: Combine all chunk previews for web... ", end="")
             _, all_preview_frontend_data, _, _, _ = av_combine(
                 inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
                 filename_prefix="chunker-preview-all",
@@ -295,7 +296,7 @@ class ChunkerCombine(io.ComfyNode):
             out_audio_dict = None
             if len(s["chunks"]) > 0:
                 ts = get_ts()
-                log(f"{node_label}: Combine all chunks...", end="")
+                log(f"{node_label}: Combine all HQ chunks... ", end="")
                 out_video_path, _, out_images_torch, out_masks_torch, out_audio_dict = av_combine(
                     inputs=s["chunks"],
                     filename_prefix="chunker-chunk-all",
@@ -311,7 +312,7 @@ class ChunkerCombine(io.ComfyNode):
             out_latent = None
             if len(s.get("latent_paths", [])) == c["chunk_count"]:
                 ts = get_ts()
-                log(f"{node_label}: Combine all latents...", end="")
+                log(f"{node_label}: Combine all latents... ", end="")
                 combined_latent_tensor, latent_type = concat_chunk_latents(
                     s["latent_paths"],
                     s.get("latent_overlaps"),
@@ -359,6 +360,7 @@ class ChunkerCombine(io.ComfyNode):
                     d["original_fps"],
                 )
             }
+        # ^^ end of is_done early return ^^
 
         # Clone all nodes between ChunkerRepeat and ChunkerCombine
         log(f"{node_label}: cloning {len(clone_ids)} nodes (max nesting depth {max(id.count('.') for id in clone_ids)})")

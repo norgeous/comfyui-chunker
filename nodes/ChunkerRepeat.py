@@ -548,8 +548,11 @@ class ChunkerRepeat(io.ComfyNode):
             video_vae is not None
             and out_images_torch is not None
             and (out_audio_dict is None or audio_vae is not None)
+            and s.get("last_latent_path") is None
         ):
             # No pre-encoded latent: VAE-encode this chunk's frames (+ audio) into a latent.
+            # Only chunk 0 encodes; later chunks reuse the overlap latent from last_latent_path
+            # and the new-frame portion is filled with empty tokens by pad_latent_to_length.
             from ..lib.av_encode import encode_video, encode_audio, pack_av_latent
 
             log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: VAE-encoding chunk {s['index'] + 1} of {c['chunk_count']}...")
@@ -569,6 +572,8 @@ class ChunkerRepeat(io.ComfyNode):
             else:
                 input_latent_chunk = encoded_video
                 # zero audio is appended below if the mode uses it
+        elif video_vae is not None and out_images_torch is not None and s.get("last_latent_path") is not None:
+            log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Skipping VAE encode for chunk {s['index'] + 1}; overlap latent exists")
         elif video_vae is not None and out_images_torch is not None and out_audio_dict is not None and audio_vae is None:
             log(f"ChunkerRepeat#{self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id)}: Skipping VAE encode for chunk {s['index'] + 1}; audio present without an audio_vae")
 

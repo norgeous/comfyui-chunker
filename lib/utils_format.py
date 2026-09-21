@@ -88,14 +88,14 @@ def format_latent(latent: Optional[dict]) -> str:
         parts = []
         for t in latent_tensor.tensors:
             if t.dim() == 5:  # Video: [B, C, T, H, W]
-                parts.append(str(t.shape[2]) + "🎞")
+                parts.append(str(t.shape[2]) + "🎞 ")
             elif t.dim() == 4 and t.shape[2] == 2:  # Audio: [B, C, 2, T]
                 parts.append(str(t.shape[3]) + "∿")
-        return (", ".join(parts) if parts else "\u2205") + suffix
+        return (" ".join(parts) if parts else "\u2205") + suffix + " "
     
     if latent_tensor.dim() == 5:  # Video: [B, C, T, H, W]
-        return str(latent_tensor.shape[2]) + suffix
+        return str(latent_tensor.shape[2]) + suffix + " "
     elif latent_tensor.dim() == 4 and latent_tensor.shape[2] == 2:  # Audio: [B, C, 2, T]
-        return str(latent_tensor.shape[3]) + suffix
+        return str(latent_tensor.shape[3]) + suffix + " "
     
-    return "\u2205" + suffix
+    return "\u2205" + suffix + " "

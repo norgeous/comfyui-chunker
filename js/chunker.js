@@ -70,7 +70,7 @@ document.body.insertAdjacentHTML("beforeEnd", `
   text-overflow: ellipsis;
   &.cached { background: #bada55; }
   &.complete { background: #57ab1e; }
-  &.current { background: linear-gradient(90deg, aqua 0%, aqua 50%, grey 50%, grey 100%); }
+  &.current { background: linear-gradient(90deg, aqua 0%, aqua 50%, grey 50%, grey 100%); min-width: 16px; }
   &.pending { background: grey; }
 }
 .chunker-video {

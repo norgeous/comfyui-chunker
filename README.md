@@ -22,8 +22,6 @@ Extract values from `chunker_data` as individual outputs, for use elsewhere in y
 
 Combine sequential chunks back into single av tensors. Each chunk is saved to a mp4 file (and latents to safetensors) and recombined excluding the overlap frames.
 
-Note: You may need a (very) large pagefile or swap configured.
-
 ## [Workflows](workflows/)
 
 ### [chunker-sam3](workflows/chunker-sam3.json)

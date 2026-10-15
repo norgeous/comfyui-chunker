@@ -47,9 +47,7 @@ class ChunkerCombine(io.ComfyNode):
             display_name="\U0001F36B Combine",
             category="chunker",
             description=(
-                "Combine sequential chunks back into single av tensors. Each chunk is saved to a mp4 file and recombined excluding the overlap frames.\n"
-                "\n"
-                "Note: You may need a (very) large pagefile or swap configured."
+                "Combine sequential chunks back into single av tensors. Each chunk is saved to a mp4 file and recombined excluding the overlap frames."
             ),
             inputs=[
                 io.Custom("CHUNKER_DATA").Input(
@@ -248,7 +246,7 @@ class ChunkerCombine(io.ComfyNode):
             # Combine all preview chunks to a new file, blending the overlaps
             ts = get_ts()
             log(f"{node_label}: Combine all chunk previews for web... ", end="")
-            _, all_preview_frontend_data, _, _, _ = av_combine(
+            _, all_preview_frontend_data = av_combine(
                 inputs=[*s["previews"][:-1], (preview_images, preview_masks, preview_audio, preview_fps)],
                 filename_prefix="chunker-preview-all",
                 overlap_frame_count=c["overlap_length"],
@@ -267,7 +265,7 @@ class ChunkerCombine(io.ComfyNode):
             if len(s["chunks"]) > 0:
                 ts = get_ts()
                 log(f"{node_label}: Combine all HQ chunks... ", end="")
-                out_video_path, _, _, _, _ = av_combine(
+                out_video_path, _ = av_combine(
                     inputs=s["chunks"],
                     filename_prefix="chunker-chunk-all",
                     overlap_frame_count=c["overlap_length"],

@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import torch
 from .av_load import av_load
-from .av_save import av_save, Profile
+from .av_save import AVWriter, Profile
 from .utils_comfy import stretch_audio_to_fps
 
 Source = Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict], float]
@@ -69,7 +69,7 @@ def av_combine(
     audio_blend_mode: BlendMode = BlendMode.EQUAL_POWER,
     profile: Profile = Profile.HQ,
     output_fps: Optional[float] = None,
-) -> Tuple[str, dict, Optional[torch.Tensor], Optional[torch.Tensor], Optional[dict]]:
+) -> Tuple[str, dict]:
     def _load(item):
         if isinstance(item, str):
             return av_load(item)
@@ -78,18 +78,59 @@ def av_combine(
     if len(inputs) == 0:
         raise ValueError("No sources provided")
 
-    # Sliding window: load at most two chunks at a time so each chunk's
-    # tensors are released from memory as soon as they have been consumed.
+    # Sliding window: load at most two chunks at a time and stream the trimmed
+    # result to disk, so peak memory stays at ~2 chunks regardless of length.
     prev_images, prev_masks, prev_audio, prev_fps = _load(inputs[0])
     fps = prev_fps
     audio_sr = prev_audio["sample_rate"] if prev_audio is not None else None
+    expected_frames = len(prev_images) if prev_images is not None else None
 
-    final_frames = []
-    final_masks = []
+    writer = AVWriter(
+        filename_prefix,
+        output_fps if output_fps is not None else fps,
+        profile,
+        total_frames=expected_frames,
+        audio=prev_audio,
+    )
     final_audio = []
+
+    def write_frames(images, masks, remove_start, remove_end):
+        end = -remove_end if remove_end > 0 else None
+        for frame in images[remove_start:end]:
+            writer.add_frame(frame, masks[remove_start:end] if masks is not None else None)
+
+    def append_trimmed_audio(audio, remove_start, remove_end, source_fps):
+        sr = audio["sample_rate"]
+        is_stereo = audio["waveform"].shape[1] == 2
+        samples_per_frame = int(sr // source_fps)
+
+        trim_start = remove_start * samples_per_frame
+        trim_end = remove_end * samples_per_frame
+        if is_stereo:
+            left = audio["waveform"][0, 0].numpy()
+            right = audio["waveform"][0, 1].numpy()
+            trimmed_left = (
+                left[trim_start:-trim_end]
+                if trim_end > 0
+                else left[trim_start:])
+            trimmed_right = (
+                right[trim_start:-trim_end]
+                if trim_end > 0
+                else right[trim_start:])
+            final_audio.append(np.stack([trimmed_left, trimmed_right], axis=0))
+        else:
+            audio_1d = audio["waveform"][0, 0].numpy()
+            final_audio.append((
+                audio_1d[trim_start:-trim_end]
+                if trim_end > 0
+                else audio_1d[trim_start:]))
 
     for i in range(1, len(inputs)):
         curr_images, curr_masks, curr_audio, curr_fps = _load(inputs[i])
+
+        if expected_frames is not None and curr_images is not None:
+            expected_frames += len(curr_images) - overlap_frame_count
+            writer.total_frames = expected_frames
 
         overlap_frames = []
         overlap_masks = []
@@ -145,137 +186,40 @@ def av_combine(
                     overlap_audio = np.stack(
                         [overlap_audio, overlap_audio_r], axis=0)
 
-        # prev is chunk (i - 1); trim and clone it, then release it.
+        # prev is chunk (i - 1); trim and write it out, then release it.
         remove_start = 0 if i == 1 else overlap_frame_count
         remove_end = overlap_frame_count
 
         if prev_images is not None:
-            if remove_start > 0 or remove_end > 0:
-                trimmed = (
-                    prev_images[remove_start:-remove_end]
-                    if remove_end > 0
-                    else prev_images[remove_start:])
-            else:
-                trimmed = prev_images
-            final_frames.append(trimmed.clone())
-
-        if prev_masks is not None:
-            if remove_start > 0 or remove_end > 0:
-                trimmed = (
-                    prev_masks[remove_start:-remove_end]
-                    if remove_end > 0
-                    else prev_masks[remove_start:])
-            else:
-                trimmed = prev_masks
-            final_masks.append(trimmed.clone())
+            write_frames(prev_images, prev_masks, remove_start, remove_end)
 
         if prev_audio is not None:
-            sr = prev_audio["sample_rate"]
-            source_fps = prev_fps
-            is_stereo = prev_audio["waveform"].shape[1] == 2
-            samples_per_frame = int(sr // source_fps)
-
-            trim_start = remove_start * samples_per_frame
-            trim_end = remove_end * samples_per_frame
-            if is_stereo:
-                left = prev_audio["waveform"][0, 0].numpy()
-                right = prev_audio["waveform"][0, 1].numpy()
-                trimmed_left = (
-                    left[trim_start:-trim_end]
-                    if trim_end > 0
-                    else left[trim_start:])
-                trimmed_right = (
-                    right[trim_start:-trim_end]
-                    if trim_end > 0
-                    else right[trim_start:])
-                trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
-            else:
-                audio_1d = prev_audio["waveform"][0, 0].numpy()
-                trimmed_audio = (
-                    audio_1d[trim_start:-trim_end]
-                    if trim_end > 0
-                    else audio_1d[trim_start:])
-            final_audio.append(trimmed_audio)
+            append_trimmed_audio(prev_audio, remove_start, remove_end, prev_fps)
 
         if len(overlap_frames) > 0:
-            final_frames.append(overlap_frames)
-        if len(overlap_masks) > 0:
-            final_masks.append(overlap_masks)
+            write_frames(
+                overlap_frames,
+                overlap_masks if len(overlap_masks) > 0 else None,
+                0, 0)
         if overlap_audio is not None:
             final_audio.append(overlap_audio)
 
         # Release the previous chunk's tensors before loading the next one.
-        prev_images = None
-        prev_masks = None
-        prev_audio = None
-
         prev_images = curr_images
         prev_masks = curr_masks
         prev_audio = curr_audio
 
     # Final chunk: only its start overlap is trimmed.
     remove_start = overlap_frame_count if len(inputs) > 1 else 0
-    remove_end = 0
 
     if prev_images is not None:
-        if remove_start > 0 or remove_end > 0:
-            trimmed = (
-                prev_images[remove_start:-remove_end]
-                if remove_end > 0
-                else prev_images[remove_start:])
-        else:
-            trimmed = prev_images
-        final_frames.append(trimmed.clone())
-
-    if prev_masks is not None:
-        if remove_start > 0 or remove_end > 0:
-            trimmed = (
-                prev_masks[remove_start:-remove_end]
-                if remove_end > 0
-                else prev_masks[remove_start:])
-        else:
-            trimmed = prev_masks
-        final_masks.append(trimmed.clone())
+        write_frames(prev_images, prev_masks, remove_start, 0)
 
     if prev_audio is not None:
-        sr = prev_audio["sample_rate"]
-        source_fps = prev_fps
-        is_stereo = prev_audio["waveform"].shape[1] == 2
-        samples_per_frame = int(sr // source_fps)
-
-        trim_start = remove_start * samples_per_frame
-        trim_end = remove_end * samples_per_frame
-        if is_stereo:
-            left = prev_audio["waveform"][0, 0].numpy()
-            right = prev_audio["waveform"][0, 1].numpy()
-            trimmed_left = (
-                left[trim_start:-trim_end]
-                if trim_end > 0
-                else left[trim_start:])
-            trimmed_right = (
-                right[trim_start:-trim_end]
-                if trim_end > 0
-                else right[trim_start:])
-            trimmed_audio = np.stack([trimmed_left, trimmed_right], axis=0)
-        else:
-            audio_1d = prev_audio["waveform"][0, 0].numpy()
-            trimmed_audio = (
-                audio_1d[trim_start:-trim_end]
-                if trim_end > 0
-                else audio_1d[trim_start:])
-        final_audio.append(trimmed_audio)
-
-    prev_images = None
-    prev_masks = None
-    prev_audio = None
-
-    final_images = torch.cat(final_frames, dim=0) if final_frames else None
-    final_masks_tensor = torch.cat(final_masks, dim=0) if final_masks else None
+        append_trimmed_audio(prev_audio, remove_start, 0, prev_fps)
 
     final_audio_dict = None
     if final_audio:
-        sr = audio_sr
-
         shapes = [a.shape for a in final_audio]
         dims = [a.ndim for a in final_audio]
         if len(set(dims)) > 1:
@@ -287,26 +231,19 @@ def av_combine(
         if is_stereo:
             audio_concat = np.concatenate(final_audio, axis=1)
             final_audio_dict = {"waveform": torch.from_numpy(
-                audio_concat).unsqueeze(0).float(), "sample_rate": sr, }
+                audio_concat).unsqueeze(0).float(), "sample_rate": audio_sr, }
         else:
             audio_concat = np.concatenate(final_audio, axis=0).reshape(1, -1)
             final_audio_dict = {
                 "waveform": torch.from_numpy(audio_concat).float(),
-                "sample_rate": sr,
+                "sample_rate": audio_sr,
             }
 
-    save_fps = fps
-    if output_fps is not None:
-        save_fps = output_fps
-        if final_audio_dict is not None:
-            final_audio_dict = stretch_audio_to_fps(final_audio_dict, fps, output_fps)
+        if output_fps is not None:
+            final_audio_dict = stretch_audio_to_fps(
+                final_audio_dict, fps, output_fps)
 
-    output_path, frontend_data = av_save(
-        images=final_images,
-        masks=final_masks_tensor,
-        audio=final_audio_dict,
-        filename_prefix=filename_prefix,
-        fps=save_fps,
-        profile=profile)
+    if final_audio_dict is not None:
+        writer.add_audio(final_audio_dict)
 
-    return (output_path, frontend_data, final_images, final_masks_tensor, final_audio_dict)
+    return writer.close()

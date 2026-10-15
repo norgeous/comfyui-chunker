@@ -9,7 +9,7 @@ def test_no_overlap(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos, overlap_frame_count=0, video_blend_mode=BlendMode.LINEAR,
         audio_blend_mode=BlendMode.EQUAL_POWER,
         filename_prefix="combine-3x30i-0o-none")
@@ -60,7 +60,7 @@ def test_older_only(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos,
         overlap_frame_count=4,
         video_blend_mode=BlendMode.OLDER_ONLY,
@@ -113,7 +113,7 @@ def test_linear_blend(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos, overlap_frame_count=4, video_blend_mode=BlendMode.LINEAR,
         audio_blend_mode=BlendMode.LINEAR,
         filename_prefix="combine-3x30i-4o-linear")
@@ -200,7 +200,7 @@ def test_ease_in_out(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos,
         overlap_frame_count=4,
         video_blend_mode=BlendMode.EASE_IN_OUT,
@@ -297,7 +297,7 @@ def test_newer_only(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos,
         overlap_frame_count=4,
         video_blend_mode=BlendMode.NEWER_ONLY,
@@ -350,7 +350,7 @@ def test_equal_power(source_videos):
         str(source_videos["source2"]),
         str(source_videos["source3"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos,
         overlap_frame_count=4,
         video_blend_mode=BlendMode.EQUAL_POWER,
@@ -439,7 +439,7 @@ def test_stereo_linear_blend(source_videos):
         str(source_videos["source2_stereo"]),
         str(source_videos["source3_stereo"]),
     ]
-    result_path, _, _, _, _ = av_combine(
+    result_path, _ = av_combine(
         videos, overlap_frame_count=4, video_blend_mode=BlendMode.LINEAR,
         audio_blend_mode=BlendMode.LINEAR,
         filename_prefix="combine-3x30i-4o-stereo_linear")

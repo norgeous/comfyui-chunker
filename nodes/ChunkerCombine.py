@@ -9,7 +9,7 @@ from ..lib.av_encode import decode_av_latent
 from ..lib.utils_tensor import resize_mask
 from ..lib.create_preview_video import create_preview_video, combine_images_and_masks
 from ..lib.latent_to_rgb import latent_to_images, latent_decode_taeh3
-from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names, get_ids_by_partial_names_in_graph
+from ..lib.utils_comfy_repeat_nodes import get_clone_ids, comfyui_repeat_nodes, get_ids_by_partial_names
 from ..lib.utils_format import format_images, format_masks, format_audio, format_milliseconds, format_video, format_latent
 from ..lib.utils_performance import get_ts
 from ..lib.calculate_progress_bar import calculate_progress_bar
@@ -317,12 +317,13 @@ class ChunkerCombine(io.ComfyNode):
         # - RandomNoise (used by SamplerCustomAdvanced)
         # - ClownsharKSampler
         # this is to prevent same motion in each chunk (when using Wan or LTX)
-        seed_nodes = get_ids_by_partial_names_in_graph(graph, ["Sampler", "Noise"])
-        for id in seed_nodes:
-            real_id = id.replace(f"{self.hidden.unique_id}.0.0.", "")
-            original_id = self.hidden.dynprompt.get_display_node_id(real_id)
-            node = graph.lookup_node(real_id)
-            class_type = self.hidden.dynprompt.get_node(original_id)['class_type']
+        clone_display_ids = {node_id: self.hidden.dynprompt.get_display_node_id(node_id) for node_id in clone_ids}
+        for node_id in clone_ids:
+            class_type = self.hidden.dynprompt.get_node(node_id)["class_type"]
+            if "Sampler" not in class_type and "Noise" not in class_type:
+                continue
+            original_id = clone_display_ids[node_id]
+            node = graph.lookup_node(original_id)
 
             seed = node.get_input("seed")
             if isinstance(seed, int):
@@ -337,7 +338,7 @@ class ChunkerCombine(io.ComfyNode):
                 node.set_input("noise_seed", new_noise_seed)
 
         # update the store in the cloned ChunkerRepeat
-        new_repeat = graph.lookup_node(d["start_node_id"])
+        new_repeat = graph.lookup_node(self.hidden.dynprompt.get_display_node_id(d["start_node_id"]))
         new_repeat.set_input("store", {
             "index": d["index"] + 1,
             "last_chunk_path": s["chunks"][-1] if len(s["chunks"]) > 0 else None,
@@ -346,7 +347,7 @@ class ChunkerCombine(io.ComfyNode):
         })
 
         # update the store in the cloned ChunkerCombine (copy of this node)
-        new_combine = graph.lookup_node(self.hidden.unique_id)
+        new_combine = graph.lookup_node(self.hidden.dynprompt.get_display_node_id(self.hidden.unique_id))
         s["ts_chunk_ends"] = [
             *s["ts_chunk_ends"],
             get_ts(),
